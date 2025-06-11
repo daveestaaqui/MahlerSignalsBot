@@ -1,5 +1,6 @@
 from apscheduler.schedulers.blocking import BlockingScheduler
 from mercator_engine import scan
+import time
 
 scheduler = BlockingScheduler()
 
@@ -11,4 +12,6 @@ def scheduled_scan():
 if __name__ == "__main__":
     print("📡 MERCATOR started. Scanning every 15 minutes.")
     scheduled_scan()  # run once immediately
-    scheduler.start()
+    while True:
+        scheduler.run()
+        time.sleep(1)
