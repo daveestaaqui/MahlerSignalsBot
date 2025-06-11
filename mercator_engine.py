@@ -1,3 +1,10 @@
+FROM python:3.9-slim
+ENV PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["python3", "-u", "run.py"]
 import os
 import requests
 import pandas as pd
@@ -5,42 +12,43 @@ from dotenv import load_dotenv
 
 load_dotenv()
 JUPITER_TOKENS_URL = "https://quote-api.jup.ag/v6/tokens"
-BTC_PRICE_URL       = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+BTC_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
 
 def get_btc_price():
     try:
-        return requests.get(BTC_PRICE_URL).json()['bitcoin']['usd']
-    except:
+        data = requests.get(BTC_PRICE_URL).json()
+        return data.get('bitcoin', {}).get('usd')
+    except Exception:
         return None
 
 def get_jupiter_microcaps():
     try:
-        data = requests.get(JUPITER_TOKENS_URL).json()
+        tokens = requests.get(JUPITER_TOKENS_URL).json()
         results = []
-        for t in data:
-            if t.get("extensions", {}).get("coingeckoId") and (
-                (t.get("fdv") and t["fdv"] <= 25_000_000) or
-                (t.get("liquidity") and t["liquidity"] <= 5_000_000)
+        for token in tokens:
+            if token.get("extensions", {}).get("coingeckoId") and (
+                (token.get("fdv") and token["fdv"] <= 25_000_000) or
+                (token.get("liquidity") and token["liquidity"] <= 5_000_000)
             ):
                 results.append({
-                    "symbol": t["symbol"],
-                    "name":   t["name"],
-                    "fdv":    t.get("fdv"),
-                    "liquidity": t.get("liquidity")
+                    "symbol": token["symbol"],
+                    "name": token["name"],
+                    "fdv": token.get("fdv"),
+                    "liquidity": token.get("liquidity")
                 })
         return results
-    except:
+    except Exception:
         return []
 
 def scan():
-    btc = get_btc_price()
-    tokens = get_jupiter_microcaps()
-    rows = []
-    for tok in tokens:
-        rows.append({**tok, "btc_price": btc})
-    df = pd.DataFrame(rows)
+    btc_price = get_btc_price()
+    microcaps = get_jupiter_microcaps()
+    df = pd.DataFrame([
+        {**token, "btc_price": btc_price} for token in microcaps
+    ])
     df.to_csv("mercator_log.csv", index=False)
     return df
 
 if __name__ == "__main__":
-    print(scan())
+    result = scan()
+    print(result)
