@@ -25,9 +25,11 @@ def get_jupiter_microcaps():
             ):
                 results.append({
                     "symbol": token["symbol"],
-                    "name": token["name"],
+                    "address": token["address"],
                     "fdv": token.get("fdv"),
-                    "liquidity": token.get("liquidity")
+                    "liquidity": token.get("liquidity"),
+                    "name": token["name"],
+                    "coingeckoId": token.get("extensions", {}).get("coingeckoId")
                 })
         return results
     except Exception:
@@ -36,7 +38,11 @@ def get_jupiter_microcaps():
 def scan():
     btc_price = get_btc_price()
     microcaps = get_jupiter_microcaps()
-    df = pd.DataFrame([{**tok, "btc_price": btc_price} for tok in microcaps])
+    rows = []
+    for tok in microcaps:
+        row = {**tok, "btc_price": btc_price}
+        rows.append(row)
+    df = pd.DataFrame(rows)
     df.to_csv("mercator_log.csv", index=False)
     return df
 

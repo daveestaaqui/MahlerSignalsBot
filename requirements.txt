@@ -1,4 +1,5 @@
 requests
 pandas
 python-dotenv
-apschedulerpandas_ta
+apscheduler
+pandas_ta
