@@ -1,0 +1,8 @@
+[project]
+name = "mercator-signals"
+
+[build]
+command = "pip install -r requirements.txt"
+
+[run]
+command = "python run.py"
