@@ -12,6 +12,7 @@ def scheduled_scan():
 if __name__ == "__main__":
     print("📡 MERCATOR started. Scanning every 15 minutes.")
     scheduled_scan()  # run once immediately
-    while True:
-        scheduler.run()
-        time.sleep(1)
+    try:
+        scheduler.start()
+    except (KeyboardInterrupt, SystemExit):
+        print("🛑 MERCATOR stopped.")
