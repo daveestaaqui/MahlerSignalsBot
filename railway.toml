@@ -1,2 +1,9 @@
-[build]
-builder = "DOCKERFILE"
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY . /app
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+CMD ["/bin/bash", "-c", "echo '🧪 Checking file structure...'; ls -la; if [ -f run.py ]; then echo '✅ run.py found'; python3 run.py; else echo '❌ run.py not found'; fi; tail -f /dev/null"]
