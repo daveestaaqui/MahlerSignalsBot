@@ -1,10 +1,3 @@
-FROM python:3.9-slim
-ENV PYTHONUNBUFFERED=1
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-CMD ["python3", "-u", "run.py"]
 import os
 import requests
 import pandas as pd
@@ -12,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 JUPITER_TOKENS_URL = "https://quote-api.jup.ag/v6/tokens"
-BTC_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+BTC_PRICE_URL       = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
 
 def get_btc_price():
     try:
@@ -43,9 +36,7 @@ def get_jupiter_microcaps():
 def scan():
     btc_price = get_btc_price()
     microcaps = get_jupiter_microcaps()
-    df = pd.DataFrame([
-        {**token, "btc_price": btc_price} for token in microcaps
-    ])
+    df = pd.DataFrame([{**tok, "btc_price": btc_price} for tok in microcaps])
     df.to_csv("mercator_log.csv", index=False)
     return df
 
