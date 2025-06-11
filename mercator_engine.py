@@ -1,56 +1,31 @@
 #!/usr/bin/env python3
-import os
-import requests
-import pandas as pd
-from dotenv import load_dotenv
+import traceback
+import time
+from mercator_engine import scan
+from apscheduler.schedulers.blocking import BlockingScheduler
 
-load_dotenv()
-JUPITER_TOKENS_URL = "https://quote-api.jup.ag/v6/tokens"
-BTC_PRICE_URL       = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+print("🟢 Starting run.py execution...")
+try:
+    scheduler = BlockingScheduler()
 
-def get_btc_price():
-    try:
-        r = requests.get(BTC_PRICE_URL).json()
-        return r['bitcoin']['usd']
-    except Exception:
-        return None
+    @scheduler.scheduled_job('interval', minutes=15)
+    def scheduled_scan():
+        print("🔁 Scheduled scan started.")
+        try:
+            scan()
+            print("✅ Scan completed")
+        except Exception:
+            print("❌ Scan error:")
+            traceback.print_exc()
 
-def get_jupiter_microcaps():
-    try:
-        r = requests.get(JUPITER_TOKENS_URL).json()
-        results = []
-        for token in r:
-            if token.get("extensions", {}).get("coingeckoId") and (
-                (token.get("fdv") and token["fdv"] <= 25_000_000) or
-                (token.get("liquidity") and token["liquidity"] <= 5_000_000)
-            ):
-                results.append({
-                    "symbol": token["symbol"],
-                    "address": token["address"],
-                    "fdv": token.get("fdv"),
-                    "liquidity": token.get("liquidity"),
-                    "name": token["name"],
-                })
-        return results
-    except Exception:
-        return []
-
-def scan():
-    btc = get_btc_price()
-    tokens = get_jupiter_microcaps()
-    log_data = []
-    for token in tokens:
-        log_data.append({
-            "name": token["name"],
-            "symbol": token["symbol"],
-            "fdv": token["fdv"],
-            "liquidity": token["liquidity"],
-            "btc_price": btc
-        })
-    df = pd.DataFrame(log_data)
-    df.to_csv("mercator_log.csv", index=False)
-    return df
-
-if __name__ == "__main__":
-    data = scan()
-    print(data)
+    print("📡 MERCATOR main block started.")
+    scheduled_scan()
+    print("✅ Manual scan executed")
+    scheduler.start()
+    print("✅ Scheduler started")
+except Exception:
+    print("❌ Uncaught error:")
+    traceback.print_exc()
+    while True:
+        print("🌀 MERCATOR heartbeat after crash")
+        time.sleep(15)
