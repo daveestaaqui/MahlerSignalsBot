@@ -25,10 +25,9 @@ def get_jupiter_microcaps():
             ):
                 results.append({
                     "symbol": token["symbol"],
-                    "address": token["address"],
+                    "name": token["name"],
                     "fdv": token.get("fdv"),
                     "liquidity": token.get("liquidity"),
-                    "name": token["name"],
                     "coingeckoId": token.get("extensions", {}).get("coingeckoId")
                 })
         return results
