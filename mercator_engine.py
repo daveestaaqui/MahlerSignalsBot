@@ -1,3 +1,4 @@
+from alert_bot import send_alert
 import os
 import requests
 import pandas as pd
@@ -46,5 +47,9 @@ def scan():
     return df
 
 if __name__ == "__main__":
-    result = scan()
-    print(result)
+    df = scan()
+    count = len(df.index)
+    print(f"✅ Scan OK: {count} tokens")
+    if count > 0:
+        msg = f"📡 MERCATOR SIGNAL\nTokens found: {count}\nCheck mercator_log.csv for details."
+        send_alert(msg)
