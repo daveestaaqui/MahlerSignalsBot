@@ -15,7 +15,11 @@ SOLANA_RPC_URL = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.co
 ETH_RPC_URL = os.getenv("ETH_RPC_URL")
 COINGECKO_ID = os.getenv("COINGECKO_ID", "")
 TOKEN_ADDRESS = os.getenv("TOKEN_ADDRESS", "")
-LIQUIDITY_SCORE = float(os.getenv("LIQUIDITY_SCORE", 0.0))
+liquidity_str = os.getenv("LIQUIDITY_SCORE", "")
+try:
+    LIQUIDITY_SCORE = float(liquidity_str)
+except (ValueError, TypeError):
+    LIQUIDITY_SCORE = 0.0
 
 # Initialize clients
 analyzer = SentimentIntensityAnalyzer()

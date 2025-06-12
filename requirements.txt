@@ -4,6 +4,5 @@ vaderSentiment
 python-telegram-bot
 solana
 web3
-vaderSentiment
 tweepy
 apscheduler
