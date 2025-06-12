@@ -7,6 +7,8 @@ from telegram import Bot
 from solana.rpc.api import Client as SolanaClient
 from web3 import Web3
 
+import asyncio
+
 # Load environment variables
 load_dotenv()
 TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN")
@@ -54,7 +56,10 @@ def fetch_telegram_sentiment():
     """
     if not TELEGRAM_BOT_TOKEN:
         return 0.0
-    updates = telegram_bot.get_updates(limit=100)
+    try:
+        updates = asyncio.run(telegram_bot.get_updates(limit=100))
+    except Exception:
+        updates = []
     texts = [u.message.text for u in updates if u.message and u.message.text]
     if not texts:
         return 0.0
