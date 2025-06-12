@@ -3,3 +3,7 @@ pandas
 python-dotenv
 apscheduler
 pandas_ta
+transformers
+torch
+solana
+web3

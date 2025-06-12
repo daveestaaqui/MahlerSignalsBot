@@ -3,22 +3,47 @@ import requests
 import pandas as pd
 from dotenv import load_dotenv
 
-import requests
-from transformers import pipeline
-from solana.rpc.api import Client as SolanaClient
-from web3 import Web3
+load_dotenv()
+JUPITER_TOKENS_URL = "https://quote-api.jup.ag/v6/tokens"
+BTC_PRICE_URL       = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
 
-# Placeholder FinBERT sentiment pipeline (requires Twitter keys)
-finbert = pipeline("sentiment-analysis", model="yiyanghkust/finbert-tone")
+def get_btc_price():
+    try:
+        data = requests.get(BTC_PRICE_URL).json()
+        return data.get('bitcoin', {}).get('usd')
+    except Exception:
+        return None
 
-def fetch_x_sentiment(coingecko_id):
-    return 0.0
+def get_jupiter_microcaps():
+    try:
+        tokens = requests.get(JUPITER_TOKENS_URL).json()
+        results = []
+        for token in tokens:
+            ext = token.get("extensions", {})
+            cid = ext.get("coingeckoId")
+            if cid and ((token.get("fdv") and token["fdv"] <= 25_000_000) or (token.get("liquidity") and token["liquidity"] <= 5_000_000)):
+                results.append({
+                    "symbol": token["symbol"],
+                    "address": token["address"],
+                    "name": token["name"],
+                    "fdv": token.get("fdv"),
+                    "liquidity": token.get("liquidity"),
+                    "coingeckoId": cid
+                })
+        return results
+    except Exception:
+        return []
 
-def fetch_telegram_sentiment():
-    return 0.0
+def scan():
+    btc_price = get_btc_price()
+    microcaps = get_jupiter_microcaps()
+    rows = []
+    for tok in microcaps:
+        row = {**tok, "btc_price": btc_price}
+        rows.append(row)
+    df = pd.DataFrame(rows)
+    df.to_csv("mercator_log.csv", index=False)
+    return df
 
-def fetch_onchain_flow(token_address, chain="solana"):
-    return 0.0
-
-def compute_confluence(ta_score, social_score, flow_score, liquidity_score):
-    return round(0.4 * ta_score + 0.3 * social_score + 0.2 * flow_score + 0.1 * liquidity_score, 1)
+if __name__ == "__main__":
+    print(scan())
