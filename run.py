@@ -1,5 +1,13 @@
 from apscheduler.schedulers.blocking import BlockingScheduler
-from mercator_engine import scan
+import mercator_engine
+
+# Determine the correct entrypoint in mercator_engine
+if hasattr(mercator_engine, "scan"):
+    scan = mercator_engine.scan
+elif hasattr(mercator_engine, "main"):
+    scan = mercator_engine.main
+else:
+    raise ImportError("mercator_engine.py must define either scan() or main()")
 import time
 
 print("🟢 MERCATOR container booted.")
