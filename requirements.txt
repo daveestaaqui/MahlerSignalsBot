@@ -1,9 +1,7 @@
 requests
-pandas
 python-dotenv
-apscheduler
-pandas_ta
-transformers
-torch
+vaderSentiment
+python-telegram-bot
 solana
 web3
+vaderSentiment
