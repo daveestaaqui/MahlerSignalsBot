@@ -3,13 +3,10 @@ import requests
 import pandas as pd
 from dotenv import load_dotenv
 
-import requests
-from transformers import pipeline
 from solana.rpc.api import Client as SolanaClient
 from web3 import Web3
 
-# Placeholder FinBERT sentiment pipeline (requires Twitter keys)
-finbert = pipeline("sentiment-analysis", model="yiyanghkust/finbert-tone")
+load_dotenv()
 
 def fetch_x_sentiment(coingecko_id):
     return 0.0
