@@ -1,55 +1,47 @@
-# run.py
 import os
-from mercator_engine import scan
-from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-)
+from solana.publickey import PublicKey
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackContext
+from datetime import time
+import mercator_engine
+import re
 
-# pull these in from your env
-TOKEN   = os.getenv("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+raw_token = os.getenv("TOKEN_ADDRESS")
+TOKEN_ADDRESS = PublicKey(raw_token) if raw_token else None
 
-WELCOME = (
-    "👋 Welcome to MahlerSignals!\n\n"
-    "I’ll ping you every 5 minutes with the latest on-chain signals. "
-    "Use /start to see this message again."
-)
+raw_liquidity = os.getenv("LIQUIDITY_POOL_ADDRESS")
+LIQUIDITY_POOL_ADDRESS = PublicKey(raw_liquidity) if raw_liquidity else None
 
-async def start_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Send a concise welcome when someone types /start."""
-    await ctx.bot.send_message(
+raw_score = os.getenv("LIQUIDITY_SCORE") or "0.0"
+try:
+    LIQUIDITY_SCORE = float(raw_score)
+except ValueError:
+    LIQUIDITY_SCORE = 0.0
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = int(os.getenv("CHAT_ID")) if os.getenv("CHAT_ID") else None
+
+def welcome(update, context: CallbackContext):
+    context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=WELCOME
+        text=(
+            "Welcome to MahlerSignalsBot! Every weekday at 7:30 AM EST you'll "
+            "get our top market pick, plus opportunistic alerts. *Not financial advice.*"
+        ),
+        parse_mode="Markdown"
     )
 
-async def periodic_scan(ctx: ContextTypes.DEFAULT_TYPE):
-    """Run your scan() and push the result to your chat."""
-    try:
-        result = scan()
-        text = f"✅ Scan result:\n{result}"
-    except Exception as e:
-        text = f"❌ Scan error:\n{e}"
-    await ctx.bot.send_message(
-        chat_id=CHAT_ID,
-        text=text
-    )
+async def scan_and_alert(context: CallbackContext):
+    await mercator_engine.scan_and_send(context.bot, CHAT_ID)
 
-def main():
-    # build the bot
-    app = ApplicationBuilder().token(TOKEN).build()
+app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+jq = app.job_queue
+# Run scan every 15 minutes
+jq.run_repeating(scan_and_alert, interval=900, first=0)
+# Daily top pick at 7:30 AM EST, weekdays only
+jq.run_daily(scan_and_alert, time=time(7, 30), days=(0,1,2,3,4))
 
-    # /start handler
-    app.add_handler(CommandHandler("start", start_cmd))
-
-    # schedule the scan every 5 min, first run immediately
-    jobq = app.job_queue
-    jobq.run_repeating(periodic_scan, interval=300, first=0)
-
-    # start long‐polling (this blocks)
-    app.run_polling()
+app.add_handler(CommandHandler("start", welcome))
+app.add_handler(MessageHandler(filters.Regex(r'^\s*start\s*$', flags=re.IGNORECASE), welcome))
 
 if __name__ == "__main__":
-    main()
+    app.run_polling()
