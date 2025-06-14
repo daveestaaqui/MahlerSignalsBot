@@ -1,5 +1,5 @@
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
 import os
 import requests
 from datetime import datetime, timedelta
@@ -133,5 +133,3 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "*Not financial advice.*"
     )
     await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_text)
-
-application.add_handler(CommandHandler(["start", "Start"], start_command))
