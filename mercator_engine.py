@@ -1,3 +1,5 @@
+from telegram import Update
+from telegram.ext import CommandHandler, ContextTypes
 import os
 import requests
 from datetime import datetime, timedelta
@@ -7,6 +9,7 @@ from telegram import Bot
 from solana.rpc.api import Client as SolanaClient
 from web3 import Web3
 import asyncio
+from solders.pubkey import Pubkey
 
 # Load environment variables
 load_dotenv()
@@ -16,6 +19,13 @@ SOLANA_RPC_URL        = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.so
 ETH_RPC_URL           = os.getenv("ETH_RPC_URL", "")
 COINGECKO_ID          = os.getenv("COINGECKO_ID", "")
 TOKEN_ADDRESS         = os.getenv("TOKEN_ADDRESS", "")
+
+# Convert raw token address string into Pubkey object for Solana calls
+if TOKEN_ADDRESS:
+    try:
+        TOKEN_ADDRESS = Pubkey.from_string(TOKEN_ADDRESS)
+    except Exception:
+        TOKEN_ADDRESS = None
 
 # Parse liquidity score, treat empty or invalid as 0.0
 _liq = os.getenv("LIQUIDITY_SCORE", None)
@@ -63,6 +73,8 @@ def fetch_telegram_sentiment():
 def fetch_onchain_flow(token_address, chain="solana"):
     since = datetime.utcnow() - timedelta(hours=24)
     if chain.lower() == "solana":
+        if not token_address:
+            return 0
         sigs = solana_client.get_signatures_for_address(token_address, limit=500)
         return len(sigs.get("result", []))
     elif chain.lower() in ("ethereum", "eth") and w3:
@@ -112,3 +124,14 @@ def scan():
     )
     send_alert(message)
     return confluence_score
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    welcome_text = (
+        "👋 Welcome to MahlerSignalsBot!\n\n"
+        "I deliver data-driven crypto insights for Solana & Ethereum right here in Telegram.\n"
+        "Each weekday at 7:30 AM EST you'll get our top market pick, plus alerts when our criteria are met.\n"
+        "*Not financial advice.*"
+    )
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_text)
+
+application.add_handler(CommandHandler(["start", "Start"], start_command))

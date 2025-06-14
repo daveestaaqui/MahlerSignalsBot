@@ -1,15 +1,19 @@
 import os
-from solana.publickey import PublicKey
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackContext
 from datetime import time
 import mercator_engine
 import re
+from solders.pubkey import Pubkey
 
 raw_token = os.getenv("TOKEN_ADDRESS")
-TOKEN_ADDRESS = PublicKey(raw_token) if raw_token else None
+TOKEN_ADDRESS = raw_token or None
+if TOKEN_ADDRESS:
+    TOKEN_ADDRESS = Pubkey.from_string(TOKEN_ADDRESS)
 
 raw_liquidity = os.getenv("LIQUIDITY_POOL_ADDRESS")
-LIQUIDITY_POOL_ADDRESS = PublicKey(raw_liquidity) if raw_liquidity else None
+LIQUIDITY_POOL_ADDRESS = raw_liquidity or None
+if LIQUIDITY_POOL_ADDRESS:
+    LIQUIDITY_POOL_ADDRESS = Pubkey.from_string(LIQUIDITY_POOL_ADDRESS)
 
 raw_score = os.getenv("LIQUIDITY_SCORE") or "0.0"
 try:
