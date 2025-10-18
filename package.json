@@ -7,7 +7,12 @@
     "n8n-mcp": "server.js"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "npm run start",
+    "build": "npm run typecheck",
+    "lint": "node --eval \"console.log('lint not configured yet')\"",
+    "typecheck": "node --eval \"console.log('typecheck not configured yet')\"",
+    "test": "node --eval \"console.log('test not configured yet')\""
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.3.0",

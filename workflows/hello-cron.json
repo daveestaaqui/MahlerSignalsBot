@@ -1,0 +1,14 @@
+{
+  "name": "hello-cron",
+  "nodes": [
+    {
+      "parameters": { "triggerTimes": { "item": [ { "hour": 0, "minute": 0 } ] } },
+      "id": "Cron",
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [ 300, 300 ]
+    }
+  ],
+  "connections": {}
+}
