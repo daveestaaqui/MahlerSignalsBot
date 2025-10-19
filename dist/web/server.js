@@ -1,147 +1,146 @@
-let Hono, serve; try { ({ Hono } = await import('hono')); ({ serve } = await import('@hono/node-server')); } catch {}
-import { setTier } from '../services/entitlement.js';
-const pricing = [{tier:'FREE', price:'$0/mo'},{tier:'PRO', price:'$14/mo', checkout:'/checkout/pro'},{tier:'ELITE', price:'$39/mo', checkout:'/checkout/elite'}];
-const host = process.env.HOST || '127.0.0.1';
-const port = Number(process.env.PORT || 8787);
-if (Hono && serve) {
-  const app = new Hono();
-  app.get('/', c=> c.json({plans: pricing}));
-  app.get('/checkout/pro',  c=> c.json({ redirectTo:(process.env.CHECKOUT_PRO_URL || 'https://example.com/pro') }));
-  app.get('/checkout/elite',c=> c.json({ redirectTo:(process.env.CHECKOUT_ELITE_URL || 'https://example.com/elite') }));
-  app.post('/webhook/subscription', async c=>{ const b = await c.req.json().catch(()=>null);
-    if(!b?.userId || !b?.tier) return c.json({ok:false,error:'bad_payload'},400); setTier(b.userId,b.tier); return c.json({ok:true}); });
-  serve({ fetch: app.fetch, port, hostname: host }, ()=> console.log(`HTTP on ${host}:${port}`));
-} else {
-  // Minimal fallback server
-  const http = await import('node:http');
-  const srv = http.createServer((req,res)=>{
-    if (req.url === '/' && req.method === 'GET') {
-      res.setHeader('content-type','application/json');
-      res.end(JSON.stringify({plans: pricing}));
-      return;
-    }
-    if (req.url === '/checkout/pro' && req.method === 'GET') {
-      const url = process.env.CHECKOUT_PRO_URL || 'https://example.com/pro';
-      res.statusCode = 302;
-      res.setHeader('Location', url);
-      return res.end();
-    }
-    if (req.url === '/checkout/elite' && req.method === 'GET') {
-      const url = process.env.CHECKOUT_ELITE_URL || 'https://example.com/elite';
-      res.statusCode = 302;
-      res.setHeader('Location', url);
-      return res.end();
-    }
-    if (req.url === '/webhook/subscription' && req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => body += chunk);
-      req.on('end', () => {
-        try {
-          const data = JSON.parse(body || '{}');
-          if (data.userId && data.tier) {
-            setTier(data.userId, data.tier);
-          }
-        } catch {}
-        res.statusCode = 200;
-        res.end('ok');
-      });
-      return;
-    }
-    if (req.url === '/admin/post' && req.method === 'POST') {
-      import('../jobs/runCycle.js').then(({ runOnce }) => runOnce().finally(() => res.end('ok'))).catch(() => res.end('ok'));
-      return;
-    }
-    res.statusCode = 404;
-    res.end('Not Found');
-    if (req.url?.startsWith('/api/signals') && req.method === 'GET') {
-      const url = new URL('http://localhost' + req.url);
-      const tier = (url.searchParams.get('tier') || 'free').toUpperCase();
-      const now = Date.now();
-      import('../lib/db.js').then(({ default: db })=>{
-        let rows = [];
-        try {
-          rows = db?.prepare?.("SELECT ts,chain,symbol,score,tier FROM signals ORDER BY ts DESC LIMIT 50")?.all?.() || [];
-        } catch {}
-        const items = rows.map(r=>({ ts:r.ts, chain:r.chain, symbol:r.symbol, score:r.score, tier:r.tier }));
-        const filtered = tier==='FREE'
-          ? items.filter(x=> (now - new Date(x.ts).getTime()) >= 24*60*60*1000)
-          : items;
-        res.setHeader('content-type','application/json');
-        res.end(JSON.stringify({ tier: tier, items: filtered }));
-      }).catch(()=>{ res.statusCode=500; res.end('[]'); });
-      return;
-    }
-    if (req.url === '/status' && req.method === 'GET') {
-      import('../lib/db.js').then(({ default: db })=>{
-        let counts = { users:0, signals:0 }; let last=null;
-        try {
-          counts.users   = db?.prepare?.("SELECT COUNT(*) as c FROM users")?.get?.()?.c ?? 0;
-          const info = db?.prepare?.("SELECT COUNT(*) as c, MAX(ts) as m FROM signals")?.get?.() || {c:0,m:null};
-          counts.signals = info.c; last = info.m;
-        } catch {}
-        res.setHeader('content-type','application/json');
-        res.end(JSON.stringify({ counts, last }));
-      }).catch(()=>{ res.statusCode=500; res.end('{}'); });
-      return;
-    }
-    if (req.url === '/' && req.method === 'GET') {
-      import('node:fs').then(fs=>{
-        fs.readFile('dist/web/public/index.html','utf8',(err,html)=>{
-          if (err) { res.setHeader('content-type','application/json'); return res.end(JSON.stringify({plans:[{tier:'FREE',price:'$0/mo'},{tier:'PRO',price:'createServer((req,res)=>{
-    if (req.url === '/' && req.method === 'GET') {
-      res.setHeader('content-type','application/json');
-      res.end(JSON.stringify({plans: pricing}));
-      return;
-    }
-    if (req.url === '/checkout/pro' && req.method === 'GET') {
-      const url = process.env.CHECKOUT_PRO_URL || 'https://example.com/pro';
-      res.statusCode = 302;
-      res.setHeader('Location', url);
-      return res.end();
-    }
-    if (req.url === '/checkout/elite' && req.method === 'GET') {
-      const url = process.env.CHECKOUT_ELITE_URL || 'https://example.com/elite';
-      res.statusCode = 302;
-      res.setHeader('Location', url);
-      return res.end();
-    }
-    if (req.url === '/webhook/subscription' && req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => body += chunk);
-      req.on('end', () => {
-        try {
-          const data = JSON.parse(body || '{}');
-          if (data.userId && data.tier) {
-            setTier(data.userId, data.tier);
-          }
-        } catch {}
-        res.statusCode = 200;
-        res.end('ok');
-      });
-      return;
-    }
-    if (req.url === '/admin/post' && req.method === 'POST') {
-      import('../jobs/runCycle.js').then(({ runOnce }) => runOnce().finally(() => res.end('ok'))).catch(() => res.end('ok'));
-      return;
-    }
-    res.statusCode = 404;
-    res.end('Not Found');4/mo'},{tier:'ELITE',price:'$39/mo'}]})); }
-          res.setHeader('content-type','text/html; charset=utf-8'); res.end(html);
-        });
-      });
-      return;
-    }
-  (port, host, ()=>console.log(`HTTP (fallback) on ${host}:${port}`));
+/**
+ * Clean web server (ESM) with two modes:
+ *  - Hono (if available) using @hono/node-server
+ *  - Fallback: native http server
+ * Routes:
+ *   GET  /                       -> static index.html (or JSON plans)
+ *   GET  /checkout/pro|elite     -> redirects to env URLs
+ *   GET  /api/signals?tier=...   -> JSON; FREE delayed 24h
+ *   GET  /status                 -> { counts, last }
+ *   POST /admin/post             -> trigger a run cycle
+ */
+const HOST = process.env.HOST || '127.0.0.1';
+const PORT = Number(process.env.PORT || 8787);
+const PRO_URL   = process.env.CHECKOUT_PRO_URL   || 'https://example.com/pro';
+const ELITE_URL = process.env.CHECKOUT_ELITE_URL || 'https://example.com/elite';
+
+async function withDb(fn) {
+  try { const { default: db } = await import('../lib/db.js'); return await fn(db); }
+  catch { return await fn(null); }
+}
+async function getSignals(limit=50) {
+  return withDb(async (db) => {
+    try {
+      const rows = db?.prepare?.("SELECT ts,chain,symbol,score,tier FROM signals ORDER BY ts DESC LIMIT ?")?.all?.(limit) || [];
+      return rows.map(r => ({ ts:r.ts, chain:r.chain, symbol:r.symbol, score:r.score, tier:r.tier }));
+    } catch { return []; }
+  });
+}
+async function getStatus() {
+  return withDb(async (db) => {
+    try {
+      const users = db?.prepare?.("SELECT COUNT(*) as c FROM users")?.get?.()?.c ?? 0;
+      const info  = db?.prepare?.("SELECT COUNT(*) as c, MAX(ts) as m FROM signals")?.get?.() || { c:0, m:null };
+      return { counts:{ users, signals:info.c }, last:info.m };
+    } catch { return { counts:{ users:0, signals:0 }, last:null }; }
+  });
+}
+async function triggerRunOnce() {
+  try { const { runOnce } = await import('../jobs/runCycle.js'); await runOnce(); } catch {}
 }
 
-// Admin trigger to run a cycle immediately
-try {
-  import("../jobs/runCycle.js").then(({ runOnce })=>{
-    app?.post && app.post("/admin/post", async (c)=>{
-      await runOnce().catch(()=>{});
-      return c?.json ? c.json({ok:true}) : (c.res.end("ok"));
-    });
+let Hono, serve;
+try { ({ Hono } = await import('hono')); ({ serve } = await import('@hono/node-server')); } catch {}
+
+if (Hono && serve) {
+  // ---- Hono branch -----------------------------------------------------------
+  const app = new Hono();
+
+  app.get('/', async (c) => {
+    try {
+      const fs = await import('node:fs/promises');
+      const html = await fs.readFile('dist/web/public/index.html', 'utf8');
+      return c.html(html);
+    } catch {
+      return c.json({ plans:[
+        { tier:'FREE',  price:'$0/mo' },
+        { tier:'PRO',   price:'$14/mo' },
+        { tier:'ELITE', price:'$39/mo' },
+      ]});
+    }
   });
-} catch(e) {
-  // fallback http server branch handled below if Hono unavailable
+
+  app.get('/checkout/pro',   (c)=> c.redirect(PRO_URL, 302));
+  app.get('/checkout/elite', (c)=> c.redirect(ELITE_URL, 302));
+
+  app.get('/api/signals', async (c) => {
+    const tier = (c.req.query('tier') || 'free').toUpperCase();
+    const now = Date.now();
+    const items = await getSignals(50);
+    const filtered = tier === 'FREE'
+      ? items.filter(x => (now - new Date(x.ts).getTime()) >= 24*60*60*1000)
+      : items;
+    return c.json({ tier, items: filtered });
+  });
+
+  app.get('/status', async (c) => c.json(await getStatus()));
+
+  app.post('/admin/post', async (c) => {
+    await triggerRunOnce();
+    return c.json({ ok:true });
+  });
+
+  serve({ fetch: app.fetch, port: PORT, hostname: HOST }, () =>
+    console.log(`HTTP (Hono) on ${HOST}:${PORT}`)
+  );
+
+} else {
+  // ---- Fallback node:http branch ---------------------------------------------
+  const http = await import('node:http');
+  const fs = await import('node:fs/promises');
+
+  const srv = http.createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url || '/', 'http://localhost');
+      // Static UI
+      if (req.method === 'GET' && url.pathname === '/') {
+        try {
+          const html = await fs.readFile('dist/web/public/index.html', 'utf8');
+          res.writeHead(200, { 'content-type':'text/html; charset=utf-8' });
+          res.end(html); return;
+        } catch {
+          res.writeHead(200, { 'content-type':'application/json' });
+          res.end(JSON.stringify({ plans:[
+            { tier:'FREE',  price:'$0/mo' },
+            { tier:'PRO',   price:'$14/mo' },
+            { tier:'ELITE', price:'$39/mo' },
+          ]})); return;
+        }
+      }
+      // Checkout redirects
+      if (req.method === 'GET' && url.pathname === '/checkout/pro')   { res.writeHead(302, { Location: PRO_URL });   res.end(); return; }
+      if (req.method === 'GET' && url.pathname === '/checkout/elite') { res.writeHead(302, { Location: ELITE_URL }); res.end(); return; }
+
+      // API: signals (FREE delayed 24h)
+      if (req.method === 'GET' && url.pathname === '/api/signals') {
+        const tier = (url.searchParams.get('tier') || 'free').toUpperCase();
+        const now = Date.now();
+        const items = await getSignals(50);
+        const filtered = tier === 'FREE'
+          ? items.filter(x => (now - new Date(x.ts).getTime()) >= 24*60*60*1000)
+          : items;
+        res.writeHead(200, { 'content-type':'application/json' });
+        res.end(JSON.stringify({ tier, items: filtered })); return;
+      }
+
+      // Status
+      if (req.method === 'GET' && url.pathname === '/status') {
+        res.writeHead(200, { 'content-type':'application/json' });
+        res.end(JSON.stringify(await getStatus())); return;
+      }
+
+      // Admin trigger
+      if (req.method === 'POST' && url.pathname === '/admin/post') {
+        await triggerRunOnce();
+        res.writeHead(200, { 'content-type':'application/json' });
+        res.end(JSON.stringify({ ok:true })); return;
+      }
+
+      res.writeHead(404); res.end('Not Found');
+    } catch (e) {
+      res.writeHead(500); res.end('Server error');
+    }
+  });
+
+  srv.listen(PORT, HOST, () => console.log(`HTTP (fallback) on ${HOST}:${PORT}`));
 }
