@@ -17,8 +17,8 @@ export const MONTHLY_ELITE = 39;
 
 // TODO: Replace placeholder Stripe price IDs with production values.
 export const PRICE_MAP = {
-  PRO_MONTHLY: 'TODO_SET_STRIPE_PRICE_PRO_MONTHLY',
-  ELITE_MONTHLY: 'TODO_SET_STRIPE_PRICE_ELITE_MONTHLY',
+  PRO_MONTHLY: process.env.PRICE_PRO_MONTHLY || 'price_pro_monthly_id',
+  ELITE_MONTHLY: process.env.PRICE_ELITE_MONTHLY || 'price_elite_monthly_id',
 } as const;
 
 export type PriceMap = typeof PRICE_MAP;
