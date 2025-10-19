@@ -94,3 +94,18 @@ docker run --rm -p 8787:8787 --env-file .env aurora:latest
 - Discord webhooks (free) can post per tier.
 - Stripe-ready endpoints exist; swap in real keys when ready.
 
+
+## One-click Deploy
+
+### Option A: Cyclic (fastest, free)
+1) Go to https://cyclic.sh/ → Connect GitHub → pick this repo.
+2) It deploys automatically and gives you a URL like `https://your-app.cyclic.cloud`.
+3) In GitHub → Settings → Secrets → Actions set:
+   - `ADMIN_ENDPOINT_URL` = `https://YOUR-URL/admin/post`
+   - `ADMIN_TOKEN` = same token as in your server `.env`.
+
+### Option B: Render (free tier)
+1) Go to https://render.com/ → New → **Blueprint** → point to this repo (has `render.yaml`).
+2) After deploy, you get a URL like `https://aurora-signals.onrender.com`.
+3) Add the same GitHub Secrets `ADMIN_ENDPOINT_URL` + `ADMIN_TOKEN`.
+
