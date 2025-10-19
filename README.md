@@ -46,3 +46,16 @@ npm run set-tier -- 123456789 PRO
 npm run post-now
 ```
 
+
+## Endpoints
+
+```text
+GET /                   # static pricing UI (links to monthly checkout)
+GET /api/signals?tier=free|pro|elite   # JSON feed (FREE delayed 24h)
+GET /status            # counts and last signal timestamp
+POST /admin/post       # trigger a run (ad hoc)
+POST /webhook/subscription  # {userId,tier}
+GET /checkout/pro      # redirect to CHECKOUT_PRO_URL
+GET /checkout/elite    # redirect to CHECKOUT_ELITE_URL
+```
+

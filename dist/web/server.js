@@ -53,8 +53,85 @@ if (Hono && serve) {
     }
     res.statusCode = 404;
     res.end('Not Found');
-  });
-  srv.listen(port, host, ()=>console.log(`HTTP (fallback) on ${host}:${port}`));
+    if (req.url?.startsWith('/api/signals') && req.method === 'GET') {
+      const url = new URL('http://localhost' + req.url);
+      const tier = (url.searchParams.get('tier') || 'free').toUpperCase();
+      const now = Date.now();
+      import('../lib/db.js').then(({ default: db })=>{
+        let rows = [];
+        try {
+          rows = db?.prepare?.("SELECT ts,chain,symbol,score,tier FROM signals ORDER BY ts DESC LIMIT 50")?.all?.() || [];
+        } catch {}
+        const items = rows.map(r=>({ ts:r.ts, chain:r.chain, symbol:r.symbol, score:r.score, tier:r.tier }));
+        const filtered = tier==='FREE'
+          ? items.filter(x=> (now - new Date(x.ts).getTime()) >= 24*60*60*1000)
+          : items;
+        res.setHeader('content-type','application/json');
+        res.end(JSON.stringify({ tier: tier, items: filtered }));
+      }).catch(()=>{ res.statusCode=500; res.end('[]'); });
+      return;
+    }
+    if (req.url === '/status' && req.method === 'GET') {
+      import('../lib/db.js').then(({ default: db })=>{
+        let counts = { users:0, signals:0 }; let last=null;
+        try {
+          counts.users   = db?.prepare?.("SELECT COUNT(*) as c FROM users")?.get?.()?.c ?? 0;
+          const info = db?.prepare?.("SELECT COUNT(*) as c, MAX(ts) as m FROM signals")?.get?.() || {c:0,m:null};
+          counts.signals = info.c; last = info.m;
+        } catch {}
+        res.setHeader('content-type','application/json');
+        res.end(JSON.stringify({ counts, last }));
+      }).catch(()=>{ res.statusCode=500; res.end('{}'); });
+      return;
+    }
+    if (req.url === '/' && req.method === 'GET') {
+      import('node:fs').then(fs=>{
+        fs.readFile('dist/web/public/index.html','utf8',(err,html)=>{
+          if (err) { res.setHeader('content-type','application/json'); return res.end(JSON.stringify({plans:[{tier:'FREE',price:'$0/mo'},{tier:'PRO',price:'createServer((req,res)=>{
+    if (req.url === '/' && req.method === 'GET') {
+      res.setHeader('content-type','application/json');
+      res.end(JSON.stringify({plans: pricing}));
+      return;
+    }
+    if (req.url === '/checkout/pro' && req.method === 'GET') {
+      const url = process.env.CHECKOUT_PRO_URL || 'https://example.com/pro';
+      res.statusCode = 302;
+      res.setHeader('Location', url);
+      return res.end();
+    }
+    if (req.url === '/checkout/elite' && req.method === 'GET') {
+      const url = process.env.CHECKOUT_ELITE_URL || 'https://example.com/elite';
+      res.statusCode = 302;
+      res.setHeader('Location', url);
+      return res.end();
+    }
+    if (req.url === '/webhook/subscription' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body || '{}');
+          if (data.userId && data.tier) {
+            setTier(data.userId, data.tier);
+          }
+        } catch {}
+        res.statusCode = 200;
+        res.end('ok');
+      });
+      return;
+    }
+    if (req.url === '/admin/post' && req.method === 'POST') {
+      import('../jobs/runCycle.js').then(({ runOnce }) => runOnce().finally(() => res.end('ok'))).catch(() => res.end('ok'));
+      return;
+    }
+    res.statusCode = 404;
+    res.end('Not Found');4/mo'},{tier:'ELITE',price:'$39/mo'}]})); }
+          res.setHeader('content-type','text/html; charset=utf-8'); res.end(html);
+        });
+      });
+      return;
+    }
+  (port, host, ()=>console.log(`HTTP (fallback) on ${host}:${port}`));
 }
 
 // Admin trigger to run a cycle immediately
