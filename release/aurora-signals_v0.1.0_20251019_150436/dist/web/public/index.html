@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AuroraSignals — $0/$14/$39</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:#0b0d12; color:#e6e8ee; }
+  header { padding:24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1b1f2a;}
+  h1 { margin:0; font-size:20px; letter-spacing:.5px }
+  main { max-width:960px; margin:0 auto; padding:24px; }
+  .plans { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; margin:16px 0 32px;}
+  .card { background:#121624; border:1px solid #1b1f2a; border-radius:12px; padding:16px;}
+  .card h3{ margin:0 0 8px; font-size:18px;}
+  .price{ font-size:28px; margin:8px 0 12px;}
+  .btn{ display:inline-block; padding:10px 14px; border-radius:8px; background:#2b8cff; color:#fff; text-decoration:none;}
+  pre { background:#0e111a; border:1px solid #1b1f2a; padding:12px; border-radius:8px; overflow:auto;}
+  footer{ padding:24px; border-top:1px solid #1b1f2a; color:#9aa3b2; font-size:12px; text-align:center;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔭 AuroraSignals</h1>
+  <nav><a class="btn" href="/checkout/pro">Upgrade</a></nav>
+</header>
+<main>
+  <section>
+    <h2>Pricing</h2>
+    <div class="plans">
+      <div class="card">
+        <h3>Free</h3>
+        <div class="price">$0/mo</div>
+        <ul>
+          <li>Delayed signals (24h)</li>
+          <li>3 alerts/week</li>
+          <li>Basic summaries</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Pro</h3>
+        <div class="price">$14/mo</div>
+        <ul>
+          <li>Real-time (SOL + ETH)</li>
+          <li>Whale flow + composite scoring</li>
+          <li>Up to 30 alerts/day</li>
+        </ul>
+        <a class="btn" href="/checkout/pro">Get Pro</a>
+      </div>
+      <div class="card">
+        <h3>Elite</h3>
+        <div class="price">$39/mo</div>
+        <ul>
+          <li>Unlimited alerts</li>
+          <li>API & webhooks</li>
+          <li>Early features, private AI chat</li>
+        </ul>
+        <a class="btn" href="/checkout/elite">Get Elite</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Signals feed (JSON)</h2>
+    <p>Public demo endpoints:</p>
+    <pre>
+GET /api/signals?tier=free
+GET /api/signals?tier=pro
+GET /api/signals?tier=elite
+GET /status
+    </pre>
+    <p><small>FREE is delayed 24h; PRO/ELITE are current.</small></p>
+  </section>
+</main>
+<footer>© AuroraSignals — monthly-only plans: $0 / $14 / $39</footer>
+</body>
+</html>
