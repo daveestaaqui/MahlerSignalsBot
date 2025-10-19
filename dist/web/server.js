@@ -6,8 +6,8 @@ const port = Number(process.env.PORT || 8787);
 if (Hono && serve) {
   const app = new Hono();
   app.get('/', c=> c.json({plans: pricing}));
-  app.get('/checkout/pro',  c=> c.json({ redirectTo:"https://your-stripe-checkout-link-for-pro" }));
-  app.get('/checkout/elite',c=> c.json({ redirectTo:"https://your-stripe-checkout-link-for-elite" }));
+  app.get('/checkout/pro',  c=> c.json({ redirectTo:(process.env.CHECKOUT_PRO_URL || 'https://example.com/pro') }));
+  app.get('/checkout/elite',c=> c.json({ redirectTo:(process.env.CHECKOUT_ELITE_URL || 'https://example.com/elite') }));
   app.post('/webhook/subscription', async c=>{ const b = await c.req.json().catch(()=>null);
     if(!b?.userId || !b?.tier) return c.json({ok:false,error:'bad_payload'},400); setTier(b.userId,b.tier); return c.json({ok:true}); });
   serve({ fetch: app.fetch, port, hostname: host }, ()=> console.log(`HTTP on ${host}:${port}`));
