@@ -3,8 +3,8 @@ services:
     name: aurora-signals
     env: node
     plan: free
-    runtime: node
     region: oregon
+    runtime: node
     buildCommand: ""
     startCommand: "node dist/index.js"
     autoDeploy: true
@@ -14,10 +14,10 @@ services:
         value: "0.0.0.0"
       - key: PORT
         value: "8787"
-      - key: ADMIN_TOKEN
-        sync: false
       - key: SCHEDULE_MS
         value: "1800000"
+      - key: ADMIN_TOKEN
+        sync: false
       - key: CHECKOUT_PRO_URL
         sync: false
       - key: CHECKOUT_ELITE_URL
