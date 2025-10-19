@@ -1,3 +1,4 @@
+const log = (...a) => console.log(new Date().toISOString(), ...a);
 import db from '../lib/db.js';
 import { selectTop } from './signalEngine.js';
 import { postTelegram, postX } from '../services/posters.js';

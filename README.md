@@ -59,3 +59,30 @@ GET /checkout/pro      # redirect to CHECKOUT_PRO_URL
 GET /checkout/elite    # redirect to CHECKOUT_ELITE_URL
 ```
 
+
+## Deployment
+
+### PM2
+```bash
+pm2 start ops/ecosystem.config.cjs && pm2 save
+pm2 logs aurora-signals
+```
+
+### systemd
+```bash
+useradd -r -m -s /bin/false aurora || true
+mkdir -p /opt/aurora && chown -R aurora:aurora /opt/aurora
+cp -r . /opt/aurora
+cp .env.example /etc/aurora.env && nano /etc/aurora.env
+cp ops/aurora-signals.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now aurora-signals
+journalctl -u aurora-signals -f
+```
+
+### Docker
+```bash
+docker build -t aurora:latest -f ops/Dockerfile .
+docker run --rm -p 8787:8787 --env-file .env aurora:latest
+```
+

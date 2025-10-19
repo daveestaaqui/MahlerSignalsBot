@@ -1,0 +1,15 @@
+[Unit]
+Description=AuroraSignals ($0/$14/$39) service
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/aurora.env
+WorkingDirectory=/opt/aurora
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=3
+User=aurora
+
+[Install]
+WantedBy=multi-user.target

@@ -14,7 +14,9 @@
     "typecheck": "node --eval \"console.log('typecheck not configured yet')\"",
     "test": "node --test",
     "set-tier": "node scripts/set-tier.mjs",
-    "post-now": "node scripts/post-now.mjs"
+    "post-now": "node scripts/post-now.mjs",
+    "env:check": "node --env-file=.env scripts/validate-env.mjs",
+    "once": "node -e \"import('./dist/jobs/runCycle.js').then(m=>m.runOnce())\""
   },
   "dependencies": {
     "@hono/node-server": "^1.11.0",
