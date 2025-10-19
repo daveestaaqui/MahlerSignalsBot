@@ -74,8 +74,24 @@ if (Hono && serve) {
   });
 
   app.get('/status', async (c) => c.json(await getStatus()));
+  app.get('/stripe/create-session', (c)=>{
+    const tier=(c.req.query('tier')||'').toUpperCase();
+    const m = { PRO: process.env.CHECKOUT_PRO_URL, ELITE: process.env.CHECKOUT_ELITE_URL }[tier];
+    return c.json({ url: m || null });
+  });
+  app.post('/webhook/stripe', async (c)=>{
+    const body = await c.req.json().catch(()=>null);
+    if(!body?.userId || !body?.tier) return c.json({ok:false},400);
+    const { setTier } = await import('../services/entitlement.js');
+    await setTier(String(body.userId), String(body.tier).toUpperCase());
+    return c.json({ok:true});
+  });
 
   app.post('/admin/post', async (c) => {
+  const auth = c.req.header('authorization') || '';
+  const tok = auth.replace(/^Bearer\s+/i,'').trim();
+  if(!process.env.ADMIN_TOKEN || tok !== process.env.ADMIN_TOKEN) return c.json({ok:false,error:'unauthorized'},401);
+
     await triggerRunOnce();
     return c.json({ ok:true });
   });

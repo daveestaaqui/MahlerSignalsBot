@@ -1,0 +1,25 @@
+name: build-and-release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create release bundle (prebuilt dist present)
+        run: |
+          STAMP="$(date +%Y%m%d_%H%M%S)"
+          NAME="aurora-signals_${STAMP}"
+          mkdir -p "release/${NAME}"
+          cp -R dist "release/${NAME}/dist" || true
+          cp -R ops "release/${NAME}/ops"  || true
+          cp README.md CHANGELOG.md .env.example .env.prod.example "release/${NAME}/" || true
+          ( cd release && zip -qr "${NAME}.zip" "${NAME}" )
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-signals
+          path: release/*.zip

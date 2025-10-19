@@ -86,3 +86,11 @@ docker build -t aurora:latest -f ops/Dockerfile .
 docker run --rm -p 8787:8787 --env-file .env aurora:latest
 ```
 
+
+## Production & Automation
+
+- Protect `/admin/post` with `ADMIN_TOKEN` (Bearer).
+- Set **GitHub Secrets**: `ADMIN_ENDPOINT_URL` (https://YOUR_HOST/admin/post) and `ADMIN_TOKEN`.
+- Discord webhooks (free) can post per tier.
+- Stripe-ready endpoints exist; swap in real keys when ready.
+
