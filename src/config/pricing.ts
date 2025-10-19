@@ -1,13 +1,10 @@
-export type Tier = 'FREE' | 'PRO' | 'ELITE';
+export const TIERS = ['FREE', 'PRO', 'ELITE'] as const;
 
-export const MONTHLY_PRO = 14;
-export const YEARLY_PRO = 140;
-export const MONTHLY_ELITE = 39;
-export const YEARLY_ELITE = 390;
+export type Tier = typeof TIERS[number];
 
-export const PRICE = {
-  PRO: { monthly: MONTHLY_PRO, yearly: YEARLY_PRO },
-  ELITE: { monthly: MONTHLY_ELITE, yearly: YEARLY_ELITE },
+export const PRICES = {
+  PRO: { monthly: 14, yearly: 140 },
+  ELITE: { monthly: 39, yearly: 390 },
 } as const;
 
 export const FEATURES = {
@@ -17,21 +14,26 @@ export const FEATURES = {
     api: false,
     webhooks: false,
     early: false,
+    chains: [] as const,
   },
   PRO: {
     alertsPerDay: 30,
     api: false,
     webhooks: false,
     early: false,
-    chains: ['SOL', 'ETH'],
+    chains: ['SOL', 'ETH'] as const,
   },
   ELITE: {
     alertsPerDay: Infinity,
     api: true,
     webhooks: true,
     early: true,
-    chains: ['SOL', 'ETH'],
+    chains: ['SOL', 'ETH'] as const,
   },
 } as const;
 
-export const TIERS: Tier[] = ['FREE', 'PRO', 'ELITE'];
+export const MONTHLY_PRO = PRICES.PRO.monthly;
+export const YEARLY_PRO = PRICES.PRO.yearly;
+export const MONTHLY_ELITE = PRICES.ELITE.monthly;
+export const YEARLY_ELITE = PRICES.ELITE.yearly;
+

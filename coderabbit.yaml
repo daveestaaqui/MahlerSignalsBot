@@ -1,25 +1,9 @@
-project:
-  name: mcp-n8n
-  language: typescript
+version: 1
+files:
+  ignore:
+    - node_modules/**
+    - dist/**
+    - .git/**
 review:
-  goals:
-    - Flag functional or security regressions
-    - Ensure pricing tiers stay normalized to FREE/PRO/ELITE with correct amounts
-  suggestions:
-    style: concise
-    include_code_diffs: true
-  filters:
-    include:
-      - src/**
-      - docs/**
-      - workflows/**
-      - package.json
-      - server.js
-    exclude:
-      - node_modules/**
-      - dist/**
-      - build/**
-      - .git/**
-autofix:
-  allow_formatting: true
-  allow_safe_refactors: true
+  diff_context: 3
+  concise: true
