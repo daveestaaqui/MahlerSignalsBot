@@ -32,3 +32,17 @@ npm run health      # GET /
 npm run bot         # start Telegram bot (requires TELEGRAM_BOT_TOKEN)
 ```
 
+
+## Operations
+
+```bash
+npm start                 # start HTTP + scheduler
+npm run once              # run signal cycle once now
+npm run admin             # POST /admin/post locally
+npm run bot               # start Telegram bot (needs TELEGRAM_BOT_TOKEN)
+# Set a user tier (app must be running):
+npm run set-tier -- 123456789 PRO
+# Trigger posting without HTTP:
+npm run post-now
+```
+

@@ -16,16 +16,42 @@ if (Hono && serve) {
   const http = await import('node:http');
   const srv = http.createServer((req,res)=>{
     if (req.url === '/' && req.method === 'GET') {
-      res.setHeader('content-type','application/json'); res.end(JSON.stringify({plans: pricing}));
+      res.setHeader('content-type','application/json');
+      res.end(JSON.stringify({plans: pricing}));
+      return;
+    }
+    if (req.url === '/checkout/pro' && req.method === 'GET') {
+      const url = process.env.CHECKOUT_PRO_URL || 'https://example.com/pro';
+      res.statusCode = 302;
+      res.setHeader('Location', url);
+      return res.end();
+    }
+    if (req.url === '/checkout/elite' && req.method === 'GET') {
+      const url = process.env.CHECKOUT_ELITE_URL || 'https://example.com/elite';
+      res.statusCode = 302;
+      res.setHeader('Location', url);
+      return res.end();
+    }
+    if (req.url === '/webhook/subscription' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body || '{}');
+          if (data.userId && data.tier) {
+            setTier(data.userId, data.tier);
+          }
+        } catch {}
+        res.statusCode = 200;
+        res.end('ok');
+      });
       return;
     }
     if (req.url === '/admin/post' && req.method === 'POST') {
-      import('../jobs/runCycle.js').then(({ runOnce })=> runOnce().catch(()=>{}));
-      res.statusCode = 200;
-      res.end('ok');
+      import('../jobs/runCycle.js').then(({ runOnce }) => runOnce().finally(() => res.end('ok'))).catch(() => res.end('ok'));
       return;
     }
-    res.statusCode=404;
+    res.statusCode = 404;
     res.end('Not Found');
   });
   srv.listen(port, host, ()=>console.log(`HTTP (fallback) on ${host}:${port}`));
