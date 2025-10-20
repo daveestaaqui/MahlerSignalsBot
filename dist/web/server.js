@@ -73,6 +73,7 @@ if (Hono && serve) {
     return c.json({ tier, items: filtered });
   });
 
+  app.get('/robots.txt', (c)=> c.text('User-agent: *\nDisallow: /', 200));
   app.get('/status', async (c) => c.json(await getStatus()));
   app.get('/stripe/create-session', (c)=>{
     const tier=(c.req.query('tier')||'').toUpperCase();
