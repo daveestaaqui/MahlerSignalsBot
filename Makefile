@@ -13,3 +13,6 @@ chatid: ; ./scripts/telegram-chatid.sh
 
 tg: ; ./scripts/send-telegram.sh "Test message from AuroraSignals"
 
+
+telegram-setup: ; ./scripts/telegram-setup.sh
+
