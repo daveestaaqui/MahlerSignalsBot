@@ -76,11 +76,18 @@ if (Hono && serve) {
     return c.json({ tier, items: filtered });
   });
 
+  app.get('/setup', (c)=>{
+    const hasStripe = !!(process.env.STRIPE_SECRET_KEY && (process.env.PRICE_PRO_MONTHLY || process.env.PRICE_ID_PRO) && (process.env.PRICE_ELITE_MONTHLY || process.env.PRICE_ID_ELITE) && process.env.STRIPE_WEBHOOK_SECRET);
+    const hasTelegram = !!(process.env.TELEGRAM_BOT_TOKEN && (process.env.TELEGRAM_CHAT_ID_FREE || process.env.TELEGRAM_CHAT_ID_PRO || process.env.TELEGRAM_CHAT_ID_ELITE));
+    const hasDiscord = !!(process.env.DISCORD_WEBHOOK_URL_FREE || process.env.DISCORD_WEBHOOK_URL_PRO || process.env.DISCORD_WEBHOOK_URL_ELITE);
+    return c.json({ env:{ HAS_STRIPE: hasStripe, HAS_TELEGRAM: hasTelegram, HAS_DISCORD: hasDiscord } });
+  });
+
   app.get('/robots.txt', (c)=> c.text('User-agent: *\nDisallow: /', 200));
   app.get('/status', async (c) => c.json(await getStatus()));
   app.get('/stripe/create-session', async (c)=>{
     const tier=(c.req.query('tier')||'').toUpperCase();
-    const priceMap = { PRO: process.env.PRICE_PRO_MONTHLY, ELITE: process.env.PRICE_ELITE_MONTHLY };
+    const priceMap = { PRO: process.env.PRICE_PRO_MONTHLY || process.env.PRICE_ID_PRO, ELITE: process.env.PRICE_ELITE_MONTHLY || process.env.PRICE_ID_ELITE };
     const priceId = priceMap[tier];
     const base = process.env.BASE_URL || 'https://aurora-signals.onrender.com';
     if(!priceId) return c.json({ ok:false, error:'missing_price' }, 400);
@@ -163,9 +170,18 @@ if (Hono && serve) {
         res.end(JSON.stringify(await getStatus())); return;
       }
 
+      if (req.method === 'GET' && url.pathname === '/setup') {
+        const hasStripe = !!(process.env.STRIPE_SECRET_KEY && (process.env.PRICE_PRO_MONTHLY || process.env.PRICE_ID_PRO) && (process.env.PRICE_ELITE_MONTHLY || process.env.PRICE_ID_ELITE) && process.env.STRIPE_WEBHOOK_SECRET);
+        const hasTelegram = !!(process.env.TELEGRAM_BOT_TOKEN && (process.env.TELEGRAM_CHAT_ID_FREE || process.env.TELEGRAM_CHAT_ID_PRO || process.env.TELEGRAM_CHAT_ID_ELITE));
+        const hasDiscord = !!(process.env.DISCORD_WEBHOOK_URL_FREE || process.env.DISCORD_WEBHOOK_URL_PRO || process.env.DISCORD_WEBHOOK_URL_ELITE);
+        res.writeHead(200, { 'content-type':'application/json' });
+        res.end(JSON.stringify({ env:{ HAS_STRIPE: hasStripe, HAS_TELEGRAM: hasTelegram, HAS_DISCORD: hasDiscord } }));
+        return;
+      }
+
       if (req.method === 'GET' && url.pathname === '/stripe/create-session') {
         const tier = (url.searchParams.get('tier') || '').toUpperCase();
-        const priceMap = { PRO: process.env.PRICE_PRO_MONTHLY, ELITE: process.env.PRICE_ELITE_MONTHLY };
+        const priceMap = { PRO: process.env.PRICE_PRO_MONTHLY || process.env.PRICE_ID_PRO, ELITE: process.env.PRICE_ELITE_MONTHLY || process.env.PRICE_ID_ELITE };
         const priceId = priceMap[tier];
         const base = process.env.BASE_URL || 'https://aurora-signals.onrender.com';
         if(!priceId){ res.writeHead(400, {'content-type':'application/json'}); res.end(JSON.stringify({ ok:false, error:'missing_price' })); return; }

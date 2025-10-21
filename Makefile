@@ -9,3 +9,7 @@ stripe: ; ./scripts/stripe-dev.sh
 telegram: test-env ; ./scripts/test-telegram.sh "Test message from AuroraSignals"
 discord: test-env ; ./scripts/test-discord.sh "Test message from AuroraSignals"
 x: test-env ; ./scripts/test-x.sh
+chatid: ; ./scripts/telegram-chatid.sh
+
+tg: ; ./scripts/send-telegram.sh "Test message from AuroraSignals"
+
