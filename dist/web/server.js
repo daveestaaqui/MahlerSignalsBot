@@ -78,9 +78,11 @@ if (Hono && serve) {
 
   app.get('/setup', (c)=>{
     const hasStripe = !!(process.env.STRIPE_SECRET_KEY && (process.env.PRICE_PRO_MONTHLY || process.env.PRICE_ID_PRO) && (process.env.PRICE_ELITE_MONTHLY || process.env.PRICE_ID_ELITE) && process.env.STRIPE_WEBHOOK_SECRET);
-    const hasTelegram = !!(process.env.TELEGRAM_BOT_TOKEN && (process.env.TELEGRAM_CHAT_ID_FREE || process.env.TELEGRAM_CHAT_ID_PRO || process.env.TELEGRAM_CHAT_ID_ELITE));
+    const hasTelegramFree  = !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID_FREE);
+    const hasTelegramPro   = !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID_PRO);
+    const hasTelegramElite = !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID_ELITE);
     const hasDiscord = !!(process.env.DISCORD_WEBHOOK_URL_FREE || process.env.DISCORD_WEBHOOK_URL_PRO || process.env.DISCORD_WEBHOOK_URL_ELITE);
-    return c.json({ env:{ HAS_STRIPE: hasStripe, HAS_TELEGRAM: hasTelegram, HAS_DISCORD: hasDiscord } });
+    return c.json({ env:{ HAS_STRIPE: hasStripe, HAS_TELEGRAM_FREE: hasTelegramFree, HAS_TELEGRAM_PRO: hasTelegramPro, HAS_TELEGRAM_ELITE: hasTelegramElite, HAS_DISCORD: hasDiscord } });
   });
 
   app.get('/robots.txt', (c)=> c.text('User-agent: *\nDisallow: /', 200));
@@ -172,10 +174,12 @@ if (Hono && serve) {
 
       if (req.method === 'GET' && url.pathname === '/setup') {
         const hasStripe = !!(process.env.STRIPE_SECRET_KEY && (process.env.PRICE_PRO_MONTHLY || process.env.PRICE_ID_PRO) && (process.env.PRICE_ELITE_MONTHLY || process.env.PRICE_ID_ELITE) && process.env.STRIPE_WEBHOOK_SECRET);
-        const hasTelegram = !!(process.env.TELEGRAM_BOT_TOKEN && (process.env.TELEGRAM_CHAT_ID_FREE || process.env.TELEGRAM_CHAT_ID_PRO || process.env.TELEGRAM_CHAT_ID_ELITE));
+        const hasTelegramFree  = !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID_FREE);
+        const hasTelegramPro   = !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID_PRO);
+        const hasTelegramElite = !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID_ELITE);
         const hasDiscord = !!(process.env.DISCORD_WEBHOOK_URL_FREE || process.env.DISCORD_WEBHOOK_URL_PRO || process.env.DISCORD_WEBHOOK_URL_ELITE);
         res.writeHead(200, { 'content-type':'application/json' });
-        res.end(JSON.stringify({ env:{ HAS_STRIPE: hasStripe, HAS_TELEGRAM: hasTelegram, HAS_DISCORD: hasDiscord } }));
+        res.end(JSON.stringify({ env:{ HAS_STRIPE: hasStripe, HAS_TELEGRAM_FREE: hasTelegramFree, HAS_TELEGRAM_PRO: hasTelegramPro, HAS_TELEGRAM_ELITE: hasTelegramElite, HAS_DISCORD: hasDiscord } }));
         return;
       }
 
