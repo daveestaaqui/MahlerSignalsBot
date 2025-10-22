@@ -249,3 +249,11 @@ docker run --rm -p 8787:8787 --env-file .env aurora:latest
 5) After it creates the service: open it → **Settings → Environment** → set `ADMIN_TOKEN` (strong), then Save.
 6) Copy the External URL displayed at top (https://<name>-<hash>.onrender.com).
 
+
+## AuroraSignalX Bring-up (5-min)
+1) Render → Service → Environment: set ADMIN_TOKEN, CONTACT_EMAIL, BASE_URL.
+2) Stripe set: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PRICE_ID_PRO, PRICE_ID_ELITE.
+3) Telegram 2-tier: `make tiers-telegram` → paste token, confirm @AuroraSignalX_pro / @AuroraSignalX_elite → follow output to set Render env.
+4) Discord (FREE marketing): set DISCORD_WEBHOOK_URL_FREE → `make discord`.
+5) X (optional): set X_* → `make x`.
+6) Verify: `make smoke && make ping` → `/setup` shows HAS_TELEGRAM_PRO/ELITE.

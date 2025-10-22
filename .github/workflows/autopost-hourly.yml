@@ -1,0 +1,16 @@
+name: autopost-hourly
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /admin/post with Bearer token
+        env:
+          ADMIN_ENDPOINT_URL: ${{ secrets.ADMIN_ENDPOINT_URL }}
+          ADMIN_TOKEN:        ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          test -n "$ADMIN_ENDPOINT_URL" -a -n "$ADMIN_TOKEN" || { echo "Missing secrets"; exit 1; }
+          curl -fsS -X POST "$ADMIN_ENDPOINT_URL" -H "Authorization: Bearer $ADMIN_TOKEN" -d '' || exit 1
