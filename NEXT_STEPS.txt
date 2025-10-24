@@ -1,24 +1,9 @@
-════════════════════════  COPY → your local Terminal  ════════════════════════
-A) Push the code to GitHub (Codex cannot reach GitHub from sandbox):
+If PRO still errors:
+  TELEGRAM_BOT_TOKEN=$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.local | cut -d= -f2) \
+  TELEGRAM_CHAT_ID_PRO=$(grep -E '^TELEGRAM_CHAT_ID_PRO=' .env.local | cut -d= -f2) \
+  ./scripts/tg-debug.sh
 
-cd "/Users/davidmahler/n8n/mcp-n8n"
-git push -u origin main
-
-B) After your host gives you a URL (Render/Cyclic), set GitHub Actions secrets
-so the daily autopost cron can call /admin/post. Use ONE of these:
-
-Option 1 — with GitHub CLI (gh):
-gh secret set ADMIN_ENDPOINT_URL -b "https://your-app.onrender.com/admin/post"
-gh secret set ADMIN_TOKEN        -b "CHANGE_ME_ADMIN_BEARER"
-
-Option 2 — in GitHub UI:
-Repo → Settings → Secrets & variables → Actions
-  ADMIN_ENDPOINT_URL = https://your-app.onrender.com/admin/post
-  ADMIN_TOKEN        = CHANGE_ME_ADMIN_BEARER
-
-Test your live endpoint once deployed (replace URL and token):
-curl -X POST "https://your-app.onrender.com/admin/post"   -H "Authorization: Bearer CHANGE_ME_ADMIN_BEARER" -sS
-
-Need the exact values to paste? Run:
-scripts/print-admin-endpoint.sh https://YOUR-URL
-═══════════════════════════════════════════════════════════════════════════════
+Typical Telegram 400 causes:
+  • Bot not admin in that chat (fix: add as admin)
+  • Chat id incorrect (use the negative numeric id from getUpdates)
+  • Sending blocked by chat settings (try a simple "test" text first)
