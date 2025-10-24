@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 f=.env.local; [ -f "$f" ] || { echo "⚠️  $f missing"; exit 0; }
-get(){ grep -E "^$1=" "$f" | tail -1 | cut -d= -f2-; }
+get(){
+  local match
+  match=$(grep -E "^$1=" "$f" 2>/dev/null || true)
+  printf "%s" "$match" | tail -1 | cut -d= -f2-
+}
 ok(){ [ -n "$1" ] && echo "✅" || echo "❌"; }
 
 BASE_URL="$(get BASE_URL)"
