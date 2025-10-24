@@ -17,5 +17,5 @@ tg: ; ./scripts/send-telegram.sh "Test message from AuroraSignals"
 telegram-setup: ; ./scripts/telegram-setup.sh
 
 tiers-telegram: ; ./scripts/tiers-telegram-setup.sh
-tg-pro: ; TELEGRAM_BOT_TOKEN=$$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.local | cut -d= -f2) TELEGRAM_CHAT_ID_PRO=$$(grep -E '^TELEGRAM_CHAT_ID_PRO=' .env.local | cut -d= -f2) CHAT=$$TELEGRAM_CHAT_ID_PRO ./scripts/send-telegram.sh "PRO sanity ✅"
-tg-elite: ; TELEGRAM_BOT_TOKEN=$$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.local | cut -d= -f2) TELEGRAM_CHAT_ID_ELITE=$$(grep -E '^TELEGRAM_CHAT_ID_ELITE=' .env.local | cut -d= -f2) CHAT=$$TELEGRAM_CHAT_ID_ELITE ./scripts/send-telegram.sh "ELITE sanity 👑"
+tg-pro: ; TELEGRAM_BOT_TOKEN=$$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.local | tail -1 | cut -d= -f2-) CHAT=$$(grep -E '^TELEGRAM_CHAT_ID_PRO=' .env.local | tail -1 | cut -d= -f2-) ./scripts/send-telegram.sh "PRO sanity ✅"
+tg-elite: ; TELEGRAM_BOT_TOKEN=$$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.local | tail -1 | cut -d= -f2-) CHAT=$$(grep -E '^TELEGRAM_CHAT_ID_ELITE=' .env.local | tail -1 | cut -d= -f2-) ./scripts/send-telegram.sh "ELITE sanity 👑"
