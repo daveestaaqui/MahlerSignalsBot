@@ -7,9 +7,9 @@
     "n8n-mcp": "server.js"
   },
   "scripts": {
+    "build": "tsc -p .",
     "start": "node dist/index.js",
     "dev": "npm run start",
-    "build": "node scripts/tsc.mjs",
     "lint": "node --eval \"console.log('lint not configured yet')\"",
     "typecheck": "node --eval \"console.log('typecheck not configured yet')\"",
     "test": "node --test",
