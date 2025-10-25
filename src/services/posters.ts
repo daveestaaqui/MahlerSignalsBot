@@ -18,6 +18,9 @@ const discordWebhooks: Record<Tier, string> = {
   ELITE: process.env.DISCORD_WEBHOOK_URL_ELITE || '',
 };
 
+const POST_ENABLED = (process.env.POST_ENABLED||'true').toLowerCase()==='true';
+const DRY_RUN = (process.env.DRY_RUN||'false').toLowerCase()==='true';
+
 const xCreds = {
   apiKey: process.env.X_API_KEY,
   apiSecret: process.env.X_API_SECRET,
@@ -36,6 +39,7 @@ export async function postTelegram(tierInput: TierInput, text: string) {
   if (!tgToken || !tgChats[tier]) return false;
   const bot = new TelegramBot(tgToken, { polling: false });
   const payload = `${text}\n\n${disclaimer}`;
+  if(!POST_ENABLED){ console.log('[DRY]', 'telegram', tier, text.slice(0,120)); return true; }
   await bot.sendMessage(tgChats[tier], payload, {
     disable_web_page_preview: true,
     parse_mode: 'HTML',
@@ -51,6 +55,7 @@ export async function postDiscord(tierInput: TierInput, text: string) {
     content: `${text}\n\n${disclaimer}`,
     username: tier === 'ELITE' ? 'Aurora Elite' : 'Aurora Signals',
   };
+  if(!POST_ENABLED){ console.log('[DRY]', 'discord', tier, text.slice(0,120)); return true; }
   await request(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

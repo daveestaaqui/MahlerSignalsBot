@@ -4,6 +4,7 @@ import { runCrypto } from '../pipeline/crypto/index.js';
 import { STOCK_UNIVERSE } from '../config/universe.js';
 import { TIERS } from '../config/tiers.js';
 import { broadcast, postX } from '../services/posters.js';
+import { eliteCryptoMessage, eliteStockMessage, proStockMessage, freeTeaser } from '../services/formatters.js';
 import type { SignalRecord } from '../signals/rules.js';
 
 const insertSignalStmt = db.prepare(`
@@ -75,19 +76,19 @@ function enqueueForTiers(signalId: number, signal: SignalRecord) {
     queueStmt.run({
       signal_id: signalId,
       tier: 'pro',
-      payload: formatProMessage(signal),
+      payload: proStockMessage(signal),
       ready_at: signal.created_at,
     });
     queueStmt.run({
       signal_id: signalId,
       tier: 'elite',
-      payload: formatEliteMessage(signal),
+      payload: (signal.asset_type==='crypto' ? eliteCryptoMessage(signal) : eliteStockMessage(signal)),
       ready_at: signal.created_at,
     });
     queueStmt.run({
       signal_id: signalId,
       tier: 'free',
-      payload: formatFreeMessage(signal),
+      payload: freeTeaser(signal),
       ready_at: freeReady,
     });
     return;
@@ -97,7 +98,7 @@ function enqueueForTiers(signalId: number, signal: SignalRecord) {
   queueStmt.run({
     signal_id: signalId,
     tier: 'elite',
-    payload: formatEliteMessage(signal),
+    payload: (signal.asset_type==='crypto' ? eliteCryptoMessage(signal) : eliteStockMessage(signal)),
     ready_at: signal.created_at,
   });
 }
