@@ -8,6 +8,11 @@ Adapter connecting CodeRabbit MCP workflows to n8n automations.
 - **Pro — $14/mo**
 - **Elite — $39/mo**
 
+### Tier Focus
+- **FREE**: Stocks only, released 24 hours late to public channels.
+- **PRO**: Real-time equities with advanced metrics (MA, RVOL, sentiment, policy tailwind) plus morning/evening recaps.
+- **ELITE**: All PRO features plus crypto (ETH/SOL majors + curated alts) with on-chain and liquidity analytics.
+
 Refer to `docs/PRICING.md` for detailed tier features.
 
 ## Quick Start
