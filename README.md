@@ -272,3 +272,4 @@ docker run --rm -p 8787:8787 --env-file .env aurora:latest
    make diagnostics
    make once
    ```
+4) **Go live**: set DRY_RUN=false in Render and Save (redeploy).
