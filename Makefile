@@ -19,3 +19,6 @@ telegram-setup: ; ./scripts/telegram-setup.sh
 tiers-telegram: ; ./scripts/tiers-telegram-setup.sh
 tg-pro: ; TELEGRAM_BOT_TOKEN=$$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.local | tail -1 | cut -d= -f2-) CHAT=$$(grep -E '^TELEGRAM_CHAT_ID_PRO=' .env.local | tail -1 | cut -d= -f2-) ./scripts/send-telegram.sh "PRO sanity ✅"
 tg-elite: ; TELEGRAM_BOT_TOKEN=$$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.local | tail -1 | cut -d= -f2-) CHAT=$$(grep -E '^TELEGRAM_CHAT_ID_ELITE=' .env.local | tail -1 | cut -d= -f2-) ./scripts/send-telegram.sh "ELITE sanity 👑"
+diagnostics: ; curl -fsS "$${BASE_URL:-https://aurora-signals.onrender.com}/diagnostics" | jq .
+tg-free:  ; TELEGRAM_BOT_TOKEN=$$(grep -E ^TELEGRAM_BOT_TOKEN= .env.local | tail -1 | cut -d= -f2-) CHAT=$$(grep -E ^TELEGRAM_CHAT_ID_FREE=  .env.local | tail -1 | cut -d= -f2-) ./scripts/send-telegram.sh "FREE sanity (24h stocks)"
+once: ; curl -fsS -X POST "$${BASE_URL:-https://aurora-signals.onrender.com}/admin/post" -H "Authorization: Bearer $${ADMIN_TOKEN:?}" -d '' && echo

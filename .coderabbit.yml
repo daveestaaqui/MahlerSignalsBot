@@ -1,0 +1,19 @@
+version: 1
+reviews:
+  request_changes_on:
+    - security
+    - secrets
+    - tests
+    - types
+  require_description: true
+  checklists:
+    - name: Signals Quality
+      items:
+        - "Message format: ELITE/PRO outputs are HTML-safe and trader-readable"
+        - "Embargo logic: FREE tier delayed by 24h only for stocks"
+        - "No secret values printed in logs or responses"
+    - name: Reliability
+      items:
+        - "Retry/backoff present for network calls"
+        - "Rate-limits respected (Alpha Vantage)"
+        - "Queue retry on publish failure"
