@@ -262,3 +262,13 @@ docker run --rm -p 8787:8787 --env-file .env aurora:latest
 4) Discord (FREE marketing): set DISCORD_WEBHOOK_URL_FREE → `make discord`.
 5) X (optional): set X_* → `make x`.
 6) Verify: `make smoke && make ping` → `/setup` shows HAS_TELEGRAM_PRO/ELITE.
+## 60-second deploy
+1) **Render → Environment**: set POST_ENABLED=true, DRY_RUN=true while testing.
+2) **Secrets** are in Render/GitHub Actions (no secrets in repo).
+3) **Kick one cycle locally**:
+   ```bash
+   export BASE_URL="https://aurora-signals.onrender.com"
+   export ADMIN_TOKEN="<your-admin-token>"
+   make diagnostics
+   make once
+   ```
