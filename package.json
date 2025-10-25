@@ -7,7 +7,7 @@
     "n8n-mcp": "server.js"
   },
   "scripts": {
-    "build": "node scripts/tsc.mjs",
+    "build": "tsc -p .",
     "start": "node dist/index.js",
     "dev": "npm run start",
     "lint": "node --eval \"console.log('lint not configured yet')\"",
