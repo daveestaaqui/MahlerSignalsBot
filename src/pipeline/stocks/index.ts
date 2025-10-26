@@ -1,79 +1,87 @@
-import { scoreStock, stockUniq, SignalRecord } from '../../signals/rules.js';
-import { TIERS } from '../../config/tiers.js';
+import { getStockDaily, getOptionsFlow, Candle } from '../../adapters/polygon.js';
+import { score } from '../../signals/scoring.js';
+import { stockUniq, type SignalRecord } from '../../signals/rules.js';
+import { TIER_GATES } from '../../config/tiers.js';
+import { sma, rvol, gapFlags } from '../../lib/indicators.js';
 
-const STOCK_MIN_SCORE = Number(process.env.STOCK_MIN_SCORE || 0.9);
-const STOCK_ELITE_THRESHOLD = Number(process.env.STOCK_ELITE_THRESHOLD || 2.2);
+const MIN_TOTAL = 0.65;
 
-type SampleDatum = {
-  price: number;
-  ma20: number;
-  ma200: number;
-  volume: number;
-  avgVolume: number;
-  gap: number;
-  smartMoney: number;
-  sentiment: number;
-  policy: number;
-};
+function clamp(v:number){ return Math.max(0, Math.min(1, v)); }
 
-const SAMPLE_DATA: Record<string, SampleDatum> = {
-  AAPL: { price: 182.1, ma20: 188, ma200: 172, volume: 81000000, avgVolume: 56000000, gap: -1.8, smartMoney: 0.6, sentiment: 0.35, policy: 0.2 },
-  MSFT: { price: 410.5, ma20: 415, ma200: 360, volume: 42000000, avgVolume: 30000000, gap: -0.6, smartMoney: 0.4, sentiment: 0.25, policy: 0.4 },
-  NVDA: { price: 875.2, ma20: 860, ma200: 620, volume: 52000000, avgVolume: 40000000, gap: 0.5, smartMoney: 0.7, sentiment: 0.45, policy: 0.1 },
-  TSLA: { price: 185.4, ma20: 195, ma200: 210, volume: 98000000, avgVolume: 89000000, gap: -2.3, smartMoney: 0.3, sentiment: 0.15, policy: 0.05 },
-  META: { price: 512.3, ma20: 505, ma200: 415, volume: 28000000, avgVolume: 22000000, gap: 0.8, smartMoney: 0.45, sentiment: 0.32, policy: 0.25 },
-  AMD:  { price: 174.8, ma20: 168, ma200: 138, volume: 95000000, avgVolume: 72000000, gap: -1.1, smartMoney: 0.55, sentiment: 0.29, policy: 0.18 },
-};
-
-function buildFeature(symbol: string): SampleDatum {
-  return SAMPLE_DATA[symbol] || {
-    price: 100,
-    ma20: 102,
-    ma200: 95,
-    volume: 10_000_000,
-    avgVolume: 8_000_000,
-    gap: -0.5,
-    smartMoney: 0.2,
-    sentiment: 0.1,
-    policy: 0.1,
-  };
+function computeTech(candles:Candle[]): { tech:number; pct20:number; pct200:number; rvolVal:number; change1d:number; gapUp:boolean; gapDown:boolean } {
+  const sorted = [...candles].sort((a,b)=>a.t-b.t);
+  const closes = sorted.map(c=>c.c);
+  const vols = sorted.map(c=>c.v);
+  const last = sorted[sorted.length-1];
+  const prev = sorted[sorted.length-2];
+  const sma20 = sma(closes,20) ?? last.c;
+  const sma200 = sma(closes,200) ?? sma20;
+  const pct20 = (last.c - sma20) / sma20;
+  const pct200 = (last.c - sma200) / sma200;
+  const rv = rvol(vols,20) ?? 1;
+  const change1d = (last.c - prev.c) / prev.c;
+  const { gapUp, gapDown } = gapFlags(prev,last);
+  const momentumScore = clamp(0.5 + pct20/0.18 + change1d/0.12);
+  const trendScore = clamp(0.5 + pct200/0.25);
+  const rvolScore = clamp((rv-1)/1.5 + 0.5);
+  const tech = clamp((momentumScore*0.55 + trendScore*0.25 + rvolScore*0.2));
+  return { tech, pct20, pct200, rvolVal:rv, change1d, gapUp, gapDown };
 }
 
 export async function runStocks(symbols: string[]): Promise<SignalRecord[]> {
-  const now = Math.floor(Date.now() / 1000);
+  const now = Math.floor(Date.now()/1000);
   const signals: SignalRecord[] = [];
 
   for (const rawSymbol of symbols) {
     const symbol = rawSymbol.toUpperCase();
-    const datum = buildFeature(symbol);
-    const feature = {
-      symbol,
-      pct_from_20d: ((datum.price - datum.ma20) / datum.ma20) * 100,
-      pct_from_200d: ((datum.price - datum.ma200) / datum.ma200) * 100,
-      rvol: datum.avgVolume ? datum.volume / datum.avgVolume : 1,
-      gapDown: datum.gap < -0.5,
-      gapUp: datum.gap > 0.5,
-      smartMoneyScore: datum.smartMoney,
-      policyTailwind: datum.policy,
-      sentiment: datum.sentiment,
+    let candles: Candle[] = [];
+    try {
+      candles = await getStockDaily(symbol);
+    } catch (err) {
+      console.error('[stocks] fetch failed', symbol, err);
+      continue;
+    }
+    if(!candles || candles.length < 40) continue;
+    const { tech, pct20, pct200, rvolVal, change1d, gapUp, gapDown } = computeTech(candles);
+    const whaleScore = clamp(Math.abs(change1d) * 5 + (gapUp?0.15:0) + (rvolVal>1.5?0.1:0));
+    const optionsFlow = await getOptionsFlow(symbol).catch(()=>[]);
+    const optionsScore = clamp((optionsFlow?.length || 0)/10);
+    const sentimentScore = clamp(0.5 + change1d/0.08);
+    const fundamentalScore = clamp(0.6 - pct200/0.3);
+    const totalScore = score({ assetType:'stock', tech, sentiment:sentimentScore, whale:whaleScore, options:optionsScore, fundamental:fundamentalScore });
+    if(totalScore.total < MIN_TOTAL) continue;
+    const tierMin: 'pro'|'elite' = totalScore.total >= 0.85 ? 'elite' : 'pro';
+    const reason = totalScore.label === 'Elite' ? 'Elite conviction (momentum + accumulation)' : 'High conviction setup';
+    const last = candles[candles.length-1];
+    const prev = candles[candles.length-2];
+    const features = {
+      price: last.c,
+      pct_change_1d: change1d,
+      pct_from_20d: pct20,
+      pct_from_200d: pct200,
+      rvol: rvolVal,
+      gapUp,
+      gapDown,
+      whaleScore,
+      optionsScore,
+      sentimentScore,
+      fundamentalScore,
+      planEntry: `${(last.c*0.995).toFixed(2)}-${(last.c*1.01).toFixed(2)}`,
+      planTarget: (last.c * 1.05).toFixed(2),
+      planStop: (last.c * 0.97).toFixed(2),
+      subs: totalScore.subs,
     };
-
-    const { score, reason } = scoreStock(feature);
-    if (score < STOCK_MIN_SCORE) continue;
-
-    const tier_min = score >= STOCK_ELITE_THRESHOLD ? 'elite' : 'pro';
     signals.push({
       symbol,
       asset_type: 'stock',
-      score,
+      score: totalScore.total,
       reason,
-      features: feature,
-      tier_min,
+      features,
+      tier_min: tierMin,
       created_at: now,
-      embargo_until: now + TIERS.free.delaySeconds,
-      uniq_key: stockUniq(symbol, now, tier_min),
+      embargo_until: now + TIER_GATES.free.delaySeconds,
+      uniq_key: stockUniq(symbol, now, tierMin),
     });
   }
-
   return signals;
 }
