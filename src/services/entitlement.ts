@@ -6,6 +6,6 @@ export function setTier(userId: string, tier: Tier) {
   stmt.run(userId, tier);
 }
 export function getTier(userId: string): Tier {
-  const row = db.prepare("SELECT tier FROM users WHERE id=?").get(userId);
+  const row: any = db.prepare("SELECT tier FROM users WHERE id=?").get(userId);
   return (row?.tier ?? 'FREE') as Tier;
 }

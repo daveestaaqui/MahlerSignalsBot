@@ -27,17 +27,19 @@ type FetchFn = () => Promise<Omit<AggregatedAsset,'sources'>[]>;
 const now = () => Date.now();
 
 function readCache(source: string, ttl: number): Omit<AggregatedAsset,'sources'>[] | null {
-  const row = db.prepare(`
+  const row: any = db.prepare(`
     SELECT payload, fetched_at, ttl_seconds
     FROM data_snapshots
     WHERE source = ? AND asset = '*'
   `).get(source);
   if(!row) return null;
-  const age = now() - new Date(row.fetched_at).getTime();
-  const ttlMs = (row.ttl_seconds ?? ttl) * 1000;
+  const fetchedAt = row?.fetched_at ? new Date(row.fetched_at).getTime() : 0;
+  const age = now() - fetchedAt;
+  const ttlValue = typeof row?.ttl_seconds === 'number' ? row.ttl_seconds : ttl;
+  const ttlMs = ttlValue * 1000;
   if(age > ttlMs) return null;
   try {
-    return JSON.parse(row.payload);
+    return JSON.parse(row?.payload || "[]");
   } catch {
     return null;
   }
@@ -70,7 +72,7 @@ async function fetchCoinGecko(): Promise<Omit<AggregatedAsset,'sources'>[]> {
   const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=solana-ecosystem,ethereum-ecosystem&order=volume_desc&per_page=50&page=1&price_change_percentage=1h,24h,7d';
   try {
     const res = await request(url);
-    const body = await res.body.json();
+    const body: any = await res.body.json();
     return body.map((item: any) => ({
       chain: item.categories?.includes('Solana Ecosystem') ? 'SOL' : 'ETH',
       symbol: item.symbol?.toUpperCase() || '',
@@ -93,7 +95,7 @@ async function fetchCryptoCompare(): Promise<Omit<AggregatedAsset,'sources'>[]> 
   const res = await request('https://min-api.cryptocompare.com/data/top/mktcapfull?limit=30&tsym=USD', {
     headers: { Authorization: `Apikey ${key}` },
   });
-  const body = await res.body.json();
+  const body: any = await res.body.json();
   if(!body?.Data) return [];
   return body.Data.map((item: any) => ({
     chain: (item.CoinInfo?.PlatformType || '').toUpperCase().includes('SOL') ? 'SOL' : 'ETH',
@@ -110,7 +112,7 @@ async function fetchCryptoCompare(): Promise<Omit<AggregatedAsset,'sources'>[]> 
 
 async function fetchDexScreener(): Promise<Omit<AggregatedAsset,'sources'>[]> {
   const res = await request('https://api.dexscreener.com/latest/dex/tokens/solana,ethereum');
-  const body = await res.body.json();
+  const body: any = await res.body.json();
   if(!body?.pairs) return [];
   return body.pairs.slice(0, 50).map((p: any) => ({
     chain: p.chainId?.toUpperCase().includes('SOL') ? 'SOL' : 'ETH',
@@ -129,7 +131,7 @@ async function fetchCryptoPanic(): Promise<Omit<AggregatedAsset,'sources'>[]> {
   const key = process.env.CRYPTOPANIC_API_KEY;
   if(!key) return [];
   const res = await request(`https://cryptopanic.com/api/v1/posts/?auth_token=${key}&kind=news&currencies=ETH,SOL&public=true`);
-  const body = await res.body.json();
+  const body: any = await res.body.json();
   if(!body?.results) return [];
   const grouped = new Map<string, { sentiment: number; catalysts: string[]; chain: Chain }>();
   for(const item of body.results) {

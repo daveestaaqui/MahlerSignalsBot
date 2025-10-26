@@ -1,3 +1,8 @@
+<<<<<<< Updated upstream
+=======
+import { daily } from '../adapters/alphaVantage';
+import { sma, rvol, gapDown, gapUp, Bar } from './indicators';
+>>>>>>> Stashed changes
 import { scoreStock, stockUniq, SignalRecord } from '../../signals/rules.js';
 import { TIERS } from '../../config/tiers.js';
 

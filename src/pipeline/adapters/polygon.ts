@@ -1,11 +1,13 @@
-import fetch from 'node-fetch';
-
 const BASE = 'https://api.polygon.io';
 
-export async function aggDaily(symbol: string, from: string, to: string, apiKey = process.env.POLYGON_KEY) {
-  if (!apiKey) throw new Error('POLYGON_KEY missing');
-  const url = `${BASE}/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/1/day/${from}/${to}?apiKey=${apiKey}`;
-  const res = await fetch(url);
+function assertKey(key?: string) {
+  if (!key) throw new Error('POLYGON_KEY missing');
+  return key;
+}
+
+export async function aggDaily(symbol: string, from: string, to: string, key = process.env.POLYGON_KEY) {
+  const token = assertKey(key);
+  const res = await fetch(`${BASE}/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/1/day/${from}/${to}?apiKey=${token}`);
   if (!res.ok) throw new Error(`polygon ${res.status}`);
-  return res.json() as Promise<any>;
+  return res.json();
 }
