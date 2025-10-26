@@ -1,14 +1,10 @@
-export const TIERS = {
-  free:  { name: 'FREE',  stocks: true,  crypto: false, delaySeconds: 24 * 3600 },
-  pro:   { name: 'PRO',   stocks: true,  crypto: false, delaySeconds: 0, extras: true },
-  elite: { name: 'ELITE', stocks: true,  crypto: true,  delaySeconds: 0, extras: true },
+export type Tier = 'free'|'pro'|'elite';
+export const TIER_GATES = {
+  free:  { delaySeconds: 24*3600, crypto: false, stocks: true, whale: false, congress: false, options: false },
+  pro:   { delaySeconds: 0,        crypto: true,  stocks: true, whale: true,  congress: true,  options: false },
+  elite: { delaySeconds: 0,        crypto: true,  stocks: true, whale: true,  congress: true,  options: true  },
 } as const;
-
-export type TierKey = keyof typeof TIERS;
-
-export const TELEGRAM = {
-  token: process.env.TELEGRAM_BOT_TOKEN,
-  free:  process.env.TELEGRAM_CHAT_ID_FREE,
-  pro:   process.env.TELEGRAM_CHAT_ID_PRO,
-  elite: process.env.TELEGRAM_CHAT_ID_ELITE,
-} as const;
+export const FEATURES = {
+  DRY_RUN: process.env.DRY_RUN === 'true',
+  POST_ENABLED: process.env.POST_ENABLED === 'true',
+};
