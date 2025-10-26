@@ -2,9 +2,10 @@ import db from '../lib/db.js';
 import { runStocks } from '../pipeline/stocks/index.js';
 import { runCrypto } from '../pipeline/crypto/index.js';
 import { STOCK_UNIVERSE } from '../config/universe.js';
-import { TIERS } from '../config/tiers.js';
+import { TIER_GATES } from '../config/tiers.js';
 import { broadcast, postX } from '../services/posters.js';
-import { eliteCryptoMessage, eliteStockMessage, proStockMessage, freeTeaser } from '../services/formatters.js';
+import { fmtEliteStock, fmtEliteCrypto, fmtPro, fmtFreeTeaser } from '../services/formatters.js';
+import { canPublish } from '../services/gating.js';
 import type { SignalRecord } from '../signals/rules.js';
 
 const insertSignalStmt = db.prepare(`
@@ -70,76 +71,28 @@ function upsertSignal(signal: SignalRecord): number {
 
 function enqueueForTiers(signalId: number, signal: SignalRecord) {
   const now = Math.floor(Date.now() / 1000);
-  const freeReady = signal.embargo_until ?? (now + TIERS.free.delaySeconds);
+  const freeReady = signal.embargo_until ?? (now + TIER_GATES.free.delaySeconds);
+  const base = {
+    symbol: signal.symbol,
+    price: signal.features?.price,
+    pct: signal.features?.pct_change_1d,
+    rvol: signal.features?.rvol,
+    reason: signal.reason,
+    score: signal.score,
+    subs: signal.features?.subs || {},
+    tier: 'pro' as const,
+    assetType: signal.asset_type,
+  };
 
-  if (signal.asset_type === 'stock') {
-    queueStmt.run({
-      signal_id: signalId,
-      tier: 'pro',
-      payload: proStockMessage(signal),
-      ready_at: signal.created_at,
-    });
-    queueStmt.run({
-      signal_id: signalId,
-      tier: 'elite',
-      payload: (signal.asset_type==='crypto' ? eliteCryptoMessage(signal) : eliteStockMessage(signal)),
-      ready_at: signal.created_at,
-    });
-    queueStmt.run({
-      signal_id: signalId,
-      tier: 'free',
-      payload: freeTeaser(signal),
-      ready_at: freeReady,
-    });
-    return;
+  if(canPublish('elite', { asset: signal.asset_type, whale: Boolean(signal.features?.whales || signal.features?.whaleScore), options: Boolean(signal.features?.optionsScore) })){
+    queueStmt.run({ signal_id: signalId, tier: 'elite', payload: signal.asset_type==='crypto' ? fmtEliteCrypto(base) : fmtEliteStock(base), ready_at: signal.created_at });
   }
 
-  // Crypto: elite only, optional tease to free via X already handled
-  queueStmt.run({
-    signal_id: signalId,
-    tier: 'elite',
-    payload: (signal.asset_type==='crypto' ? eliteCryptoMessage(signal) : eliteStockMessage(signal)),
-    ready_at: signal.created_at,
-  });
-}
-
-function formatProMessage(signal: SignalRecord) {
-  const f = signal.features || {};
-  const rows = [
-    `⭐ PRO • ${signal.symbol}`,
-    `Score: ${signal.score.toFixed(2)} | ${signal.reason}`,
-  ];
-  if (signal.asset_type === 'stock') {
-    rows.push(
-      `Δ20d ${(f.pct_from_20d ?? 0).toFixed(1)}% | Δ200d ${(f.pct_from_200d ?? 0).toFixed(1)}%`,
-      `RVOL ${(f.rvol ?? 1).toFixed(2)} | Sentiment ${( (f.sentiment ?? 0) * 100 ).toFixed(1)}%`
-    );
+  if(canPublish('pro', { asset: signal.asset_type, whale: Boolean(signal.features?.whales || signal.features?.whaleScore), congress: Boolean(signal.features?.congressScore), options: Boolean(signal.features?.optionsScore) })){
+    queueStmt.run({ signal_id: signalId, tier: 'pro', payload: fmtPro(base), ready_at: signal.created_at });
   }
-  return rows.join('\n');
-}
 
-function formatEliteMessage(signal: SignalRecord) {
-  const isCrypto = signal.asset_type === 'crypto';
-  const header = isCrypto ? '👑 ELITE CRYPTO' : '👑 ELITE STOCK';
-  const rows = [
-    `${header} • ${signal.symbol}`,
-    `Score: ${signal.score.toFixed(2)} | ${signal.reason}`,
-  ];
-  if (!isCrypto) {
-    const f = signal.features || {};
-    rows.push(
-      `Smart money ${( (f.smartMoneyScore ?? 0) * 100 ).toFixed(1)}% | Policy ${( (f.policyTailwind ?? 0) * 100 ).toFixed(1)}%`,
-      `Sentiment ${( (f.sentiment ?? 0) * 100 ).toFixed(1)}%`
-    );
+  if(canPublish('free', { asset: signal.asset_type })){
+    queueStmt.run({ signal_id: signalId, tier: 'free', payload: fmtFreeTeaser(base), ready_at: freeReady });
   }
-  return rows.join('\n');
-}
-
-function formatFreeMessage(signal: SignalRecord) {
-  const rows = [
-    `⌛ ${signal.symbol} triggered ${signal.score.toFixed(2)} yesterday.`,
-    `Reason: ${signal.reason.split(' • ')[0] || signal.reason}`,
-    `Upgrade to PRO for realtime entries: https://aurora-signals.onrender.com#pricing`,
-  ];
-  return rows.join('\n');
 }
