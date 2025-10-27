@@ -3,7 +3,7 @@ import { score } from '../../signals/scoring.js';
 import { stockUniq, type SignalRecord } from '../../signals/rules.js';
 import { TIER_GATES } from '../../config/tiers.js';
 import { POSTING_RULES } from '../../config/posting.js';
-import { sma, rvol, gap } from '../../lib/indicators.js';
+import { sma, rvol, gapFlags } from '../../lib/indicators.js';
 
 const MIN_TOTAL = Math.max(POSTING_RULES.MIN_SCORE_PRO, 0.65);
 
@@ -21,7 +21,7 @@ function computeFeatures(candles:Candle[]){
   const pct200 = (last.c - sma200) / sma200;
   const relVol = rvol(vols,20) ?? 1;
   const change1d = (last.c - prev.c) / prev.c;
-  const gapInfo = gap(prev,last);
+  const gapInfo = gapFlags(prev,last);
   const momentumScore = clamp(0.5 + pct20/0.18 + change1d/0.12);
   const trendScore = clamp(0.5 + pct200/0.25);
   const rvolScore = clamp((relVol-1)/1.5 + 0.5);
@@ -29,7 +29,7 @@ function computeFeatures(candles:Candle[]){
   return { last, prev, pct20, pct200, relVol, change1d, gapInfo, techScore };
 }
 
-export async function runStocksOnce(symbols: string[]): Promise<SignalRecord[]> {
+export async function runStocksOnce(symbols: readonly string[]): Promise<SignalRecord[]> {
   const now = Math.floor(Date.now()/1000);
   const signals: SignalRecord[] = [];
   for (const rawSymbol of symbols) {
@@ -41,6 +41,13 @@ export async function runStocksOnce(symbols: string[]): Promise<SignalRecord[]> 
     const sentimentScore = clamp(0.5 + change1d/0.1);
     const optionsFlow = await getOptionsFlow(symbol).catch(()=>[]);
     const optionsScore = clamp((optionsFlow?.length || 0) / 10);
+    const flowUsd = Array.isArray(optionsFlow)
+      ? optionsFlow.reduce((sum:number, item:any)=>{
+          const raw = item?.notionalUsd ?? item?.notional ?? item?.usd ?? 0;
+          const value = typeof raw === 'number' ? raw : Number(raw);
+          return Number.isFinite(value) ? sum + value : sum;
+        }, 0)
+      : 0;
     const fundamentalScore = clamp(0.6 - pct200/0.25);
     const total = score({ assetType:'stock', tech:techScore, sentiment:sentimentScore, whale:whaleScore, options:optionsScore, fundamental:fundamentalScore });
     if(total.total < MIN_TOTAL) continue;
@@ -59,6 +66,7 @@ export async function runStocksOnce(symbols: string[]): Promise<SignalRecord[]> 
       optionsScore,
       fundamentalScore,
       subs: total.subs,
+      flowUsd,
     };
     signals.push({
       symbol,

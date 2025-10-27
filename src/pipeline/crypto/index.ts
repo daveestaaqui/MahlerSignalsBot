@@ -9,7 +9,7 @@ const MIN_TOTAL = Math.max(POSTING_RULES.MIN_SCORE_PRO, 0.65);
 
 function clamp(n:number){ return Math.max(0, Math.min(1,n)); }
 
-export async function runCryptoOnce(symbols:string[]): Promise<SignalRecord[]> {
+export async function runCryptoOnce(symbols:readonly string[]): Promise<SignalRecord[]> {
   const now = Math.floor(Date.now()/1000);
   const outputs: SignalRecord[] = [];
   for (const raw of symbols) {
@@ -29,6 +29,11 @@ export async function runCryptoOnce(symbols:string[]): Promise<SignalRecord[]> {
     const pct50 = (last.c - sma50)/sma50;
 
     const whales = await getWhaleEvents(symbol).catch(()=>[]);
+    const totalWhaleAmount = whales.reduce((sum:number, event:any)=>{
+      const value = typeof event?.amount === 'number' ? event.amount : Number(event?.amount ?? 0);
+      return Number.isFinite(value) ? sum + value : sum;
+    }, 0);
+    const flowUsd = totalWhaleAmount * (last.c ?? 0);
     const whaleScore = clamp((whales.length)/5 + (change1d>0 ? 0.15 : 0));
     const techScore = clamp(0.55 + pct20/0.2 + change1d/0.1);
     const sentimentScore = clamp(0.5 + change1d/0.12);
@@ -48,6 +53,7 @@ export async function runCryptoOnce(symbols:string[]): Promise<SignalRecord[]> {
       whaleScore,
       sentimentScore,
       subs: total.subs,
+      flowUsd,
     };
     outputs.push({
       symbol,
