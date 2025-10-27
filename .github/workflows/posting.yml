@@ -1,0 +1,28 @@
+name: posting
+
+on:
+  schedule:
+    - cron: "30 14 * * 1-5"
+    - cron: "30 19 * * 1-5"
+    - cron: "00 16 * * 0"
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post daily
+        if: ${{ github.event.schedule != '00 16 * * 0' }}
+        run: |
+          curl -sSf -X POST "$BASE_URL/admin/post-daily" -H "Authorization: Bearer $ADMIN_TOKEN"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+
+      - name: Post weekly
+        if: ${{ github.event.schedule == '00 16 * * 0' }}
+        run: |
+          curl -sSf -X POST "$BASE_URL/admin/post-weekly" -H "Authorization: Bearer $ADMIN_TOKEN"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
