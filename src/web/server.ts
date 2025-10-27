@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { serve } from '@hono/node-server';
 import { acquireLock, releaseLock } from '../lib/locks.js';
 import { runDailyOnce } from '../jobs/runDaily.js';
 import { flushPublishQueue } from '../jobs/publishWorker.js';
@@ -88,11 +87,6 @@ app.post('/admin/post-weekly', async c => {
     console.error('[admin/post-weekly]', err);
     return c.json({ ok: false, error: 'internal_error' }, 500);
   }
-});
-
-const port = Number(process.env.PORT || 8787);
-serve({ fetch: app.fetch, port }, () => {
-  console.log(`HTTP server listening on :${port}`);
 });
 
 export default app;
