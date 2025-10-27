@@ -1,32 +1,32 @@
-# AuroraSignalX Operations Guide
+# Operations Guide
 
-## Deployment Toggles
-- `POST_ENABLED=true|false` controls whether messages are actually sent.
-- `DRY_RUN=true|false` keeps messages local (logged) but prevents external posting.
-  - On Render: Settings → Environment → update and redeploy.
-  - Locally: export variables before running `make diagnostics` or `make once`.
+## Environment Flags
 
-## Running Pipelines Manually
-```bash
-cd ~/n8n/mcp-n8n
-export BASE_URL="https://aurora-signals.onrender.com"
-export ADMIN_TOKEN="<admin-token>"
-make diagnostics     # checks /diagnostics health
-make once            # invokes current pipelines respecting caps
-```
+- `POST_ENABLED` (`true` | `false`): Master toggle for delivering messages to Telegram/Discord. When `false` the system queues signals but delivery services only log dry-run payloads.
+- `DRY_RUN` (`true` | `false`): Forces all external adapters to use mock data where possible and downgrades poster activity to logging-only mode. Useful for staging smoke-tests.
+- `DAILY_POST_CAP` (default `2`): Maximum number of signals per asset class (`stock`, `crypto`) that can be queued each day. Historical sends reduce the remaining quota automatically.
+- `MIN_SCORE_PRO` (default `0.85`): Minimum composite score required for a signal to qualify for Pro distribution unless whale flow auto-pass triggers.
+- `MIN_SCORE_ELITE` (default `0.90`): Minimum composite score required for Elite tier distribution.
+- `FLOW_USD_MIN` (default `2000000`): Whale flow notional (USD) that guarantees a candidate survives scoring filters.
+- `COOLDOWN_DAYS` (default `3`): Symbol-level cooldown before another send will be considered eligible.
 
-## Logs & Monitoring
-- Render dashboard → Logs stream shows structured JSON (`level`, `msg`).
-- GitHub Actions `signal-scheduler` runs at 09:05 and 15:05 ET weekdays, weekly digest Sunday 17:00 ET.
-- `/diagnostics` exposes environment toggles and queue depth.
-- `/weekly-summary` returns last seven days stats (counts, win/loss placeholder, top movers).
+## Admin Endpoints
 
-## Pausing Jobs
-- On Render: set `POST_ENABLED=false` (and optionally `DRY_RUN=true`).
-- For complete pause: disable GitHub Action `signal-scheduler` or revoke `BASE_URL` secret.
+All admin routes require `Authorization: Bearer ${ADMIN_TOKEN}`.
 
-## Token Rotation
-1. Generate new token.
-2. Update Render environment (`ADMIN_TOKEN`, Telegram/X/Discord keys).
-3. Update GitHub secrets (`BASE_URL`, `ADMIN_TOKEN`, Telegram keys if posting from Actions).
-4. Redeploy Render and run `make diagnostics` to confirm.
+- `GET /status` – Health snapshot with posting rules and environment flags.
+- `GET /diagnostics` – Extended environment diagnostics including credential presence checks.
+- `GET /weekly-summary` – JSON payload of the latest KPI rollup (last 7 days).
+- `POST /admin/post-daily` – Runs the full daily pipeline (stock + crypto harvest, selection, queueing) and immediately flushes the publish queue. Returns the selection report.
+- `POST /admin/post-weekly` – Generates the weekly digest body, broadcasts to PRO and ELITE (respecting `POST_ENABLED` / `DRY_RUN`), and returns delivery status plus the rendered preview.
+
+## One-Off Runs
+
+1. Ensure environment variables (particularly `ADMIN_TOKEN`, posting flags, and API keys) are exported in the shell or defined in `.env`.
+2. Build the project if TypeScript changes were made: `npm run build`.
+3. Execute a dry-run of the pipeline without hitting the admin API:
+   ```bash
+   node -e "import('./dist/jobs/runDaily.js').then(m => m.runDailyOnce()).then(console.log)"
+   ```
+   Set `DRY_RUN=true` to avoid hitting live data providers.
+4. To trigger from the admin surface instead, call `POST /admin/post-daily` with the bearer token; this will also flush the publish queue.

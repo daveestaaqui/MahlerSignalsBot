@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 const BASE = 'https://finnhub.io/api/v1';
 
 export async function quote(symbol: string, apiKey = process.env.FINNHUB_KEY) {

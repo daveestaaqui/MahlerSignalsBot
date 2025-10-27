@@ -9,6 +9,11 @@ export type WeeklyStats = {
   wins: number;
   losses: number;
   averageScore: number;
+  hitRate5D: number;
+  averagePnl: number;
+  medianPnl: number;
+  topWinners: string[];
+  topLosers: string[];
   topMoves: string[];
   lines: string[];
 };
@@ -29,6 +34,7 @@ export function generateWeeklySummary(): WeeklyStats {
   let losses = 0;
   let totalScore = 0;
   const moves: Array<{ symbol:string; tier:string; pnl:number }> = [];
+  const pnlValues: number[] = [];
 
   const lines = rows.map(row => {
     counts[row.tier] = (counts[row.tier] || 0) + 1;
@@ -39,12 +45,18 @@ export function generateWeeklySummary(): WeeklyStats {
     const pnl = (entry && exit) ? (exit - entry) / entry : 0;
     if(pnl > 0) wins++; else if(pnl < 0) losses++;
     moves.push({ symbol: row.symbol, tier: row.tier, pnl });
+    pnlValues.push(pnl);
     const ts = new Date(row.sent_at * 1000).toISOString().slice(0,19);
     return `[${row.tier.toUpperCase()}] ${row.symbol} (${row.asset_type}) • score ${(row.score*100).toFixed(0)} • sent ${ts} • est P/L ${(pnl*100).toFixed(1)}%`;
   });
 
   moves.sort((a,b)=> Math.abs(b.pnl) - Math.abs(a.pnl));
   const topMoves = moves.slice(0,3).map(m => `${m.symbol} (${m.tier}) ${(m.pnl*100).toFixed(1)}%`);
+  const winners = moves.filter(m => m.pnl > 0).sort((a,b)=> b.pnl - a.pnl).slice(0,3);
+  const losers = moves.filter(m => m.pnl < 0).sort((a,b)=> a.pnl - b.pnl).slice(0,3);
+
+  const averagePnl = pnlValues.length ? pnlValues.reduce((sum, v)=> sum + v, 0) / pnlValues.length : 0;
+  const medianPnl = pnlValues.length ? median(pnlValues) : 0;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -53,6 +65,11 @@ export function generateWeeklySummary(): WeeklyStats {
     wins,
     losses,
     averageScore: rows.length ? +(totalScore/rows.length).toFixed(2) : 0,
+    hitRate5D: rows.length ? +(wins / rows.length).toFixed(2) : 0,
+    averagePnl: +averagePnl.toFixed(4),
+    medianPnl: +medianPnl.toFixed(4),
+    topWinners: winners.map(m => `${m.symbol} (${m.tier}) ${(m.pnl*100).toFixed(1)}%`),
+    topLosers: losers.map(m => `${m.symbol} (${m.tier}) ${(m.pnl*100).toFixed(1)}%`),
     topMoves,
     lines,
   };
@@ -61,4 +78,13 @@ export function generateWeeklySummary(): WeeklyStats {
 function safeParse(raw?:string){
   if(!raw) return undefined;
   try { return JSON.parse(raw); } catch { return undefined; }
+}
+
+function median(values: number[]){
+  const sorted = [...values].sort((a,b)=>a-b);
+  const mid = Math.floor(sorted.length/2);
+  if(sorted.length % 2 === 0){
+    return (sorted[mid-1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
 }

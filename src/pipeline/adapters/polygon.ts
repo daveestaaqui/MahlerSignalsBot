@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 const BASE = 'https://api.polygon.io';
 
 export async function aggDaily(symbol: string, from: string, to: string, apiKey = process.env.POLYGON_KEY) {
