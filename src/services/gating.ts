@@ -1,10 +1,19 @@
-import { TIER_GATES } from '../config/tiers.js';
-export function canPublish(tier:'free'|'pro'|'elite', dimension:{ asset:'stock'|'crypto'; whale?:boolean; congress?:boolean; options?:boolean }): boolean {
-  const g = TIER_GATES[tier]; if(!g) return false;
-  if(dimension.asset==='crypto' && !g.crypto) return false;
-  if(dimension.asset==='stock'  && !g.stocks) return false;
-  if(dimension.whale && !g.whale) return false;
-  if(dimension.congress && !g.congress) return false;
-  if(dimension.options && !g.options) return false;
+import { TIER_GATES, type Tier } from '../config/tiers.js';
+
+export type GateContext = {
+  asset:'stock'|'crypto';
+  whale?:boolean;
+  congress?:boolean;
+  options?:boolean;
+};
+
+export function canPublish(tier:Tier, context:GateContext){
+  const gate = TIER_GATES[tier];
+  if(!gate) return false;
+  if(context.asset === 'crypto' && !gate.crypto) return false;
+  if(context.asset === 'stock' && !gate.stocks) return false;
+  if(context.whale && !gate.whale) return false;
+  if(context.congress && !gate.congress) return false;
+  if(context.options && !gate.options) return false;
   return true;
 }

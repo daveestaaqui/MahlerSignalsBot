@@ -1,11 +1,9 @@
 import db from '../lib/db.js';
-import { runStocks } from '../pipeline/stocks/index.js';
-import { runCrypto } from '../pipeline/crypto/index.js';
-import { STOCK_UNIVERSE } from '../config/universe.js';
-import { TIER_GATES } from '../config/tiers.js';
-import { broadcast, postX } from '../services/posters.js';
-import { fmtEliteStock, fmtEliteCrypto, fmtPro, fmtFreeTeaser } from '../services/formatters.js';
+import { runStocksOnce } from '../pipeline/stocks/index.js';
+import { runCryptoOnce } from '../pipeline/crypto/index.js';
+import { STOCK_UNIVERSE, CRYPTO_UNIVERSE } from '../config/universe.js';
 import { canPublish } from '../services/gating.js';
+import { eliteStockMessage, eliteCryptoMessage, proMessage, freeTeaser } from '../services/formatters.js';
 import type { SignalRecord } from '../signals/rules.js';
 
 const insertSignalStmt = db.prepare(`
@@ -20,7 +18,6 @@ const insertSignalStmt = db.prepare(`
 `);
 
 const selectSignalIdStmt = db.prepare(`SELECT id FROM signals WHERE uniq_key = ?`);
-
 const queueStmt = db.prepare(`
   INSERT INTO publish_queue (signal_id, tier, payload, ready_at, sent_at, attempts, last_error)
   VALUES (@signal_id, @tier, @payload, @ready_at, NULL, 0, NULL)
@@ -32,28 +29,18 @@ const queueStmt = db.prepare(`
     last_error = NULL
 `);
 
-export async function runOnce() {
-  const stockSignals = await runStocks(STOCK_UNIVERSE as unknown as string[]);
-  const cryptoSignals = await runCrypto();
-  const allSignals = [...stockSignals, ...cryptoSignals];
+export async function runOnce(){
+  const stockSignals = await runStocksOnce(STOCK_UNIVERSE as string[]);
+  const cryptoSignals = await runCryptoOnce(CRYPTO_UNIVERSE as string[]);
+  const combined = [...stockSignals, ...cryptoSignals];
 
-  const teaserSymbols: string[] = [];
-
-  for (const signal of allSignals) {
-    const signalId = upsertSignal(signal);
-    enqueueForTiers(signalId, signal);
-    if (signal.asset_type === 'stock') {
-      teaserSymbols.push(signal.symbol);
-    }
-  }
-
-  if (teaserSymbols.length) {
-    const unique = Array.from(new Set(teaserSymbols)).slice(0, 3);
-    await postX(`Stocks in play: ${unique.join(' / ')} • Free channel gets 24h delayed access. Upgrade at https://aurora-signals.onrender.com`);
+  for(const signal of combined){
+    const id = upsertSignal(signal);
+    enqueueForTiers(id, signal);
   }
 }
 
-function upsertSignal(signal: SignalRecord): number {
+function upsertSignal(signal: SignalRecord){
   insertSignalStmt.run({
     symbol: signal.symbol,
     asset_type: signal.asset_type,
@@ -65,13 +52,13 @@ function upsertSignal(signal: SignalRecord): number {
     embargo_until: signal.embargo_until ?? null,
     uniq_key: signal.uniq_key,
   });
-  const row = selectSignalIdStmt.get(signal.uniq_key) as { id: number };
+  const row = selectSignalIdStmt.get(signal.uniq_key) as { id:number };
   return row.id;
 }
 
-function enqueueForTiers(signalId: number, signal: SignalRecord) {
-  const now = Math.floor(Date.now() / 1000);
-  const freeReady = signal.embargo_until ?? (now + TIER_GATES.free.delaySeconds);
+function enqueueForTiers(signalId:number, signal:SignalRecord){
+  const now = Math.floor(Date.now()/1000);
+  const embargo = signal.embargo_until ?? now;
   const base = {
     symbol: signal.symbol,
     price: signal.features?.price,
@@ -79,20 +66,26 @@ function enqueueForTiers(signalId: number, signal: SignalRecord) {
     rvol: signal.features?.rvol,
     reason: signal.reason,
     score: signal.score,
-    subs: signal.features?.subs || {},
-    tier: 'pro' as const,
+    subs: signal.features?.subs,
     assetType: signal.asset_type,
   };
+  const context = {
+    asset: signal.asset_type,
+    whale: Boolean(signal.features?.whales || signal.features?.whaleScore),
+    congress: Boolean(signal.features?.congressScore),
+    options: Boolean(signal.features?.optionsScore),
+  } as const;
 
-  if(canPublish('elite', { asset: signal.asset_type, whale: Boolean(signal.features?.whales || signal.features?.whaleScore), options: Boolean(signal.features?.optionsScore) })){
-    queueStmt.run({ signal_id: signalId, tier: 'elite', payload: signal.asset_type==='crypto' ? fmtEliteCrypto(base) : fmtEliteStock(base), ready_at: signal.created_at });
+  if(canPublish('elite', context)){
+    const payload = signal.asset_type === 'crypto' ? eliteCryptoMessage(base) : eliteStockMessage(base);
+    queueStmt.run({ signal_id: signalId, tier:'elite', payload, ready_at: now });
   }
-
-  if(canPublish('pro', { asset: signal.asset_type, whale: Boolean(signal.features?.whales || signal.features?.whaleScore), congress: Boolean(signal.features?.congressScore), options: Boolean(signal.features?.optionsScore) })){
-    queueStmt.run({ signal_id: signalId, tier: 'pro', payload: fmtPro(base), ready_at: signal.created_at });
+  if(canPublish('pro', context)){
+    const payload = proMessage(base);
+    queueStmt.run({ signal_id: signalId, tier:'pro', payload, ready_at: now });
   }
-
-  if(canPublish('free', { asset: signal.asset_type })){
-    queueStmt.run({ signal_id: signalId, tier: 'free', payload: fmtFreeTeaser(base), ready_at: freeReady });
+  if(canPublish('free', context)){
+    const payload = freeTeaser(base);
+    queueStmt.run({ signal_id: signalId, tier:'free', payload, ready_at: embargo });
   }
 }
