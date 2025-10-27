@@ -1,3 +1,4 @@
+import fetch from 'node-fetch';
 
 const BASE = 'https://finnhub.io/api/v1';
 

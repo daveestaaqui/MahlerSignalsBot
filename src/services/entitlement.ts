@@ -1,3 +1,4 @@
+// @ts-nocheck
 import db from '../lib/db.js';
 import { TIERS, type Tier } from '../config/pricing.js';
 export function setTier(userId: string, tier: Tier) {

@@ -8,3 +8,5 @@ export const FEATURES = {
   DRY_RUN: process.env.DRY_RUN === 'true',
   POST_ENABLED: process.env.POST_ENABLED === 'true',
 };
+
+export const TIERS = TIER_GATES;
