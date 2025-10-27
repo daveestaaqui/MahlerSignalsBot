@@ -58,6 +58,26 @@ CREATE TABLE IF NOT EXISTS research_events (
   data TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS locks (
+  name TEXT PRIMARY KEY,
+  expires_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS signal_metrics (
+  id INTEGER PRIMARY KEY,
+  signal_id INTEGER NOT NULL,
+  tier TEXT CHECK(tier IN ('free','pro','elite')) NOT NULL,
+  entry_price REAL,
+  sent_at INTEGER NOT NULL,
+  exit_price_1d REAL,
+  exit_price_3d REAL,
+  pnl_1d REAL,
+  pnl_3d REAL,
+  FOREIGN KEY(signal_id) REFERENCES signals(id) ON DELETE CASCADE,
+  UNIQUE(signal_id, tier)
+);
+CREATE INDEX IF NOT EXISTS idx_metrics_signal ON signal_metrics(signal_id);
 `);
 
 export default db;

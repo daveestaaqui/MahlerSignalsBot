@@ -2,8 +2,19 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { setTier } from '../services/entitlement.js';
 import { generateWeeklySummary } from '../services/weeklySummary.js';
+import { acquireLock, releaseLock } from '../lib/locks.js';
+import { runOnce } from '../jobs/runCycle.js';
+import { flushPublishQueue } from '../jobs/publishWorker.js';
 
 const app = new Hono();
+
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+
+function isAuthorized(req: Request){
+  const header = req.headers.get('authorization') || '';
+  const token = header.replace(/^Bearer\s+/i,'');
+  return Boolean(ADMIN_TOKEN && token === ADMIN_TOKEN);
+}
 
 // Landing/pricing
 app.get('/', (c)=> c.json({ plans:[
@@ -45,6 +56,28 @@ app.get('/diagnostics', (c)=> c.json({
   }
 }));
 app.get('/weekly-summary', (c)=> c.json(generateWeeklySummary()));
+
+app.post('/admin/post-daily', async (c)=>{
+  if(!isAuthorized(c.req.raw)) return c.json({ok:false, error:'unauthorized'}, 401);
+  const lockName = 'daily-run';
+  if(!acquireLock(lockName, 600)) return c.json({ok:false, error:'locked'}, 409);
+  try {
+    await runOnce();
+    await flushPublishQueue();
+    return c.json({ok:true});
+  } catch (err) {
+    console.error('[admin/post-daily]', err);
+    return c.json({ok:false, error:'internal_error'}, 500);
+  } finally {
+    releaseLock(lockName);
+  }
+});
+
+app.post('/admin/post-weekly', async (c)=>{
+  if(!isAuthorized(c.req.raw)) return c.json({ok:false, error:'unauthorized'}, 401);
+  const summary = generateWeeklySummary();
+  return c.json({ok:true, summary});
+});
 
 const port = Number(process.env.PORT||8787);
 serve({ fetch: app.fetch, port }, ()=> console.log(`HTTP on :${port}`));
