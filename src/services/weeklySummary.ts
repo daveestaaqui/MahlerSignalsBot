@@ -1,90 +1,93 @@
 import db from '../lib/db.js';
 
-const LOOKBACK_SECONDS = 7 * 24 * 3600;
+const LOOKBACK_SECONDS = 5 * 24 * 3600;
 
-export type WeeklyStats = {
-  generatedAt: string;
-  totalSignals: number;
-  countsByTier: Record<string, number>;
-  wins: number;
-  losses: number;
-  averageScore: number;
-  hitRate5D: number;
-  averagePnl: number;
-  medianPnl: number;
-  topWinners: string[];
-  topLosers: string[];
-  topMoves: string[];
-  lines: string[];
+export type WeeklySummary = {
+  count: number;
+  avgScore: number | null;
+  medianScore: number | null;
+  winRate5d: number | null;
+  topWinners: Array<{ symbol: string; tier: string; pnl: number }>;
+  topLosers: Array<{ symbol: string; tier: string; pnl: number }>;
 };
 
-export function generateWeeklySummary(): WeeklyStats {
-  const since = Math.floor(Date.now()/1000) - LOOKBACK_SECONDS;
+export function generateWeeklySummary(): WeeklySummary {
+  const since = Math.floor(Date.now() / 1000) - LOOKBACK_SECONDS;
   const rows = db.prepare(`
-    SELECT pq.tier, pq.sent_at, s.symbol, s.asset_type, s.score, s.features, m.entry_price, m.exit_price_1d, m.exit_price_3d
+    SELECT pq.tier, pq.sent_at, s.symbol, s.score, s.features,
+           m.entry_price, m.exit_price_1d, m.exit_price_3d
     FROM publish_queue pq
     JOIN signals s ON s.id = pq.signal_id
     LEFT JOIN signal_metrics m ON m.signal_id = pq.signal_id AND m.tier = pq.tier
     WHERE pq.sent_at IS NOT NULL AND pq.sent_at >= ?
-    ORDER BY pq.sent_at DESC
-  `).all(since) as Array<{ tier:string; sent_at:number; symbol:string; asset_type:string; score:number; features:string; entry_price?:number; exit_price_1d?:number; exit_price_3d?:number }>; 
+  `).all(since) as Array<{
+    tier: string;
+    sent_at: number;
+    symbol: string;
+    score: number;
+    features?: string;
+    entry_price?: number;
+    exit_price_1d?: number;
+    exit_price_3d?: number;
+  }>;
 
-  const counts: Record<string, number> = {};
+  if (!rows.length) {
+    return { count: 0, avgScore: null, medianScore: null, winRate5d: null, topWinners: [], topLosers: [] };
+  }
+
+  const scores: number[] = [];
+  const pnlSamples: Array<{ symbol: string; tier: string; pnl: number }> = [];
   let wins = 0;
-  let losses = 0;
-  let totalScore = 0;
-  const moves: Array<{ symbol:string; tier:string; pnl:number }> = [];
-  const pnlValues: number[] = [];
 
-  const lines = rows.map(row => {
-    counts[row.tier] = (counts[row.tier] || 0) + 1;
-    totalScore += row.score ?? 0;
+  rows.forEach((row) => {
+    scores.push(row.score);
     const features = safeParse(row.features);
     const entry = row.entry_price ?? features?.price ?? null;
     const exit = row.exit_price_3d ?? row.exit_price_1d ?? entry;
-    const pnl = (entry && exit) ? (exit - entry) / entry : 0;
-    if(pnl > 0) wins++; else if(pnl < 0) losses++;
-    moves.push({ symbol: row.symbol, tier: row.tier, pnl });
-    pnlValues.push(pnl);
-    const ts = new Date(row.sent_at * 1000).toISOString().slice(0,19);
-    return `[${row.tier.toUpperCase()}] ${row.symbol} (${row.asset_type}) • score ${(row.score*100).toFixed(0)} • sent ${ts} • est P/L ${(pnl*100).toFixed(1)}%`;
+    const pnl = entry && exit ? (exit - entry) / entry : 0;
+    if (pnl > 0) wins++;
+    pnlSamples.push({ symbol: row.symbol, tier: row.tier, pnl });
   });
 
-  moves.sort((a,b)=> Math.abs(b.pnl) - Math.abs(a.pnl));
-  const topMoves = moves.slice(0,3).map(m => `${m.symbol} (${m.tier}) ${(m.pnl*100).toFixed(1)}%`);
-  const winners = moves.filter(m => m.pnl > 0).sort((a,b)=> b.pnl - a.pnl).slice(0,3);
-  const losers = moves.filter(m => m.pnl < 0).sort((a,b)=> a.pnl - b.pnl).slice(0,3);
+  const avgScore = average(scores);
+  const medScore = median(scores);
+  const winRate = rows.length ? wins / rows.length : null;
 
-  const averagePnl = pnlValues.length ? pnlValues.reduce((sum, v)=> sum + v, 0) / pnlValues.length : 0;
-  const medianPnl = pnlValues.length ? median(pnlValues) : 0;
+  pnlSamples.sort((a, b) => b.pnl - a.pnl);
+  const topWinners = pnlSamples.filter(p => p.pnl > 0).slice(0, 3);
+  const topLosers = pnlSamples.filter(p => p.pnl < 0).sort((a, b) => a.pnl - b.pnl).slice(0, 3);
 
   return {
-    generatedAt: new Date().toISOString(),
-    totalSignals: rows.length,
-    countsByTier: counts,
-    wins,
-    losses,
-    averageScore: rows.length ? +(totalScore/rows.length).toFixed(2) : 0,
-    hitRate5D: rows.length ? +(wins / rows.length).toFixed(2) : 0,
-    averagePnl: +averagePnl.toFixed(4),
-    medianPnl: +medianPnl.toFixed(4),
-    topWinners: winners.map(m => `${m.symbol} (${m.tier}) ${(m.pnl*100).toFixed(1)}%`),
-    topLosers: losers.map(m => `${m.symbol} (${m.tier}) ${(m.pnl*100).toFixed(1)}%`),
-    topMoves,
-    lines,
+    count: rows.length,
+    avgScore: avgScore !== null ? +avgScore.toFixed(3) : null,
+    medianScore: medScore !== null ? +medScore.toFixed(3) : null,
+    winRate5d: winRate !== null ? +winRate.toFixed(3) : null,
+    topWinners,
+    topLosers,
   };
 }
 
-function safeParse(raw?:string){
-  if(!raw) return undefined;
-  try { return JSON.parse(raw); } catch { return undefined; }
+function safeParse(raw?: string) {
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
 }
 
-function median(values: number[]){
-  const sorted = [...values].sort((a,b)=>a-b);
-  const mid = Math.floor(sorted.length/2);
-  if(sorted.length % 2 === 0){
-    return (sorted[mid-1] + sorted[mid]) / 2;
+function average(values: number[]): number | null {
+  if (!values.length) return null;
+  const sum = values.reduce((acc, v) => acc + v, 0);
+  return sum / values.length;
+}
+
+function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
   }
   return sorted[mid];
 }

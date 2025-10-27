@@ -2,65 +2,46 @@ import { Hono } from 'hono';
 import { acquireLock, releaseLock } from '../lib/locks.js';
 import { runDailyOnce } from '../jobs/runDaily.js';
 import { flushPublishQueue } from '../jobs/publishWorker.js';
-import { generateWeeklySummary, type WeeklyStats } from '../services/weeklySummary.js';
+import { generateWeeklySummary } from '../services/weeklySummary.js';
 import { POSTING_RULES } from '../config/posting.js';
 import { broadcast } from '../services/posters.js';
 
 const app = new Hono();
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 
-app.get('/', c => c.json({ ok: true }));
+app.get('/', (c) => c.json({ ok: true }));
 
-app.get('/status', c => c.json({
-  ok: true,
-  ts: Date.now() / 1000,
-  env: {
-    postEnabled: (process.env.POST_ENABLED || 'true').toLowerCase() === 'true',
-    dryRun: (process.env.DRY_RUN || 'false').toLowerCase() === 'true',
-  },
-  postingRules: {
-    dailyPostCap: POSTING_RULES.DAILY_POST_CAP,
-    minScorePro: POSTING_RULES.MIN_SCORE_PRO,
-    minScoreElite: POSTING_RULES.MIN_SCORE_ELITE,
-    cooldownDays: Math.round(POSTING_RULES.COOLDOWN_SECONDS / (24 * 3600)),
-    flowUsdMin: POSTING_RULES.FLOW_USD_MIN,
-  },
-}));
+app.get('/status', (c) => c.json({ ok: true, ts: Date.now() }));
 
-app.get('/diagnostics', c => c.json({
-  ok: true,
-  ts: Date.now() / 1000,
-  environment: {
-    baseUrl: process.env.BASE_URL || null,
-    postEnabled: (process.env.POST_ENABLED || 'true').toLowerCase() === 'true',
-    dryRun: (process.env.DRY_RUN || 'false').toLowerCase() === 'true',
-    alphavantage: Boolean(process.env.ALPHAVANTAGE_KEY),
-    finnhub: Boolean(process.env.FINNHUB_KEY),
-    polygon: Boolean(process.env.POLYGON_KEY),
-    whaleAlert: Boolean(process.env.WHALE_ALERT_KEY),
-    telegram: {
-      token: Boolean(process.env.TELEGRAM_BOT_TOKEN),
-      free: Boolean(process.env.TELEGRAM_CHAT_ID_FREE),
-      pro: Boolean(process.env.TELEGRAM_CHAT_ID_PRO),
-      elite: Boolean(process.env.TELEGRAM_CHAT_ID_ELITE),
+app.get('/diagnostics', (c) => {
+  const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
+  const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
+  return c.json({
+    ok: true,
+    ts: Date.now(),
+    env: {
+      POST_ENABLED: postEnabled,
+      DRY_RUN: dryRun,
+      DAILY_POST_CAP: POSTING_RULES.DAILY_POST_CAP,
     },
-  },
-  postingRules: POSTING_RULES,
-}));
+  });
+});
 
-app.get('/weekly-summary', c => {
+app.get('/weekly-summary', (c) => {
   const summary = generateWeeklySummary();
   return c.json({ ok: true, summary });
 });
 
-app.post('/admin/post-daily', async c => {
+app.post('/admin/post-daily', async (c) => {
   if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
+
   const lockName = 'daily-run';
   if (!acquireLock(lockName, 600)) return c.json({ ok: false, error: 'locked' }, 409);
+
   try {
     const result = await runDailyOnce();
     await flushPublishQueue();
-    return c.json({ ok: true, result });
+    return c.json({ ok: true, selected: result.selected, dryRun: result.dryRun, postEnabled: result.postEnabled });
   } catch (err) {
     console.error('[admin/post-daily]', err);
     return c.json({ ok: false, error: 'internal_error' }, 500);
@@ -69,20 +50,22 @@ app.post('/admin/post-daily', async c => {
   }
 });
 
-app.post('/admin/post-weekly', async c => {
+app.post('/admin/post-weekly', async (c) => {
   if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
+
   const summary = generateWeeklySummary();
+  const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
+  const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
+  const message = formatWeeklyDigest(summary);
+
   try {
-    const message = formatWeeklyDigest(summary);
-    const deliveries = await Promise.allSettled([
-      broadcast('PRO', message),
-      broadcast('ELITE', message),
-    ]);
-    const delivered = deliveries.map((result, idx) => ({
-      tier: idx === 0 ? 'PRO' : 'ELITE',
-      status: result.status,
-    }));
-    return c.json({ ok: true, summary, delivered, preview: message });
+    if (postEnabled && !dryRun) {
+      await Promise.allSettled([
+        broadcast('PRO', message),
+        broadcast('ELITE', message),
+      ]);
+    }
+    return c.json({ ok: true, dryRun, postEnabled });
   } catch (err) {
     console.error('[admin/post-weekly]', err);
     return c.json({ ok: false, error: 'internal_error' }, 500);
@@ -98,25 +81,19 @@ function isAuthorized(req: Request) {
   return token === ADMIN_TOKEN;
 }
 
-function formatWeeklyDigest(summary: WeeklyStats) {
-  const header = `📊 Weekly KPIs • ${summary.generatedAt.slice(0, 10)}`;
-  const hitRate = (summary.hitRate5D * 100).toFixed(0);
-  const countsLine = Object.entries(summary.countsByTier)
-    .map(([tier, count]) => `${tier.toUpperCase()}: ${count}`)
-    .join(' | ') || 'No sends logged';
-  const winnersLine = summary.topWinners.length
-    ? summary.topWinners.join(' • ')
-    : 'No standout winners yet';
-  const losersLine = summary.topLosers.length
-    ? summary.topLosers.join(' • ')
-    : 'No notable losers logged';
+function formatWeeklyDigest(summary: ReturnType<typeof generateWeeklySummary>) {
+  const header = `📊 Weekly Recap`; 
   const body = [
-    `Signals: ${summary.totalSignals} • Hit rate: ${hitRate}%`,
-    `Avg score: ${summary.averageScore}`,
-    `Tier mix: ${countsLine}`,
-    `Avg/Med P&L: ${(summary.averagePnl * 100).toFixed(1)}% / ${(summary.medianPnl * 100).toFixed(1)}%`,
-    `Top winners: ${winnersLine}`,
-    `Top losers: ${losersLine}`,
+    `Signals: ${summary.count}`,
+    `Win rate: ${summary.winRate5d !== null ? `${(summary.winRate5d * 100).toFixed(1)}%` : '—'}`,
+    `Avg score: ${summary.avgScore ?? '—'}`,
+    `Median score: ${summary.medianScore ?? '—'}`,
+    `Top winners: ${summary.topWinners.map((w) => `${w.symbol} ${formatPnl(w.pnl)}`).join(' • ') || '—'}`,
+    `Top losers: ${summary.topLosers.map((l) => `${l.symbol} ${formatPnl(l.pnl)}`).join(' • ') || '—'}`,
   ];
   return [header, ...body].join('\n');
+}
+
+function formatPnl(value: number) {
+  return `${(value * 100).toFixed(1)}%`;
 }
