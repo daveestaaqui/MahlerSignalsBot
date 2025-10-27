@@ -4,10 +4,13 @@ import { runStocksOnce } from '../pipeline/stocks/index.js';
 import { runCryptoOnce } from '../pipeline/crypto/index.js';
 import { selectDailySignals } from '../services/selector.js';
 import { canPublish } from '../services/gating.js';
-import { eliteStockMessage, eliteCryptoMessage, proMessage, freeTeaser } from '../services/formatters.js';
+import { fmtEliteStock, fmtEliteCrypto, fmtPro, fmtFreeTeaser, type MessageBase } from '../services/formatters.js';
 import { TIER_GATES } from '../config/tiers.js';
 import { POSTING_RULES } from '../config/posting.js';
 import type { SignalRecord } from '../signals/rules.js';
+
+type Tier = 'elite' | 'pro' | 'free';
+type AssetClass = 'stock' | 'crypto';
 
 const insertSignalStmt = db.prepare(`
   INSERT INTO signals (symbol, asset_type, tier_min, score, reason, features, created_at, embargo_until, uniq_key)
@@ -20,7 +23,7 @@ const insertSignalStmt = db.prepare(`
     embargo_until = excluded.embargo_until
 `);
 
-const selectSignalIdStmt = db.prepare(`SELECT id FROM signals WHERE uniq_key = ?`);
+const selectSignalIdStmt = db.prepare('SELECT id FROM signals WHERE uniq_key = ?');
 const queueStmt = db.prepare(`
   INSERT INTO publish_queue (signal_id, tier, payload, ready_at, sent_at, attempts, last_error)
   VALUES (@signal_id, @tier, @payload, @ready_at, NULL, 0, NULL)
@@ -43,15 +46,15 @@ export type DailyRunResult = {
   };
   selected: Array<{
     symbol: string;
-    assetType: 'stock' | 'crypto';
-    score: number;
+    assetType: AssetClass;
     tier: 'pro' | 'elite';
-    autoPass: boolean;
+    score: number;
     flowUsd: number;
+    autoPass: boolean;
   }>;
   rejected: Array<{
     symbol: string;
-    assetType: 'stock' | 'crypto';
+    assetType: AssetClass;
     reason: string;
   }>;
   capacity: {
@@ -64,6 +67,8 @@ export type DailyRunResult = {
   };
 };
 
+type PersistedSignal = { id: number; record: SignalRecord };
+
 export async function runDailyOnce(): Promise<DailyRunResult> {
   const [stockSignals, cryptoSignals] = await Promise.all([
     runStocksOnce(STOCK_UNIVERSE),
@@ -73,17 +78,23 @@ export async function runDailyOnce(): Promise<DailyRunResult> {
   const candidates = [...stockSignals, ...cryptoSignals];
   const selection = selectDailySignals(candidates);
 
-  const queued: SignalRecord[] = [];
-  for (const { signal } of selection.selected) {
-    const id = upsertSignal(signal);
-    enqueueForTiers(id, signal);
-    queued.push(signal);
+  const persisted: PersistedSignal[] = selection.selected.map(({ signal }) => ({
+    id: upsertSignal(signal),
+    record: signal,
+  }));
+
+  const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
+  const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
+  const shouldDispatch = postEnabled && !dryRun;
+
+  if (shouldDispatch) {
+    enqueueBatches(persisted);
   }
 
   return {
     generatedAt: new Date().toISOString(),
-    dryRun: (process.env.DRY_RUN || 'false').toLowerCase() === 'true',
-    postEnabled: (process.env.POST_ENABLED || 'true').toLowerCase() === 'true',
+    dryRun,
+    postEnabled,
     candidates: {
       total: candidates.length,
       stock: stockSignals.length,
@@ -92,10 +103,10 @@ export async function runDailyOnce(): Promise<DailyRunResult> {
     selected: selection.selected.map(({ signal, autoPass, flowUsd }) => ({
       symbol: signal.symbol,
       assetType: signal.asset_type,
-      score: signal.score,
       tier: signal.tier_min === 'elite' ? 'elite' : 'pro',
-      autoPass,
+      score: signal.score,
       flowUsd,
+      autoPass,
     })),
     rejected: selection.rejected.map(({ signal, reason }) => ({
       symbol: signal.symbol,
@@ -107,7 +118,7 @@ export async function runDailyOnce(): Promise<DailyRunResult> {
   };
 }
 
-function upsertSignal(signal: SignalRecord) {
+function upsertSignal(signal: SignalRecord): number {
   insertSignalStmt.run({
     symbol: signal.symbol,
     asset_type: signal.asset_type,
@@ -123,16 +134,93 @@ function upsertSignal(signal: SignalRecord) {
   return row.id;
 }
 
-function enqueueForTiers(signalId: number, signal: SignalRecord) {
+function enqueueBatches(entries: PersistedSignal[]) {
+  if (!entries.length) return;
   const now = Math.floor(Date.now() / 1000);
-  const freeReady = signal.embargo_until ?? (now + TIER_GATES.free.delaySeconds);
-  const context = {
-    asset: signal.asset_type,
-    whale: Boolean(signal.features?.whales || signal.features?.whaleScore),
-    congress: Boolean(signal.features?.congressScore),
-    options: Boolean(signal.features?.optionsScore),
-  } as const;
-  const base = {
+
+  const groups = buildGroups(entries);
+
+  for (const group of groups) {
+    const bases = group.entries.map(({ record }) => buildMessageBase(record));
+    const formatted = formatForTier(group.tier, group.asset, bases);
+    const readyAt = group.tier === 'free'
+      ? Math.max(
+          ...group.entries.map(({ record }) => record.embargo_until ?? now + TIER_GATES.free.delaySeconds),
+        )
+      : now;
+
+    group.entries.forEach(({ id }) => {
+      queueStmt.run({
+        signal_id: id,
+        tier: group.tier,
+        payload: JSON.stringify({
+          version: 2,
+          tier: group.tier,
+          asset: group.asset,
+          message: formatted,
+          symbols: group.entries.map(({ record }) => record.symbol),
+        }),
+        ready_at: readyAt,
+      });
+    });
+  }
+}
+
+function buildGroups(entries: PersistedSignal[]): Array<{ tier: Tier; asset: AssetClass; entries: PersistedSignal[] }> {
+  const grouped = new Map<string, { tier: Tier; asset: AssetClass; entries: PersistedSignal[] }>();
+  const freeBuckets: Array<{ tier: Tier; asset: AssetClass; entries: PersistedSignal[] }> = [];
+
+  for (const entry of entries) {
+    const { record } = entry;
+    const asset = record.asset_type;
+    const context = {
+      asset,
+      whale: Boolean(record.features?.whales || record.features?.whaleScore),
+      congress: Boolean(record.features?.congressScore),
+      options: Boolean(record.features?.optionsScore),
+    } as const;
+
+    if (canPublish('elite', context) && record.score >= POSTING_RULES.MIN_SCORE_ELITE) {
+      addToGroup(grouped, 'elite', asset, entry);
+    }
+
+    if (canPublish('pro', context) && record.score >= POSTING_RULES.MIN_SCORE_PRO) {
+      addToGroup(grouped, 'pro', asset, entry);
+    }
+
+    if (canPublish('free', context)) {
+      freeBuckets.push({ tier: 'free', asset, entries: [entry] });
+    }
+  }
+
+  return [...grouped.values(), ...freeBuckets];
+}
+
+function addToGroup(
+  map: Map<string, { tier: Tier; asset: AssetClass; entries: PersistedSignal[] }>,
+  tier: Tier,
+  asset: AssetClass,
+  entry: PersistedSignal,
+) {
+  const key = `${tier}:${asset}`;
+  if (!map.has(key)) {
+    map.set(key, { tier, asset, entries: [] });
+  }
+  map.get(key)!.entries.push(entry);
+}
+
+function formatForTier(tier: Tier, asset: AssetClass, entries: MessageBase[]) {
+  if (tier === 'elite') {
+    return asset === 'stock' ? fmtEliteStock(entries) : fmtEliteCrypto(entries);
+  }
+  if (tier === 'pro') {
+    return fmtPro(asset, entries);
+  }
+  return fmtFreeTeaser(asset, entries);
+}
+
+function buildMessageBase(signal: SignalRecord): MessageBase {
+  return {
     symbol: signal.symbol,
     price: signal.features?.price,
     pct: signal.features?.pct_change_1d,
@@ -142,17 +230,4 @@ function enqueueForTiers(signalId: number, signal: SignalRecord) {
     subs: signal.features?.subs,
     assetType: signal.asset_type,
   };
-
-  if (canPublish('elite', context) && signal.score >= POSTING_RULES.MIN_SCORE_ELITE) {
-    const payload = signal.asset_type === 'crypto' ? eliteCryptoMessage(base) : eliteStockMessage(base);
-    queueStmt.run({ signal_id: signalId, tier: 'elite', payload, ready_at: now });
-  }
-  if (canPublish('pro', context) && signal.score >= POSTING_RULES.MIN_SCORE_PRO) {
-    const payload = proMessage(base);
-    queueStmt.run({ signal_id: signalId, tier: 'pro', payload, ready_at: now });
-  }
-  if (canPublish('free', context)) {
-    const payload = freeTeaser(base);
-    queueStmt.run({ signal_id: signalId, tier: 'free', payload, ready_at: freeReady });
-  }
 }

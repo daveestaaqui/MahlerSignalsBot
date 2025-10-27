@@ -1,8 +1,10 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { request } from 'undici';
+import type { FormattedMessage } from './formatters.js';
 
 type Tier = 'FREE' | 'PRO' | 'ELITE';
 type TierInput = Tier | Lowercase<Tier>;
+type MessageInput = string | FormattedMessage;
 
 const tgToken = process.env.TELEGRAM_BOT_TOKEN || '';
 const tgChats: Record<Tier, string> = {
@@ -31,13 +33,21 @@ function normalizeTier(input: TierInput): Tier {
   return input.toUpperCase() as Tier;
 }
 
-export async function postTelegram(tierInput: TierInput, text: string) {
+function toMessage(input: MessageInput): FormattedMessage {
+  if (typeof input === 'string') {
+    return { telegram: input, plain: stripHtml(input) };
+  }
+  return input;
+}
+
+export async function postTelegram(tierInput: TierInput, input: MessageInput) {
   const tier = normalizeTier(tierInput);
   if (!tgToken || !tgChats[tier]) return false;
+  const message = toMessage(input);
   const bot = new TelegramBot(tgToken, { polling: false });
-  const payload = `${text}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
+  const payload = `${message.telegram}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
   if (!POST_ENABLED || DRY_RUN) {
-    log('info', 'telegram_dry_run', { tier, preview: text.slice(0, 120) });
+    log('info', 'telegram_dry_run', { tier, preview: payload.slice(0, 160) });
     return true;
   }
   await bot.sendMessage(tgChats[tier], payload, {
@@ -47,16 +57,17 @@ export async function postTelegram(tierInput: TierInput, text: string) {
   return true;
 }
 
-export async function postDiscord(tierInput: TierInput, text: string) {
+export async function postDiscord(tierInput: TierInput, input: MessageInput) {
   const tier = normalizeTier(tierInput);
   const url = discordWebhooks[tier];
   if (!url) return false;
+  const message = toMessage(input);
   const payload = {
-    content: `${text}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`,
+    content: `${message.plain}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`,
     username: tier === 'ELITE' ? 'Aurora Elite' : 'Aurora Signals',
   };
   if (!POST_ENABLED || DRY_RUN) {
-    log('info', 'discord_dry_run', { tier, preview: text.slice(0, 120) });
+    log('info', 'discord_dry_run', { tier, preview: payload.content.slice(0, 160) });
     return true;
   }
   await request(url, {
@@ -67,12 +78,13 @@ export async function postDiscord(tierInput: TierInput, text: string) {
   return true;
 }
 
-export async function postX(text: string) {
+export async function postX(input: MessageInput) {
   if (!xCreds.apiKey || !xCreds.apiSecret || !xCreds.accessToken || !xCreds.accessSecret) {
     log('warn', 'x_missing_credentials');
     return false;
   }
-  const payload = `${text}\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
+  const message = toMessage(input);
+  const payload = `${message.plain}\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
   if (!POST_ENABLED || DRY_RUN) {
     log('info', 'x_dry_run', { preview: payload.slice(0, 200) });
     return true;
@@ -81,13 +93,13 @@ export async function postX(text: string) {
   return true;
 }
 
-export async function broadcast(tierInput: TierInput, text: string) {
+export async function broadcast(tierInput: TierInput, input: MessageInput) {
   const tier = normalizeTier(tierInput);
   const results = await Promise.allSettled([
-    postTelegram(tier, text),
-    postDiscord(tier, text),
+    postTelegram(tier, input),
+    postDiscord(tier, input),
   ]);
-  return results.some(r => r.status === 'fulfilled');
+  return results.some((r) => r.status === 'fulfilled');
 }
 
 export function teaserFor(tierInput: TierInput, symbols: string[]): string {
@@ -96,6 +108,10 @@ export function teaserFor(tierInput: TierInput, symbols: string[]): string {
   return `${emoji} ${tier} Signals: ${symbols.join(' • ')} | https://aurora-signals.onrender.com`;
 }
 
-function log(level:'info'|'warn'|'error', msg:string, meta?:Record<string, unknown>){
-  console.log(JSON.stringify({ ts:new Date().toISOString(), level, msg, meta }));
+function stripHtml(value: string): string {
+  return value.replace(/<[^>]*>/g, '');
+}
+
+function log(level: 'info' | 'warn' | 'error', msg: string, meta?: Record<string, unknown>) {
+  console.log(JSON.stringify({ ts: new Date().toISOString(), level, msg, meta }));
 }
