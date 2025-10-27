@@ -1,8 +1,13 @@
+import 'dotenv/config';
+import cron from 'node-cron';
 import './web/server.js';
 import { runOnce } from './jobs/runCycle.js';
-import { prune } from './jobs/prune.js';
-console.log('Starting scheduler fallback…');
-runOnce().catch(console.error);
-const INTERVAL = Number(process.env.SCHEDULE_MS || (30*60*1000));
-setInterval(()=> runOnce().catch(console.error), INTERVAL);
-setInterval(()=> prune(30), 12*60*60*1000); // prune every 12h
+import { flushPublishQueue } from './jobs/publishWorker.js';
+import { scheduleDailyPipelines } from './jobs/dailyScheduler.js';
+console.log('Starting scheduler…');
+// Run at startup + every 30 minutes
+runOnce().catch(e => console.error(e));
+flushPublishQueue().catch(e => console.error(e));
+cron.schedule('*/30 * * * *', () => runOnce().catch(e => console.error(e)));
+cron.schedule('*/5 * * * *', () => flushPublishQueue().catch(e => console.error(e)));
+scheduleDailyPipelines();

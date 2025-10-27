@@ -1,15 +1,17 @@
-import { TIERS } from '../config/pricing.js';
-import { getTier, setTier } from '../services/entitlement.js';
-
-const order = { FREE: 0, PRO: 1, ELITE: 2 };
-
-export function userTier(userId) {
-  return getTier(String(userId));
+import { TIER_GATES } from '../config/tiers.js';
+export function canPublish(tier, dimension) {
+    const g = TIER_GATES[tier];
+    if (!g)
+        return false;
+    if (dimension.asset === 'crypto' && !g.crypto)
+        return false;
+    if (dimension.asset === 'stock' && !g.stocks)
+        return false;
+    if (dimension.whale && !g.whale)
+        return false;
+    if (dimension.congress && !g.congress)
+        return false;
+    if (dimension.options && !g.options)
+        return false;
+    return true;
 }
-
-export function isAllowed(userId, minTier) {
-  const current = userTier(userId);
-  return (order[current] ?? 0) >= (order[minTier] ?? 0);
-}
-
-export { setTier };
