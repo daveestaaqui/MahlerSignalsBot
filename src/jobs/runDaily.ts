@@ -2,9 +2,9 @@ import db from '../lib/db.js';
 import { STOCK_UNIVERSE, CRYPTO_UNIVERSE } from '../config/universe.js';
 import { runStocksOnce } from '../pipeline/stocks/index.js';
 import { runCryptoOnce } from '../pipeline/crypto/index.js';
-import { selectDailySignals } from '../services/selector.js';
+import { selectDailySignals, type SelectedSignal } from '../services/selector.js';
 import { canPublish } from '../services/gating.js';
-import { fmtEliteStock, fmtEliteCrypto, fmtPro, fmtFreeTeaser, type MessageBase } from '../services/formatters.js';
+import { fmtEliteStock, fmtEliteCrypto, fmtPro, fmtFreeTeaser, type MessageBase, type FormattedMessage } from '../services/formatters.js';
 import { TIER_GATES } from '../config/tiers.js';
 import { POSTING_RULES } from '../config/posting.js';
 import type { SignalRecord } from '../signals/rules.js';
@@ -65,11 +65,29 @@ export type DailyRunResult = {
     now: number;
     cooldownCutoff: number;
   };
+  messages: Array<{
+    tier: Tier;
+    asset: AssetClass;
+    telegram: string;
+    plain: string;
+    symbols: string[];
+  }>;
 };
 
 type PersistedSignal = { id: number; record: SignalRecord };
+const GLOBAL_DAILY_CAP = 2;
 
 export async function runDailyOnce(): Promise<DailyRunResult> {
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const startSec = Math.floor(startOfDay.getTime() / 1000);
+  const totalSentRow = db.prepare(`
+    SELECT COUNT(DISTINCT signal_id) as cnt
+    FROM publish_queue
+    WHERE sent_at IS NOT NULL AND sent_at >= ?
+  `).get(startSec) as { cnt?: number } | undefined;
+  const alreadySentTotal = totalSentRow?.cnt ?? 0;
+
   const [stockSignals, cryptoSignals] = await Promise.all([
     runStocksOnce(STOCK_UNIVERSE),
     runCryptoOnce(CRYPTO_UNIVERSE),
@@ -78,17 +96,26 @@ export async function runDailyOnce(): Promise<DailyRunResult> {
   const candidates = [...stockSignals, ...cryptoSignals];
   const selection = selectDailySignals(candidates);
 
+  const globalCap = Math.max(Math.min(POSTING_RULES.DAILY_POST_CAP, GLOBAL_DAILY_CAP) - alreadySentTotal, 0);
+  const trimmed = enforceGlobalCap(selection.selected, globalCap);
+  const finalSelected = trimmed.selected;
+
   const persisted: PersistedSignal[] = selection.selected.map(({ signal }) => ({
     id: upsertSignal(signal),
     record: signal,
   }));
 
+  const finalPersisted = persisted.filter((entry) => finalSelected.some(({ signal }) => signal.uniq_key === entry.record.uniq_key));
+
   const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
   const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
   const shouldDispatch = postEnabled && !dryRun;
 
+  const groups = buildGroups(finalPersisted);
+  const composed = composeGroups(groups);
+
   if (shouldDispatch) {
-    enqueueBatches(persisted);
+    enqueueGroups(composed);
   }
 
   return {
@@ -100,7 +127,7 @@ export async function runDailyOnce(): Promise<DailyRunResult> {
       stock: stockSignals.length,
       crypto: cryptoSignals.length,
     },
-    selected: selection.selected.map(({ signal, autoPass, flowUsd }) => ({
+    selected: finalSelected.map(({ signal, autoPass, flowUsd }) => ({
       symbol: signal.symbol,
       assetType: signal.asset_type,
       tier: signal.tier_min === 'elite' ? 'elite' : 'pro',
@@ -108,13 +135,21 @@ export async function runDailyOnce(): Promise<DailyRunResult> {
       flowUsd,
       autoPass,
     })),
-    rejected: selection.rejected.map(({ signal, reason }) => ({
-      symbol: signal.symbol,
-      assetType: signal.asset_type,
-      reason,
-    })),
+    rejected: [...selection.rejected, ...trimmed.overflow.map(({ signal }) => ({ signal, reason: 'no_capacity' as const }))]
+      .map(({ signal, reason }) => ({
+        symbol: signal.symbol,
+        assetType: signal.asset_type,
+        reason,
+      })),
     capacity: selection.capacity,
     selectionMeta: selection.meta,
+    messages: composed.map((group) => ({
+      tier: group.tier,
+      asset: group.asset,
+      telegram: group.message.telegram,
+      plain: group.message.plain,
+      symbols: group.symbols,
+    })),
   };
 }
 
@@ -134,37 +169,6 @@ function upsertSignal(signal: SignalRecord): number {
   return row.id;
 }
 
-function enqueueBatches(entries: PersistedSignal[]) {
-  if (!entries.length) return;
-  const now = Math.floor(Date.now() / 1000);
-
-  const groups = buildGroups(entries);
-
-  for (const group of groups) {
-    const bases = group.entries.map(({ record }) => buildMessageBase(record));
-    const formatted = formatForTier(group.tier, group.asset, bases);
-    const readyAt = group.tier === 'free'
-      ? Math.max(
-          ...group.entries.map(({ record }) => record.embargo_until ?? now + TIER_GATES.free.delaySeconds),
-        )
-      : now;
-
-    group.entries.forEach(({ id }) => {
-      queueStmt.run({
-        signal_id: id,
-        tier: group.tier,
-        payload: JSON.stringify({
-          version: 2,
-          tier: group.tier,
-          asset: group.asset,
-          message: formatted,
-          symbols: group.entries.map(({ record }) => record.symbol),
-        }),
-        ready_at: readyAt,
-      });
-    });
-  }
-}
 
 function buildGroups(entries: PersistedSignal[]): Array<{ tier: Tier; asset: AssetClass; entries: PersistedSignal[] }> {
   const grouped = new Map<string, { tier: Tier; asset: AssetClass; entries: PersistedSignal[] }>();
@@ -230,4 +234,88 @@ function buildMessageBase(signal: SignalRecord): MessageBase {
     subs: signal.features?.subs,
     assetType: signal.asset_type,
   };
+}
+
+function composeGroups(groups: Array<{ tier: Tier; asset: AssetClass; entries: PersistedSignal[] }>): Array<{
+  tier: Tier;
+  asset: AssetClass;
+  entries: PersistedSignal[];
+  message: FormattedMessage;
+  symbols: string[];
+}> {
+  return groups.map((group) => {
+    const bases = group.entries.map(({ record }) => buildMessageBase(record));
+    const message = formatForTier(group.tier, group.asset, bases);
+    const symbols = group.entries.map(({ record }) => record.symbol);
+    return { ...group, message, symbols };
+  });
+}
+
+function enqueueGroups(groups: Array<{
+  tier: Tier;
+  asset: AssetClass;
+  entries: PersistedSignal[];
+  message: FormattedMessage;
+  symbols: string[];
+}>) {
+  const now = Math.floor(Date.now() / 1000);
+  for (const group of groups) {
+    const readyAt = group.tier === 'free'
+      ? Math.max(
+          ...group.entries.map(({ record }) => record.embargo_until ?? now + TIER_GATES.free.delaySeconds),
+        )
+      : now;
+
+    const payload = JSON.stringify({
+      version: 2,
+      tier: group.tier,
+      asset: group.asset,
+      message: group.message,
+      symbols: group.symbols,
+    });
+
+    group.entries.forEach(({ id }) => {
+      queueStmt.run({
+        signal_id: id,
+        tier: group.tier,
+        payload,
+        ready_at: readyAt,
+      });
+    });
+  }
+}
+
+function enforceGlobalCap(selected: SelectedSignal[], cap: number) {
+  if (cap <= 0) {
+    return { selected: [] as SelectedSignal[], overflow: selected };
+  }
+
+  const sorted = [...selected].sort((a, b) => b.signal.score - a.signal.score);
+  const perAsset = {
+    stock: sorted.filter((item) => item.signal.asset_type === 'stock'),
+    crypto: sorted.filter((item) => item.signal.asset_type === 'crypto'),
+  } as Record<AssetClass, SelectedSignal[]>;
+
+  const chosen: SelectedSignal[] = [];
+  const usedSymbols = new Set<string>();
+
+  for (const asset of ['stock', 'crypto'] as const) {
+    if (chosen.length >= cap) break;
+    const candidate = perAsset[asset].find((item) => !usedSymbols.has(item.signal.symbol));
+    if (candidate) {
+      chosen.push(candidate);
+      usedSymbols.add(candidate.signal.symbol);
+    }
+  }
+
+  for (const item of sorted) {
+    if (chosen.length >= cap) break;
+    if (usedSymbols.has(item.signal.symbol)) continue;
+    chosen.push(item);
+    usedSymbols.add(item.signal.symbol);
+  }
+
+  const chosenSet = new Set(chosen.map((item) => item.signal.uniq_key));
+  const overflow = selected.filter((item) => !chosenSet.has(item.signal.uniq_key));
+  return { selected: chosen, overflow };
 }

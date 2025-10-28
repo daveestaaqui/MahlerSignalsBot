@@ -72,6 +72,25 @@ app.post('/admin/post-weekly', async (c) => {
   }
 });
 
+app.post('/admin/post-now', async (c) => {
+  if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
+
+  const lockName = 'manual-run';
+  if (!acquireLock(lockName, 600)) return c.json({ ok: false, error: 'locked' }, 409);
+  try {
+    const result = await runDailyOnce();
+    if (result.postEnabled && !result.dryRun) {
+      await flushPublishQueue();
+    }
+    return c.json({ ok: true, messages: result.messages, dryRun: result.dryRun, postEnabled: result.postEnabled });
+  } catch (err) {
+    console.error('[admin/post-now]', err);
+    return c.json({ ok: false, error: 'internal_error' }, 500);
+  } finally {
+    releaseLock(lockName);
+  }
+});
+
 export default app;
 
 function isAuthorized(req: Request) {
@@ -82,7 +101,7 @@ function isAuthorized(req: Request) {
 }
 
 function formatWeeklyDigest(summary: ReturnType<typeof generateWeeklySummary>) {
-  const header = `📊 Weekly Recap`; 
+  const header = `📊 Weekly Recap`;
   const body = [
     `Signals: ${summary.count}`,
     `Win rate: ${summary.winRate5d !== null ? `${(summary.winRate5d * 100).toFixed(1)}%` : '—'}`,
