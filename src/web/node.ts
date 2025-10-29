@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import "../config/providers.js";
 import { app } from "./server.js";
 import { startSchedulers } from "../jobs/scheduler.js";
 import { flushPublishQueue } from "../jobs/publishWorker.js";
