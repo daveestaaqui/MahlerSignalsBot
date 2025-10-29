@@ -8,6 +8,8 @@ on:
       timezone: "America/New_York"
     - cron: "0 16 * * 0"
       timezone: "America/New_York"
+    - cron: "0 2 * * *"
+      timezone: "America/New_York"
   workflow_dispatch:
 
 jobs:
@@ -17,7 +19,7 @@ jobs:
       BASE_URL: ${{ secrets.BASE_URL }}
     steps:
       - name: Post daily
-        if: ${{ github.event_name != 'schedule' || github.event.schedule != '0 16 * * 0' }}
+        if: ${{ github.event_name != 'schedule' || github.event.schedule == '30 14 * * 1-5' || github.event.schedule == '30 19 * * 1-5' }}
         run: |
           curl -sSf -X POST "$BASE_URL/admin/post-daily" \
             -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}"
@@ -27,3 +29,18 @@ jobs:
         run: |
           curl -sSf -X POST "$BASE_URL/admin/post-weekly" \
             -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}"
+
+  verify:
+    if: ${{ github.event_name == 'schedule' && github.event.schedule == '0 2 * * *' }}
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ secrets.BASE_URL }}
+      ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run nightly verification
+        run: |
+          chmod +x scripts/dev-verify.sh
+          ./scripts/dev-verify.sh
