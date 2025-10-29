@@ -1,118 +1,133 @@
 import { readFileSync } from 'node:fs';
 import { Hono } from 'hono';
+import type { Handler, MiddlewareHandler } from 'hono';
 import { acquireLock, releaseLock } from '../lib/locks.js';
 import { runDailyOnce } from '../jobs/runDaily.js';
 import { flushPublishQueue } from '../jobs/publishWorker.js';
 import { generateWeeklySummary } from '../services/weeklySummary.js';
 import { broadcast } from '../services/posters.js';
 
-const app = new Hono();
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const APP_VERSION = readVersion();
 
-registerRoutes(app);
+const app = new Hono();
 
-const legacy = new Hono();
-registerRoutes(legacy);
-app.route('/api', legacy);
-
+export { app };
 export default app;
 
-function registerRoutes(router: Hono) {
-  router.get('/', (c) => c.json({ ok: true, version: APP_VERSION }));
+type Method = 'GET' | 'POST';
+type RouteHandler = Handler | MiddlewareHandler;
 
-  router.get('/status', (c) =>
-    c.json({
-      ok: true,
-      version: APP_VERSION,
-      time: new Date().toISOString(),
-    }),
-  );
+function aliasRoutes(router: Hono, method: Method, path: string, ...handlers: RouteHandler[]) {
+  router.on(method, path, ...(handlers as Handler[]));
+  router.on(method, `/api${path}`, ...(handlers as Handler[]));
+}
 
-  router.get('/diagnostics', (c) => {
-    const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
-    const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
+const statusHandler: Handler = (c) =>
+  c.json({
+    ok: true,
+    version: APP_VERSION,
+    time: new Date().toISOString(),
+  });
+
+const diagnosticsHandler: Handler = (c) => {
+  const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
+  const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
+  return c.json({
+    ok: true,
+    env: {
+      POST_ENABLED: postEnabled,
+      DRY_RUN: dryRun,
+      NODE_ENV: process.env.NODE_ENV ?? 'development',
+    },
+  });
+};
+
+const weeklySummaryHandler: Handler = (c) => {
+  const summary = generateWeeklySummary();
+  return c.json(summary.entries);
+};
+
+const adminAuth: MiddlewareHandler = async (c, next) => {
+  if (!isAuthorized(c.req.raw)) {
+    return c.json({ ok: false, error: 'unauthorized' }, 401);
+  }
+  await next();
+};
+
+const postDailyHandler: Handler = async (c) => {
+  const lockName = 'daily-run';
+  if (!acquireLock(lockName, 600)) {
+    return c.json({ ok: false, error: 'locked' }, 409);
+  }
+
+  try {
+    const result = await runDailyOnce();
+    await flushPublishQueue();
     return c.json({
       ok: true,
-      env: {
-        POST_ENABLED: postEnabled,
-        DRY_RUN: dryRun,
-        NODE_ENV: process.env.NODE_ENV ?? 'development',
-      },
+      selected: result.selected,
+      dryRun: result.dryRun,
+      postEnabled: result.postEnabled,
     });
-  });
+  } catch (err) {
+    console.error('[admin/post-daily]', err);
+    return c.json({ ok: false, error: 'internal_error' }, 500);
+  } finally {
+    releaseLock(lockName);
+  }
+};
 
-  router.get('/weekly-summary', (c) => {
-    const summary = generateWeeklySummary();
-    return c.json(summary.entries);
-  });
+const postWeeklyHandler: Handler = async (c) => {
+  const summary = generateWeeklySummary();
+  const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
+  const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
+  const message = formatWeeklyDigest(summary);
 
-  router.post('/admin/post-daily', async (c) => {
-    if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  try {
+    if (postEnabled && !dryRun) {
+      await Promise.allSettled([broadcast('PRO', message), broadcast('ELITE', message)]);
+    }
+    return c.json({ ok: true, dryRun, postEnabled });
+  } catch (err) {
+    console.error('[admin/post-weekly]', err);
+    return c.json({ ok: false, error: 'internal_error' }, 500);
+  }
+};
 
-    const lockName = 'daily-run';
-    if (!acquireLock(lockName, 600)) return c.json({ ok: false, error: 'locked' }, 409);
+const postNowHandler: Handler = async (c) => {
+  const lockName = 'manual-run';
+  if (!acquireLock(lockName, 600)) {
+    return c.json({ ok: false, error: 'locked' }, 409);
+  }
 
-    try {
-      const result = await runDailyOnce();
+  try {
+    const result = await runDailyOnce();
+    if (result.postEnabled && !result.dryRun) {
       await flushPublishQueue();
-      return c.json({
-        ok: true,
-        selected: result.selected,
-        dryRun: result.dryRun,
-        postEnabled: result.postEnabled,
-      });
-    } catch (err) {
-      console.error('[admin/post-daily]', err);
-      return c.json({ ok: false, error: 'internal_error' }, 500);
-    } finally {
-      releaseLock(lockName);
     }
-  });
+    return c.json({
+      ok: true,
+      messages: result.messages,
+      dryRun: result.dryRun,
+      postEnabled: result.postEnabled,
+    });
+  } catch (err) {
+    console.error('[admin/post-now]', err);
+    return c.json({ ok: false, error: 'internal_error' }, 500);
+  } finally {
+    releaseLock(lockName);
+  }
+};
 
-  router.post('/admin/post-weekly', async (c) => {
-    if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
+app.get('/', (c) => c.json({ ok: true, version: APP_VERSION }));
 
-    const summary = generateWeeklySummary();
-    const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
-    const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
-    const message = formatWeeklyDigest(summary);
-
-    try {
-      if (postEnabled && !dryRun) {
-        await Promise.allSettled([broadcast('PRO', message), broadcast('ELITE', message)]);
-      }
-      return c.json({ ok: true, dryRun, postEnabled });
-    } catch (err) {
-      console.error('[admin/post-weekly]', err);
-      return c.json({ ok: false, error: 'internal_error' }, 500);
-    }
-  });
-
-  router.post('/admin/post-now', async (c) => {
-    if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
-
-    const lockName = 'manual-run';
-    if (!acquireLock(lockName, 600)) return c.json({ ok: false, error: 'locked' }, 409);
-    try {
-      const result = await runDailyOnce();
-      if (result.postEnabled && !result.dryRun) {
-        await flushPublishQueue();
-      }
-      return c.json({
-        ok: true,
-        messages: result.messages,
-        dryRun: result.dryRun,
-        postEnabled: result.postEnabled,
-      });
-    } catch (err) {
-      console.error('[admin/post-now]', err);
-      return c.json({ ok: false, error: 'internal_error' }, 500);
-    } finally {
-      releaseLock(lockName);
-    }
-  });
-}
+aliasRoutes(app, 'GET', '/status', statusHandler);
+aliasRoutes(app, 'GET', '/diagnostics', diagnosticsHandler);
+aliasRoutes(app, 'GET', '/weekly-summary', weeklySummaryHandler);
+aliasRoutes(app, 'POST', '/admin/post-now', adminAuth, postNowHandler);
+aliasRoutes(app, 'POST', '/admin/post-daily', adminAuth, postDailyHandler);
+aliasRoutes(app, 'POST', '/admin/post-weekly', adminAuth, postWeeklyHandler);
 
 function isAuthorized(req: Request) {
   if (!ADMIN_TOKEN) return false;
