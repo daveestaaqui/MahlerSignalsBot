@@ -1,25 +1,33 @@
-name: build-and-release
+name: CI
+
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch: {}
+    branches:
+      - main
+  pull_request:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Create release bundle (prebuilt dist present)
-        run: |
-          STAMP="$(date +%Y%m%d_%H%M%S)"
-          NAME="aurora-signals_${STAMP}"
-          mkdir -p "release/${NAME}"
-          cp -R dist "release/${NAME}/dist" || true
-          cp -R ops "release/${NAME}/ops"  || true
-          cp README.md CHANGELOG.md .env.example .env.prod.example "release/${NAME}/" || true
-          ( cd release && zip -qr "${NAME}.zip" "${NAME}" )
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
         with:
-          name: aurora-signals
-          path: release/*.zip
+          node-version: 20
+          check-latest: true
+          cache: 'pnpm'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build

@@ -136,6 +136,7 @@ function renderEntry(tier: Tier, asset: AssetClass, entry: MessageBase): string 
   const plan = buildPlan(entry);
   const scoreLine = buildScoreLine(entry);
   const triggers = buildTriggers(entry.reason);
+  const timestamp = formatEtTimestamp();
   const planLine = `Plan: Entry ${priceFmt(entry.price)} · Stop ${priceFmt(plan.stop)} · Target ${priceFmt(plan.target)} · R/R ${rrFmt(
     plan.rr,
   )}`;
@@ -152,6 +153,7 @@ function renderEntry(tier: Tier, asset: AssetClass, entry: MessageBase): string 
   lines.push(
     `• <b>${escapeHtml(entry.symbol)}</b> | ${escapeHtml(contextParts.join(' · '))}`,
   );
+  lines.push(`  Window: ${escapeHtml(timestamp)}`);
   lines.push(`  ${escapeHtml(scoreLine)}`);
   if (triggers.length) {
     lines.push(`  Triggers: ${triggers.map((t) => escapeHtml(t)).join(' • ')}`);
@@ -261,4 +263,20 @@ function scoreFmt(score: number): string {
 function rrFmt(value?: number): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
   return value.toFixed(2);
+}
+
+function formatEtTimestamp(date = new Date()): string {
+  const tz = process.env.TZ && process.env.TZ.trim() ? process.env.TZ.trim() : 'America/New_York';
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour12: true,
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  } catch {
+    return date.toISOString();
+  }
 }
