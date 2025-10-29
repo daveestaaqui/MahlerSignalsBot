@@ -78,8 +78,11 @@ export function generateWeeklySummary(): WeeklySummary {
   const winRate = rows.length ? wins / rows.length : null;
 
   pnlSamples.sort((a, b) => b.pnl - a.pnl);
-  const topWinners = pnlSamples.filter(p => p.pnl > 0).slice(0, 3);
-  const topLosers = pnlSamples.filter(p => p.pnl < 0).sort((a, b) => a.pnl - b.pnl).slice(0, 3);
+  const topWinners = pnlSamples.filter((p) => p.pnl > 0).slice(0, 5);
+  const topLosers = pnlSamples
+    .filter((p) => p.pnl < 0)
+    .sort((a, b) => a.pnl - b.pnl)
+    .slice(0, 5);
 
   const entries = Array.from(timeline.values())
     .sort((a, b) => b.sentAt - a.sentAt)

@@ -132,35 +132,24 @@ function formatBundle(bundle: Bundle): FormattedMessage {
 }
 
 function renderEntry(tier: Tier, asset: AssetClass, entry: MessageBase): string {
-  const lines: string[] = [];
   const plan = buildPlan(entry);
   const scoreLine = buildScoreLine(entry);
-  const triggers = buildTriggers(entry.reason);
+  const rationale = buildRationale(entry);
   const timestamp = formatEtTimestamp();
-  const planLine = `Plan: Entry ${priceFmt(entry.price)} · Stop ${priceFmt(plan.stop)} · Target ${priceFmt(plan.target)} · R/R ${rrFmt(
-    plan.rr,
-  )}`;
-  const riskLine = entry.extras?.riskNote
-    ? `Risk: ${escapeHtml(entry.extras.riskNote)}`
-    : `Risk: ${tierMeta[tier].risk.replace(/^Risk:\s*/i, '')}`;
-
+  const risk = entry.extras?.riskNote
+    ? entry.extras.riskNote
+    : tierMeta[tier].risk.replace(/^Risk:\s*/i, '');
   const contextParts = [
-    entry.assetType === 'stock' ? 'Equity' : 'Crypto',
-    entry.extras?.timeframe ? entry.extras.timeframe : 'Swing',
+    entry.assetType === 'stock' ? 'Equity Swing' : 'Crypto Swing',
+    entry.extras?.timeframe,
     entryContext(entry),
   ].filter(Boolean);
 
-  lines.push(
-    `• <b>${escapeHtml(entry.symbol)}</b> | ${escapeHtml(contextParts.join(' · '))}`,
-  );
-  lines.push(`  Window: ${escapeHtml(timestamp)}`);
-  lines.push(`  ${escapeHtml(scoreLine)}`);
-  if (triggers.length) {
-    lines.push(`  Triggers: ${triggers.map((t) => escapeHtml(t)).join(' • ')}`);
-  }
-  lines.push(`  ${escapeHtml(planLine)}`);
-  lines.push(`  ${escapeHtml(riskLine)}`);
-  return lines.join('\n');
+  const line1 = `• <b>${escapeHtml(entry.symbol)}</b> • ${escapeHtml(contextParts.join(' • '))} • ${escapeHtml(timestamp)}`;
+  const line2 = `${escapeHtml(scoreLine)} | Why: ${escapeHtml(rationale)}`;
+  const line3 = `Plan: Entry ${priceFmt(entry.price)} · Stop ${priceFmt(plan.stop)} · Target ${priceFmt(plan.target)} · R/R ${rrFmt(plan.rr)} | Risk: ${escapeHtml(risk)}`;
+
+  return [line1, line2, line3].join('\n');
 }
 
 function headerLine(tier: Tier, asset: AssetClass, type: string): string {
@@ -192,6 +181,17 @@ function buildTriggers(reason?: string): string[] {
     .map((item) => item.trim())
     .filter((item) => item.length > 0)
     .slice(0, 2);
+}
+
+function buildRationale(entry: MessageBase): string {
+  const triggers = buildTriggers(entry.reason);
+  if (triggers.length) {
+    return triggers.join(' • ');
+  }
+  if (entry.reason && entry.reason.trim()) {
+    return entry.reason.trim().replace(/\s+/g, ' ').slice(0, 120);
+  }
+  return 'Conviction factors aligned';
 }
 
 function conviction(subs: Record<string, number> | undefined): string {

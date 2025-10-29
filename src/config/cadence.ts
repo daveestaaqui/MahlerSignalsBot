@@ -1,4 +1,4 @@
-const maxPosts = Number(process.env.MAX_POSTS_PER_DAY ?? '2');
+const maxPosts = Number(process.env.MAX_POSTS_PER_DAY ?? '4');
 const enableStocksDaily = (process.env.ENABLE_STOCKS_DAILY ?? 'true').toLowerCase() === 'true';
 const enableCryptoDaily = (process.env.ENABLE_CRYPTO_DAILY ?? 'true').toLowerCase() === 'true';
 const weeklySummaryDay = (process.env.WEEKLY_SUMMARY_DAY ?? 'SUN').toUpperCase();

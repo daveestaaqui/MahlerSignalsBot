@@ -98,6 +98,8 @@ export type DailyRunResult = {
 
 type PersistedSignal = { id: number; record: SignalRecord };
 const DEFAULT_ASSETS: AssetClass[] = ['stock', 'crypto'];
+const PER_ASSET_CAP = 2;
+const MIN_DISPATCH_SCORE = 0.85;
 
 export type RunDailyOptions = {
   assets?: AssetClass[];
@@ -108,17 +110,16 @@ export async function runDailyOnce(options: RunDailyOptions = {}): Promise<Daily
   const ledgerCounts = getLedgerCounts(ledgerDate);
 
   const assetCaps: Record<AssetClass, number> = {
-    stock: CADENCE.ENABLE_STOCKS_DAILY ? 1 : 0,
-    crypto: CADENCE.ENABLE_CRYPTO_DAILY ? 1 : 0,
+    stock: CADENCE.ENABLE_STOCKS_DAILY ? PER_ASSET_CAP : 0,
+    crypto: CADENCE.ENABLE_CRYPTO_DAILY ? PER_ASSET_CAP : 0,
   };
 
   const requestedAssets = normalizeAssets(options.assets ?? DEFAULT_ASSETS);
   const assetsToRun = requestedAssets.filter((asset) => assetCaps[asset] > 0);
 
-  const globalLimit = Math.min(
-    CADENCE.MAX_POSTS_PER_DAY,
-    assetCaps.stock + assetCaps.crypto,
-  );
+  const globalCapTarget = assetsToRun.length * PER_ASSET_CAP;
+  const maxDaily = Number.isFinite(CADENCE.MAX_POSTS_PER_DAY) && CADENCE.MAX_POSTS_PER_DAY > 0 ? CADENCE.MAX_POSTS_PER_DAY : globalCapTarget;
+  const globalLimit = Math.min(globalCapTarget, maxDaily);
   const globalRemainingBefore = Math.max(globalLimit - (ledgerCounts.stock + ledgerCounts.crypto), 0);
 
   const shouldRunStocks = assetsToRun.includes('stock');
@@ -138,8 +139,9 @@ export async function runDailyOnce(options: RunDailyOptions = {}): Promise<Daily
   };
 
   const cadenceTrimmed = enforceCadence(selection.selected, remainingByAsset, globalRemainingBefore);
-  const finalSelected = cadenceTrimmed.selected;
-  const overflow = cadenceTrimmed.overflow;
+  const [finalSelected, lowScoreOverflow] = partitionByScore(cadenceTrimmed.selected, MIN_DISPATCH_SCORE);
+  const overflow = [...cadenceTrimmed.overflow, ...lowScoreOverflow];
+  const lowScoreSet = new Set(lowScoreOverflow.map((item) => item.signal.uniq_key));
 
   const persisted: PersistedSignal[] = finalSelected.map(({ signal }) => ({
     id: upsertSignal(signal),
@@ -195,7 +197,10 @@ export async function runDailyOnce(options: RunDailyOptions = {}): Promise<Daily
     })),
     rejected: [
       ...selection.rejected,
-      ...overflow.map(({ signal }) => ({ signal, reason: 'no_capacity' as const })),
+      ...overflow.map(({ signal }) => ({
+        signal,
+        reason: lowScoreSet.has(signal.uniq_key) ? ('score_below_threshold' as const) : ('no_capacity' as const),
+      })),
     ].map(({ signal, reason }) => ({
       symbol: signal.symbol,
       assetType: signal.asset_type,
@@ -440,4 +445,18 @@ function recordCadenceUsage(selected: SelectedSignal[], ledgerDate: string) {
   if (counts.crypto > 0) {
     incrementLedger('crypto', counts.crypto, ledgerDate);
   }
+}
+
+function partitionByScore(selected: SelectedSignal[], minScore: number): [SelectedSignal[], SelectedSignal[]] {
+  const passed: SelectedSignal[] = [];
+  const failed: SelectedSignal[] = [];
+  for (const entry of selected) {
+    const score = entry.signal.score;
+    if (Number.isFinite(score) && score >= minScore) {
+      passed.push(entry);
+    } else {
+      failed.push(entry);
+    }
+  }
+  return [passed, failed];
 }
