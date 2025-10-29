@@ -30,15 +30,7 @@ type Bundle = {
   entries: MessageBase[];
 };
 
-const tierMeta: Record<
-  Tier,
-  {
-    emoji: string;
-    label: string;
-    risk: string;
-    cta: string;
-  }
-> = {
+const tierMeta: Record<Tier, { emoji: string; label: string; risk: string; cta: string }> = {
   elite: {
     emoji: '👑',
     label: 'ELITE',
@@ -54,7 +46,7 @@ const tierMeta: Record<
   free: {
     emoji: '⌛',
     label: 'FREE',
-    risk: 'Risk: delayed signal; manage entries with wide stops.',
+    risk: 'Risk: 24h delay; manage entries with wider stops.',
     cta: 'CTA: Upgrade for realtime alerts + desk support.',
   },
 };
@@ -197,7 +189,7 @@ function buildTriggers(reason?: string): string[] {
     .split(/[\n•|-]+/)
     .map((item) => item.trim())
     .filter((item) => item.length > 0)
-    .slice(0, 3);
+    .slice(0, 2);
 }
 
 function conviction(subs: Record<string, number> | undefined): string {
@@ -212,7 +204,7 @@ function conviction(subs: Record<string, number> | undefined): string {
   const total = weights.reduce((acc, value) => acc + value, 0) || 1;
   return dimensions
     .map(({ label }, index) => `${label} ${(weights[index] / total * 100).toFixed(0)}%`)
-    .join(', ');
+    .join(' • ');
 }
 
 function entryContext(entry: MessageBase): string {
@@ -238,7 +230,7 @@ function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, '');
 }
 
-function compactText(value: string, limit = 240): string {
+function compactText(value: string, limit = 220): string {
   const compressed = value.replace(/\s+/g, ' ').trim();
   if (compressed.length <= limit) return compressed;
   return `${compressed.slice(0, limit - 1)}…`;
