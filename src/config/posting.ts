@@ -1,4 +1,4 @@
-const dailyCap = Number(process.env.DAILY_POST_CAP ?? '2');
+const dailyCap = Number(process.env.DAILY_POST_CAP ?? '4');
 const minScorePro = Number(process.env.MIN_SCORE_PRO ?? '0.85');
 const minScoreElite = Number(process.env.MIN_SCORE_ELITE ?? '0.90');
 const cooldownDays = Number(process.env.COOLDOWN_DAYS ?? '3');

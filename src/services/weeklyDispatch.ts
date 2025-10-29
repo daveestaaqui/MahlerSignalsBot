@@ -14,7 +14,6 @@ export async function dispatchWeeklyDigest(flags: Flags) {
     await Promise.allSettled([
       broadcast('PRO', digest.message),
       broadcast('ELITE', digest.message),
-      broadcast('FREE', digest.message),
     ]);
     incrementLedger('weekly', 1, todayIso());
   }
