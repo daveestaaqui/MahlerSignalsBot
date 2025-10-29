@@ -1,0 +1,21 @@
+name: AuroraScheduler
+on:
+  schedule:
+    - cron: '30 14 * * 1-5'
+    - cron: '0 21 * * 0'
+  workflow_dispatch: {}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: https://aurora-signals.onrender.com
+      ADMIN_TOKEN: 824ac92bd7438a77bc6089e762528999
+    steps:
+      - name: Daily posts
+        if: github.event.schedule == '30 14 * * 1-5'
+        run: |
+          curl -sS -X POST "$BASE_URL/admin/post-daily" -H "Authorization: Bearer $ADMIN_TOKEN"
+      - name: Weekly digest
+        if: github.event.schedule == '0 21 * * 0'
+        run: |
+          curl -sS -X POST "$BASE_URL/admin/post-weekly" -H "Authorization: Bearer $ADMIN_TOKEN"
