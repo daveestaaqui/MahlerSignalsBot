@@ -3,26 +3,27 @@ name: posting
 on:
   schedule:
     - cron: "30 14 * * 1-5"
+      timezone: "America/New_York"
     - cron: "30 19 * * 1-5"
-    - cron: "00 16 * * 0"
+      timezone: "America/New_York"
+    - cron: "0 16 * * 0"
+      timezone: "America/New_York"
   workflow_dispatch:
 
 jobs:
   post:
     runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ secrets.BASE_URL }}
     steps:
       - name: Post daily
-        if: ${{ github.event.schedule != '00 16 * * 0' }}
+        if: ${{ github.event_name != 'schedule' || github.event.schedule != '0 16 * * 0' }}
         run: |
-          curl -sSf -X POST "$BASE_URL/admin/post-daily" -H "Authorization: Bearer $ADMIN_TOKEN"
-        env:
-          BASE_URL: ${{ secrets.BASE_URL }}
-          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          curl -sSf -X POST "$BASE_URL/admin/post-daily" \
+            -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}"
 
       - name: Post weekly
-        if: ${{ github.event.schedule == '00 16 * * 0' }}
+        if: ${{ github.event_name == 'schedule' && github.event.schedule == '0 16 * * 0' }}
         run: |
-          curl -sSf -X POST "$BASE_URL/admin/post-weekly" -H "Authorization: Bearer $ADMIN_TOKEN"
-        env:
-          BASE_URL: ${{ secrets.BASE_URL }}
-          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          curl -sSf -X POST "$BASE_URL/admin/post-weekly" \
+            -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}"

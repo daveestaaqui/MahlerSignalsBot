@@ -15,6 +15,7 @@ export type MessageBase = {
 export type FormattedMessage = {
   telegram: string;
   plain: string;
+  compact: string;
 };
 
 type Bundle = {
@@ -24,9 +25,21 @@ type Bundle = {
 };
 
 const tierMeta = {
-  elite: { emoji: '👑', risk: 'Risk: Cap size ≤1.0R, trail once +1R locked.' },
-  pro: { emoji: '⭐', risk: 'Risk: Size ≤0.75R, stop at swing low/high.' },
-  free: { emoji: '⌛', risk: 'Upgrade for realtime entries, stops, and targets.' },
+  elite: {
+    emoji: '👑',
+    label: 'ELITE',
+    risk: 'Risk: size ≤1.0R, trail once +1R locked.',
+  },
+  pro: {
+    emoji: '⭐',
+    label: 'PRO',
+    risk: 'Risk: size ≤0.75R, respect structure stops.',
+  },
+  free: {
+    emoji: '⌛',
+    label: 'FREE',
+    risk: 'Upgrade for realtime entries, stops, and targets.',
+  },
 } as const;
 
 export function fmtEliteStock(entries: MessageBase[]): FormattedMessage {
@@ -69,33 +82,42 @@ function formatBundle(bundle: Bundle): FormattedMessage {
   const { tier, asset, entries } = bundle;
   if (!entries.length) {
     const fallback = `${headerLine(tier, asset)}\nNo signals selected.`;
-    return { telegram: fallback, plain: fallback };
+    return { telegram: fallback, plain: fallback, compact: fallback };
   }
 
   const body: string[] = [];
+  const compactParts: string[] = [];
   entries.forEach((entry) => {
     const plan = buildPlan(entry);
     const breakdown = conviction(entry.subs);
+    const context = entryContext(entry);
     body.push(
-      `• <b>${escapeHtml(entry.symbol)}</b> | Entry ${priceFmt(entry.price)} | Δ ${pctFmt(entry.pct)} | RVOL ${rvolFmt(entry.rvol)} | Score ${scoreFmt(entry.score)}`,
+      `• <b>${escapeHtml(entry.symbol)}</b> — ${escapeHtml(context)}`,
     );
     body.push(
-      `  Plan: Stop ${priceFmt(plan.stop)} | TP ${priceFmt(plan.target)} | R:R ${rrFmt(plan.rr)} | Bias ${capitalize(entry.assetType)}`,
+      `  Trade plan: Entry ${priceFmt(entry.price)} | Stop ${priceFmt(plan.stop)} | Target ${priceFmt(plan.target)} | R/R ${rrFmt(plan.rr)}`,
     );
-    body.push(`  Conviction: ${escapeHtml(breakdown)}${entry.reason ? ` | Note: ${escapeHtml(entry.reason)}` : ''}`);
+    body.push(
+      `  Conviction: ${escapeHtml(breakdown)} | Score ${scoreFmt(entry.score)}${entry.reason ? ` | Note: ${escapeHtml(entry.reason)}` : ''}`,
+    );
+
+    compactParts.push(
+      `${tierMeta[tier].emoji} ${entry.symbol}: Entry ${priceFmt(entry.price)}, Stop ${priceFmt(plan.stop)}, Target ${priceFmt(plan.target)}, R/R ${rrFmt(plan.rr)}, Score ${scoreFmt(entry.score)}, Conviction ${breakdown}`,
+    );
   });
 
   body.push(tierMeta[tier].risk);
 
   const telegram = [headerLine(tier, asset), ...body].join('\n');
   const plain = stripHtml(telegram);
-  return { telegram, plain };
+  const compact = compactParts.join(' • ');
+  return { telegram, plain, compact };
 }
 
 function headerLine(tier: Tier, asset: AssetClass): string {
   const meta = tierMeta[tier];
   const assetLabel = asset === 'stock' ? 'Stocks' : 'Crypto';
-  return `${meta.emoji} ${tier.toUpperCase()} • ${assetLabel}`;
+  return `${meta.emoji} ${meta.label} • ${assetLabel} • Daily Signals`;
 }
 
 function buildPlan(entry: MessageBase): { stop?: number; target?: number; rr?: number } {
@@ -109,19 +131,18 @@ function buildPlan(entry: MessageBase): { stop?: number; target?: number; rr?: n
 }
 
 function conviction(subs: Record<string, number> | undefined): string {
-  const parts: string[] = [];
-  const keys: Array<[string, string]> = [
-    ['tech', 'Tech'],
-    ['whale', 'Whale'],
-    ['sentiment', 'Sent'],
-    ['options', 'Opt'],
-    ['fundamental', 'Fund'],
+  const dimensions: Array<{ key: string; label: string }> = [
+    { key: 'tech', label: 'Tech' },
+    { key: 'flow', label: 'Flow' },
+    { key: 'sentiment', label: 'Sentiment' },
+    { key: 'fundamental', label: 'Fundamentals' },
+    { key: 'options', label: 'Options' },
   ];
-  keys.forEach(([key, label]) => {
-    const val = subs?.[key] ?? 0;
-    parts.push(`${label} ${Math.round(val * 100)}`);
-  });
-  return parts.join(' • ');
+  const weights = dimensions.map(({ key }) => Math.max(subs?.[key] ?? 0, 0));
+  const total = weights.reduce((acc, value) => acc + value, 0) || 1;
+  return dimensions
+    .map((dimension, index) => `${dimension.label} ${(weights[index] / total * 100).toFixed(0)}%`)
+    .join(' • ');
 }
 
 function asArray(entry: MessageBase | MessageBase[]): MessageBase[] {
@@ -139,6 +160,13 @@ function escapeHtml(input: string): string {
 
 function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, '');
+}
+
+function entryContext(entry: MessageBase): string {
+  const trend = entry.pct !== undefined ? `Δ ${pctFmt(entry.pct)}` : 'Δ —';
+  const rvol = entry.rvol !== undefined ? `RVOL ${rvolFmt(entry.rvol)}` : 'RVOL —';
+  const bias = entry.assetType === 'stock' ? 'Equity Swing' : 'Crypto Swing';
+  return `${bias} | ${trend} | ${rvol}`;
 }
 
 function priceFmt(value?: number): string {
@@ -166,8 +194,4 @@ function scoreFmt(score: number): string {
 function rrFmt(value?: number): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
   return value.toFixed(2);
-}
-
-function capitalize(input: string): string {
-  return input.charAt(0).toUpperCase() + input.slice(1);
 }

@@ -58,8 +58,11 @@ export type DailyRunResult = {
     reason: string;
   }>;
   capacity: {
-    stock: { limit: number; remaining: number };
-    crypto: { limit: number; remaining: number };
+    total: { limit: number; remaining: number };
+    byAsset: {
+      stock: { limit: number; remaining: number };
+      crypto: { limit: number; remaining: number };
+    };
   };
   selectionMeta: {
     now: number;
@@ -70,6 +73,7 @@ export type DailyRunResult = {
     asset: AssetClass;
     telegram: string;
     plain: string;
+    compact: string;
     symbols: string[];
   }>;
 };
@@ -148,6 +152,7 @@ export async function runDailyOnce(): Promise<DailyRunResult> {
       asset: group.asset,
       telegram: group.message.telegram,
       plain: group.message.plain,
+      compact: group.message.compact,
       symbols: group.symbols,
     })),
   };

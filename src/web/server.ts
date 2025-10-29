@@ -1,97 +1,118 @@
+import { readFileSync } from 'node:fs';
 import { Hono } from 'hono';
 import { acquireLock, releaseLock } from '../lib/locks.js';
 import { runDailyOnce } from '../jobs/runDaily.js';
 import { flushPublishQueue } from '../jobs/publishWorker.js';
 import { generateWeeklySummary } from '../services/weeklySummary.js';
-import { POSTING_RULES } from '../config/posting.js';
 import { broadcast } from '../services/posters.js';
 
 const app = new Hono();
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+const APP_VERSION = readVersion();
 
-app.get('/', (c) => c.json({ ok: true }));
+registerRoutes(app);
 
-app.get('/status', (c) => c.json({ ok: true, ts: Date.now() }));
-
-app.get('/diagnostics', (c) => {
-  const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
-  const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
-  return c.json({
-    ok: true,
-    ts: Date.now(),
-    env: {
-      POST_ENABLED: postEnabled,
-      DRY_RUN: dryRun,
-      DAILY_POST_CAP: POSTING_RULES.DAILY_POST_CAP,
-    },
-  });
-});
-
-app.get('/weekly-summary', (c) => {
-  const summary = generateWeeklySummary();
-  return c.json({ ok: true, summary });
-});
-
-app.post('/admin/post-daily', async (c) => {
-  if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
-
-  const lockName = 'daily-run';
-  if (!acquireLock(lockName, 600)) return c.json({ ok: false, error: 'locked' }, 409);
-
-  try {
-    const result = await runDailyOnce();
-    await flushPublishQueue();
-    return c.json({ ok: true, selected: result.selected, dryRun: result.dryRun, postEnabled: result.postEnabled });
-  } catch (err) {
-    console.error('[admin/post-daily]', err);
-    return c.json({ ok: false, error: 'internal_error' }, 500);
-  } finally {
-    releaseLock(lockName);
-  }
-});
-
-app.post('/admin/post-weekly', async (c) => {
-  if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
-
-  const summary = generateWeeklySummary();
-  const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
-  const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
-  const message = formatWeeklyDigest(summary);
-
-  try {
-    if (postEnabled && !dryRun) {
-      await Promise.allSettled([
-        broadcast('PRO', message),
-        broadcast('ELITE', message),
-      ]);
-    }
-    return c.json({ ok: true, dryRun, postEnabled });
-  } catch (err) {
-    console.error('[admin/post-weekly]', err);
-    return c.json({ ok: false, error: 'internal_error' }, 500);
-  }
-});
-
-app.post('/admin/post-now', async (c) => {
-  if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
-
-  const lockName = 'manual-run';
-  if (!acquireLock(lockName, 600)) return c.json({ ok: false, error: 'locked' }, 409);
-  try {
-    const result = await runDailyOnce();
-    if (result.postEnabled && !result.dryRun) {
-      await flushPublishQueue();
-    }
-    return c.json({ ok: true, messages: result.messages, dryRun: result.dryRun, postEnabled: result.postEnabled });
-  } catch (err) {
-    console.error('[admin/post-now]', err);
-    return c.json({ ok: false, error: 'internal_error' }, 500);
-  } finally {
-    releaseLock(lockName);
-  }
-});
+const legacy = new Hono();
+registerRoutes(legacy);
+app.route('/api', legacy);
 
 export default app;
+
+function registerRoutes(router: Hono) {
+  router.get('/', (c) => c.json({ ok: true, version: APP_VERSION }));
+
+  router.get('/status', (c) =>
+    c.json({
+      ok: true,
+      version: APP_VERSION,
+      time: new Date().toISOString(),
+    }),
+  );
+
+  router.get('/diagnostics', (c) => {
+    const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
+    const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
+    return c.json({
+      ok: true,
+      env: {
+        POST_ENABLED: postEnabled,
+        DRY_RUN: dryRun,
+        NODE_ENV: process.env.NODE_ENV ?? 'development',
+      },
+    });
+  });
+
+  router.get('/weekly-summary', (c) => {
+    const summary = generateWeeklySummary();
+    return c.json(summary.entries);
+  });
+
+  router.post('/admin/post-daily', async (c) => {
+    if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
+
+    const lockName = 'daily-run';
+    if (!acquireLock(lockName, 600)) return c.json({ ok: false, error: 'locked' }, 409);
+
+    try {
+      const result = await runDailyOnce();
+      await flushPublishQueue();
+      return c.json({
+        ok: true,
+        selected: result.selected,
+        dryRun: result.dryRun,
+        postEnabled: result.postEnabled,
+      });
+    } catch (err) {
+      console.error('[admin/post-daily]', err);
+      return c.json({ ok: false, error: 'internal_error' }, 500);
+    } finally {
+      releaseLock(lockName);
+    }
+  });
+
+  router.post('/admin/post-weekly', async (c) => {
+    if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
+
+    const summary = generateWeeklySummary();
+    const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
+    const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
+    const message = formatWeeklyDigest(summary);
+
+    try {
+      if (postEnabled && !dryRun) {
+        await Promise.allSettled([broadcast('PRO', message), broadcast('ELITE', message)]);
+      }
+      return c.json({ ok: true, dryRun, postEnabled });
+    } catch (err) {
+      console.error('[admin/post-weekly]', err);
+      return c.json({ ok: false, error: 'internal_error' }, 500);
+    }
+  });
+
+  router.post('/admin/post-now', async (c) => {
+    if (!isAuthorized(c.req.raw)) return c.json({ ok: false, error: 'unauthorized' }, 401);
+
+    const lockName = 'manual-run';
+    if (!acquireLock(lockName, 600)) return c.json({ ok: false, error: 'locked' }, 409);
+    try {
+      const result = await runDailyOnce();
+      if (result.postEnabled && !result.dryRun) {
+        await flushPublishQueue();
+      }
+      return c.json({
+        ok: true,
+        messages: result.messages,
+        dryRun: result.dryRun,
+        postEnabled: result.postEnabled,
+      });
+    } catch (err) {
+      console.error('[admin/post-now]', err);
+      return c.json({ ok: false, error: 'internal_error' }, 500);
+    } finally {
+      releaseLock(lockName);
+    }
+  });
+}
 
 function isAuthorized(req: Request) {
   if (!ADMIN_TOKEN) return false;
@@ -115,4 +136,16 @@ function formatWeeklyDigest(summary: ReturnType<typeof generateWeeklySummary>) {
 
 function formatPnl(value: number) {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function readVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
+      version?: string;
+    };
+    return pkg.version ?? '0.0.0';
+  } catch (err) {
+    console.error('[status] failed to read version', err);
+    return '0.0.0';
+  }
 }
