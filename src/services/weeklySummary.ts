@@ -9,10 +9,12 @@ export type WeeklySummary = {
   winRate5d: number | null;
   topWinners: Array<{ symbol: string; tier: string; pnl: number }>;
   topLosers: Array<{ symbol: string; tier: string; pnl: number }>;
+  entries: Array<{ ticker: string; score?: number; pnl5d?: number }>;
 };
 
 export function generateWeeklySummary(): WeeklySummary {
-  const since = Math.floor(Date.now() / 1000) - LOOKBACK_SECONDS;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const since = nowSec - LOOKBACK_SECONDS;
   const rows = db.prepare(`
     SELECT pq.tier, pq.sent_at, s.symbol, s.score, s.features,
            m.entry_price, m.exit_price_1d, m.exit_price_3d
@@ -32,12 +34,21 @@ export function generateWeeklySummary(): WeeklySummary {
   }>;
 
   if (!rows.length) {
-    return { count: 0, avgScore: null, medianScore: null, winRate5d: null, topWinners: [], topLosers: [] };
+    return {
+      count: 0,
+      avgScore: null,
+      medianScore: null,
+      winRate5d: null,
+      topWinners: [],
+      topLosers: [],
+      entries: [],
+    };
   }
 
   const scores: number[] = [];
   const pnlSamples: Array<{ symbol: string; tier: string; pnl: number }> = [];
   let wins = 0;
+  const timeline = new Map<string, { ticker: string; score?: number; pnl5d?: number; sentAt: number }>();
 
   rows.forEach((row) => {
     scores.push(row.score);
@@ -47,6 +58,19 @@ export function generateWeeklySummary(): WeeklySummary {
     const pnl = entry && exit ? (exit - entry) / entry : 0;
     if (pnl > 0) wins++;
     pnlSamples.push({ symbol: row.symbol, tier: row.tier, pnl });
+
+    const pnl5d =
+      typeof features?.pnl5d === 'number'
+        ? features.pnl5d
+        : typeof features?.pnl_5d === 'number'
+          ? features.pnl_5d
+          : pnl;
+    timeline.set(`${row.symbol}:${row.tier}`, {
+      ticker: row.symbol,
+      score: +row.score.toFixed(3),
+      pnl5d: Number.isFinite(pnl5d) ? +pnl5d.toFixed(4) : undefined,
+      sentAt: row.sent_at ?? nowSec,
+    });
   });
 
   const avgScore = average(scores);
@@ -57,6 +81,10 @@ export function generateWeeklySummary(): WeeklySummary {
   const topWinners = pnlSamples.filter(p => p.pnl > 0).slice(0, 3);
   const topLosers = pnlSamples.filter(p => p.pnl < 0).sort((a, b) => a.pnl - b.pnl).slice(0, 3);
 
+  const entries = Array.from(timeline.values())
+    .sort((a, b) => b.sentAt - a.sentAt)
+    .map(({ sentAt, ...rest }) => rest);
+
   return {
     count: rows.length,
     avgScore: avgScore !== null ? +avgScore.toFixed(3) : null,
@@ -64,6 +92,7 @@ export function generateWeeklySummary(): WeeklySummary {
     winRate5d: winRate !== null ? +winRate.toFixed(3) : null,
     topWinners,
     topLosers,
+    entries,
   };
 }
 

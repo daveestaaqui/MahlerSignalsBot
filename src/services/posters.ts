@@ -35,7 +35,13 @@ function normalizeTier(input: TierInput): Tier {
 
 function toMessage(input: MessageInput): FormattedMessage {
   if (typeof input === 'string') {
-    return { telegram: input, plain: stripHtml(input) };
+    const plain = stripHtml(input);
+    const compact = compressWhitespace(plain);
+    return { telegram: input, plain, compact };
+  }
+  if (!input.compact) {
+    const fallback = compressWhitespace(input.plain ?? stripHtml(input.telegram));
+    return { ...input, compact: fallback };
   }
   return input;
 }
@@ -63,7 +69,7 @@ export async function postDiscord(tierInput: TierInput, input: MessageInput) {
   if (!url) return false;
   const message = toMessage(input);
   const payload = {
-    content: `${message.plain}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`,
+    content: `${message.compact}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`,
     username: tier === 'ELITE' ? 'Aurora Elite' : 'Aurora Signals',
   };
   if (!POST_ENABLED || DRY_RUN) {
@@ -84,7 +90,7 @@ export async function postX(input: MessageInput) {
     return false;
   }
   const message = toMessage(input);
-  const payload = `${message.plain}\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
+  const payload = `${message.compact}\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
   if (!POST_ENABLED || DRY_RUN) {
     log('info', 'x_dry_run', { preview: payload.slice(0, 200) });
     return true;
@@ -110,6 +116,10 @@ export function teaserFor(tierInput: TierInput, symbols: string[]): string {
 
 function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, '');
+}
+
+function compressWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
 }
 
 function log(level: 'info' | 'warn' | 'error', msg: string, meta?: Record<string, unknown>) {

@@ -12,13 +12,16 @@ export type SelectedSignal = {
 
 export type RejectedSignal = {
   signal: SignalRecord;
-  reason: 'score_below_threshold' | 'cooldown' | 'no_capacity';
+  reason: 'score_below_threshold' | 'cooldown' | 'no_capacity' | 'duplicate_symbol';
 };
 
 export type SelectionResult = {
   selected: SelectedSignal[];
   rejected: RejectedSignal[];
-  capacity: Record<AssetClass, { limit: number; remaining: number }>;
+  capacity: {
+    total: { limit: number; remaining: number };
+    byAsset: Record<AssetClass, { limit: number; remaining: number }>;
+  };
   meta: {
     now: number;
     cooldownCutoff: number;
@@ -66,9 +69,12 @@ export function selectDailySignals(candidates: SignalRecord[], now = Date.now())
     postedCounts[row.asset_type] = row.cnt ?? 0;
   }
 
+  const totalPosted = postedRows.reduce((acc, row) => acc + (row.cnt ?? 0), 0);
+  const totalRemaining = Math.max(POSTING_RULES.DAILY_POST_CAP - totalPosted, 0);
+
   const limits: Record<AssetClass, number> = {
-    stock: Math.max(POSTING_RULES.DAILY_POST_CAP - postedCounts.stock, 0),
-    crypto: Math.max(POSTING_RULES.DAILY_POST_CAP - postedCounts.crypto, 0),
+    stock: Math.min(totalRemaining, Math.max(POSTING_RULES.DAILY_POST_CAP - postedCounts.stock, 0)),
+    crypto: Math.min(totalRemaining, Math.max(POSTING_RULES.DAILY_POST_CAP - postedCounts.crypto, 0)),
   };
 
   type Eligible = SelectedSignal & { reason?: RejectedSignal['reason'] };
@@ -78,7 +84,16 @@ export function selectDailySignals(candidates: SignalRecord[], now = Date.now())
   };
   const rejected: RejectedSignal[] = [];
 
-  for (const signal of candidates) {
+  const seenSymbols = new Set<string>();
+  const sortedCandidates = [...candidates].sort((a, b) => b.score - a.score);
+
+  for (const signal of sortedCandidates) {
+    if (seenSymbols.has(signal.symbol)) {
+      rejected.push({ signal, reason: 'duplicate_symbol' });
+      continue;
+    }
+    seenSymbols.add(signal.symbol);
+
     const asset = signal.asset_type;
     const key = `${asset}:${signal.symbol}`;
     const lastSent = lastSentMap.get(key);
@@ -130,8 +145,8 @@ export function selectDailySignals(candidates: SignalRecord[], now = Date.now())
     return entry;
   };
 
-  while (true) {
-    const available = assets.filter(asset => {
+  while (selected.length < totalRemaining) {
+    const available = assets.filter((asset) => {
       if (counts[asset] >= limits[asset]) return false;
       const pools = eligibleByAsset[asset];
       return pools.autopass.length > 0 || pools.regular.length > 0;
@@ -161,8 +176,20 @@ export function selectDailySignals(candidates: SignalRecord[], now = Date.now())
     selected,
     rejected,
     capacity: {
-      stock: { limit: POSTING_RULES.DAILY_POST_CAP, remaining: Math.max(limits.stock - counts.stock, 0) },
-      crypto: { limit: POSTING_RULES.DAILY_POST_CAP, remaining: Math.max(limits.crypto - counts.crypto, 0) },
+      total: {
+        limit: POSTING_RULES.DAILY_POST_CAP,
+        remaining: Math.max(totalRemaining - selected.length, 0),
+      },
+      byAsset: {
+        stock: {
+          limit: limits.stock,
+          remaining: Math.max(limits.stock - counts.stock, 0),
+        },
+        crypto: {
+          limit: limits.crypto,
+          remaining: Math.max(limits.crypto - counts.crypto, 0),
+        },
+      },
     },
     meta: {
       now: nowSec,
