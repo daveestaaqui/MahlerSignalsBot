@@ -32,22 +32,27 @@ export async function getStockDaily(symbol: string): Promise<Candle[]> {
   url.searchParams.set('limit','120');
   url.searchParams.set('apiKey', POLYGON_KEY);
 
-  await bucket.take(1);
-  const json = await withRetry(async ()=>{
-    const res = await fetch(url, { headers:{'User-Agent':'AuroraSignalX/1.0'} });
-    if(!res.ok) throw new Error(`polygon ${res.status}`);
-    return res.json();
-  });
-  const results = json?.results;
-  if(!Array.isArray(results)) return mockSeries(symbol.toUpperCase());
-  return results.map((r:any)=>({
-    t: Number(r.t || 0),
-    o: Number(r.o || 0),
-    h: Number(r.h || 0),
-    l: Number(r.l || 0),
-    c: Number(r.c || 0),
-    v: Number(r.v || 0),
-  })).filter(c=>c.t && c.c);
+  try {
+    await bucket.take(1);
+    const json = await withRetry(async ()=>{
+      const res = await fetch(url, { headers:{'User-Agent':'AuroraSignalX/1.0'} });
+      if(!res.ok) throw new Error(`polygon ${res.status}`);
+      return res.json();
+    });
+    const results = json?.results;
+    if(!Array.isArray(results)) return mockSeries(symbol.toUpperCase());
+    return results.map((r:any)=>({
+      t: Number(r.t || 0),
+      o: Number(r.o || 0),
+      h: Number(r.h || 0),
+      l: Number(r.l || 0),
+      c: Number(r.c || 0),
+      v: Number(r.v || 0),
+    })).filter(c=>c.t && c.c);
+  } catch (err) {
+    console.warn('[polygon] falling back to synthetic series', symbol, err instanceof Error ? err.message : err);
+    return mockSeries(symbol.toUpperCase());
+  }
 }
 
 export async function getOptionsFlow(symbol: string){
