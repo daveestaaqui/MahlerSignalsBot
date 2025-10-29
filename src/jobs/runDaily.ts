@@ -4,10 +4,19 @@ import { runStocksOnce } from '../pipeline/stocks/index.js';
 import { runCryptoOnce } from '../pipeline/crypto/index.js';
 import { selectDailySignals, type SelectedSignal } from '../services/selector.js';
 import { canPublish } from '../services/gating.js';
-import { fmtEliteStock, fmtEliteCrypto, fmtPro, fmtFreeTeaser, type MessageBase, type FormattedMessage } from '../services/formatters.js';
+import {
+  fmtEliteStock,
+  fmtEliteCrypto,
+  fmtPro,
+  fmtFreeTeaser,
+  type MessageBase,
+  type FormattedMessage,
+} from '../services/formatters.js';
 import { TIER_GATES } from '../config/tiers.js';
-import { POSTING_RULES } from '../config/posting.js';
 import type { SignalRecord } from '../signals/rules.js';
+import { CADENCE, todayIso } from '../config/cadence.js';
+import { POSTING_RULES } from '../config/posting.js';
+import { getLedgerCounts, incrementLedger } from '../lib/publishLedger.js';
 
 type Tier = 'elite' | 'pro' | 'free';
 type AssetClass = 'stock' | 'crypto';
@@ -39,6 +48,15 @@ export type DailyRunResult = {
   generatedAt: string;
   dryRun: boolean;
   postEnabled: boolean;
+  cadence: {
+    date: string;
+    limits: {
+      total: number;
+      byAsset: Record<AssetClass, number>;
+    };
+    before: Record<AssetClass, number>;
+    after: Record<AssetClass, number>;
+  };
   candidates: {
     total: number;
     stock: number;
@@ -79,53 +97,89 @@ export type DailyRunResult = {
 };
 
 type PersistedSignal = { id: number; record: SignalRecord };
-const GLOBAL_DAILY_CAP = 2;
+const DEFAULT_ASSETS: AssetClass[] = ['stock', 'crypto'];
 
-export async function runDailyOnce(): Promise<DailyRunResult> {
-  const startOfDay = new Date();
-  startOfDay.setUTCHours(0, 0, 0, 0);
-  const startSec = Math.floor(startOfDay.getTime() / 1000);
-  const totalSentRow = db.prepare(`
-    SELECT COUNT(DISTINCT signal_id) as cnt
-    FROM publish_queue
-    WHERE sent_at IS NOT NULL AND sent_at >= ?
-  `).get(startSec) as { cnt?: number } | undefined;
-  const alreadySentTotal = totalSentRow?.cnt ?? 0;
+export type RunDailyOptions = {
+  assets?: AssetClass[];
+};
+
+export async function runDailyOnce(options: RunDailyOptions = {}): Promise<DailyRunResult> {
+  const ledgerDate = todayIso();
+  const ledgerCounts = getLedgerCounts(ledgerDate);
+
+  const assetCaps: Record<AssetClass, number> = {
+    stock: CADENCE.ENABLE_STOCKS_DAILY ? 1 : 0,
+    crypto: CADENCE.ENABLE_CRYPTO_DAILY ? 1 : 0,
+  };
+
+  const requestedAssets = normalizeAssets(options.assets ?? DEFAULT_ASSETS);
+  const assetsToRun = requestedAssets.filter((asset) => assetCaps[asset] > 0);
+
+  const globalLimit = Math.min(
+    CADENCE.MAX_POSTS_PER_DAY,
+    assetCaps.stock + assetCaps.crypto,
+  );
+  const globalRemainingBefore = Math.max(globalLimit - (ledgerCounts.stock + ledgerCounts.crypto), 0);
+
+  const shouldRunStocks = assetsToRun.includes('stock');
+  const shouldRunCrypto = assetsToRun.includes('crypto');
 
   const [stockSignals, cryptoSignals] = await Promise.all([
-    runStocksOnce(STOCK_UNIVERSE),
-    runCryptoOnce(CRYPTO_UNIVERSE),
+    shouldRunStocks ? runStocksOnce(STOCK_UNIVERSE) : Promise.resolve([]),
+    shouldRunCrypto ? runCryptoOnce(CRYPTO_UNIVERSE) : Promise.resolve([]),
   ]);
 
   const candidates = [...stockSignals, ...cryptoSignals];
   const selection = selectDailySignals(candidates);
 
-  const globalCap = Math.max(Math.min(POSTING_RULES.DAILY_POST_CAP, GLOBAL_DAILY_CAP) - alreadySentTotal, 0);
-  const trimmed = enforceGlobalCap(selection.selected, globalCap);
-  const finalSelected = trimmed.selected;
+  const remainingByAsset: Record<AssetClass, number> = {
+    stock: clampRemaining(assetCaps.stock - ledgerCounts.stock, globalRemainingBefore),
+    crypto: clampRemaining(assetCaps.crypto - ledgerCounts.crypto, globalRemainingBefore),
+  };
 
-  const persisted: PersistedSignal[] = selection.selected.map(({ signal }) => ({
+  const cadenceTrimmed = enforceCadence(selection.selected, remainingByAsset, globalRemainingBefore);
+  const finalSelected = cadenceTrimmed.selected;
+  const overflow = cadenceTrimmed.overflow;
+
+  const persisted: PersistedSignal[] = finalSelected.map(({ signal }) => ({
     id: upsertSignal(signal),
     record: signal,
   }));
 
-  const finalPersisted = persisted.filter((entry) => finalSelected.some(({ signal }) => signal.uniq_key === entry.record.uniq_key));
-
   const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
   const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
-  const shouldDispatch = postEnabled && !dryRun;
+  const shouldDispatch = postEnabled && !dryRun && finalSelected.length > 0;
 
-  const groups = buildGroups(finalPersisted);
+  const groups = buildGroups(persisted);
   const composed = composeGroups(groups);
 
   if (shouldDispatch) {
     enqueueGroups(composed);
+    recordCadenceUsage(finalSelected, ledgerDate);
   }
+
+  const countsUsed = countByAsset(finalSelected);
+  const totalUsed = countsUsed.stock + countsUsed.crypto;
 
   return {
     generatedAt: new Date().toISOString(),
     dryRun,
     postEnabled,
+    cadence: {
+      date: ledgerDate,
+      limits: {
+        total: globalLimit,
+        byAsset: assetCaps,
+      },
+      before: {
+        stock: ledgerCounts.stock,
+        crypto: ledgerCounts.crypto,
+      },
+      after: {
+        stock: ledgerCounts.stock + (shouldDispatch ? countsUsed.stock : 0),
+        crypto: ledgerCounts.crypto + (shouldDispatch ? countsUsed.crypto : 0),
+      },
+    },
     candidates: {
       total: candidates.length,
       stock: stockSignals.length,
@@ -139,13 +193,30 @@ export async function runDailyOnce(): Promise<DailyRunResult> {
       flowUsd,
       autoPass,
     })),
-    rejected: [...selection.rejected, ...trimmed.overflow.map(({ signal }) => ({ signal, reason: 'no_capacity' as const }))]
-      .map(({ signal, reason }) => ({
-        symbol: signal.symbol,
-        assetType: signal.asset_type,
-        reason,
-      })),
-    capacity: selection.capacity,
+    rejected: [
+      ...selection.rejected,
+      ...overflow.map(({ signal }) => ({ signal, reason: 'no_capacity' as const })),
+    ].map(({ signal, reason }) => ({
+      symbol: signal.symbol,
+      assetType: signal.asset_type,
+      reason,
+    })),
+    capacity: {
+      total: {
+        limit: globalLimit,
+        remaining: Math.max(globalRemainingBefore - totalUsed, 0),
+      },
+      byAsset: {
+        stock: {
+          limit: assetCaps.stock,
+          remaining: Math.max(remainingByAsset.stock - countsUsed.stock, 0),
+        },
+        crypto: {
+          limit: assetCaps.crypto,
+          remaining: Math.max(remainingByAsset.crypto - countsUsed.crypto, 0),
+        },
+      },
+    },
     selectionMeta: selection.meta,
     messages: composed.map((group) => ({
       tier: group.tier,
@@ -156,6 +227,23 @@ export async function runDailyOnce(): Promise<DailyRunResult> {
       symbols: group.symbols,
     })),
   };
+}
+
+function normalizeAssets(assets: AssetClass[]): AssetClass[] {
+  const normalized = new Set<AssetClass>();
+  for (const asset of assets) {
+    if (asset === 'stock' || asset === 'crypto') {
+      normalized.add(asset);
+    }
+  }
+  return Array.from(normalized);
+}
+
+function clampRemaining(remaining: number, globalRemaining: number): number {
+  if (remaining <= 0 || globalRemaining <= 0) {
+    return 0;
+  }
+  return Math.max(Math.min(remaining, globalRemaining), 0);
 }
 
 function upsertSignal(signal: SignalRecord): number {
@@ -174,7 +262,6 @@ function upsertSignal(signal: SignalRecord): number {
   return row.id;
 }
 
-
 function buildGroups(entries: PersistedSignal[]): Array<{ tier: Tier; asset: AssetClass; entries: PersistedSignal[] }> {
   const grouped = new Map<string, { tier: Tier; asset: AssetClass; entries: PersistedSignal[] }>();
   const freeBuckets: Array<{ tier: Tier; asset: AssetClass; entries: PersistedSignal[] }> = [];
@@ -184,6 +271,7 @@ function buildGroups(entries: PersistedSignal[]): Array<{ tier: Tier; asset: Ass
     const asset = record.asset_type;
     const context = {
       asset,
+      symbol: record.symbol,
       whale: Boolean(record.features?.whales || record.features?.whaleScore),
       congress: Boolean(record.features?.congressScore),
       options: Boolean(record.features?.optionsScore),
@@ -238,6 +326,12 @@ function buildMessageBase(signal: SignalRecord): MessageBase {
     score: signal.score,
     subs: signal.features?.subs,
     assetType: signal.asset_type,
+    extras: {
+      support: signal.features?.support,
+      resistance: signal.features?.resistance,
+      timeframe: signal.features?.timeframe ?? signal.features?.cycle,
+      riskNote: signal.features?.riskNote,
+    },
   };
 }
 
@@ -265,14 +359,15 @@ function enqueueGroups(groups: Array<{
 }>) {
   const now = Math.floor(Date.now() / 1000);
   for (const group of groups) {
-    const readyAt = group.tier === 'free'
-      ? Math.max(
-          ...group.entries.map(({ record }) => record.embargo_until ?? now + TIER_GATES.free.delaySeconds),
-        )
-      : now;
+    const readyAt =
+      group.tier === 'free'
+        ? Math.max(
+            ...group.entries.map(({ record }) => record.embargo_until ?? now + TIER_GATES.free.delaySeconds),
+          )
+        : now;
 
     const payload = JSON.stringify({
-      version: 2,
+      version: 3,
       tier: group.tier,
       asset: group.asset,
       message: group.message,
@@ -290,37 +385,59 @@ function enqueueGroups(groups: Array<{
   }
 }
 
-function enforceGlobalCap(selected: SelectedSignal[], cap: number) {
-  if (cap <= 0) {
+function enforceCadence(
+  selected: SelectedSignal[],
+  remainingByAsset: Record<AssetClass, number>,
+  globalRemaining: number,
+) {
+  if (globalRemaining <= 0) {
     return { selected: [] as SelectedSignal[], overflow: selected };
   }
 
   const sorted = [...selected].sort((a, b) => b.signal.score - a.signal.score);
-  const perAsset = {
-    stock: sorted.filter((item) => item.signal.asset_type === 'stock'),
-    crypto: sorted.filter((item) => item.signal.asset_type === 'crypto'),
-  } as Record<AssetClass, SelectedSignal[]>;
-
   const chosen: SelectedSignal[] = [];
+  const overflow: SelectedSignal[] = [];
+  const counts: Record<AssetClass, number> = { stock: 0, crypto: 0 };
   const usedSymbols = new Set<string>();
 
-  for (const asset of ['stock', 'crypto'] as const) {
-    if (chosen.length >= cap) break;
-    const candidate = perAsset[asset].find((item) => !usedSymbols.has(item.signal.symbol));
-    if (candidate) {
-      chosen.push(candidate);
-      usedSymbols.add(candidate.signal.symbol);
+  for (const entry of sorted) {
+    const asset = entry.signal.asset_type;
+    if (usedSymbols.has(entry.signal.symbol)) {
+      overflow.push(entry);
+      continue;
     }
+    if (counts[asset] >= remainingByAsset[asset]) {
+      overflow.push(entry);
+      continue;
+    }
+    if (chosen.length >= globalRemaining) {
+      overflow.push(entry);
+      continue;
+    }
+    chosen.push(entry);
+    counts[asset] += 1;
+    usedSymbols.add(entry.signal.symbol);
   }
 
-  for (const item of sorted) {
-    if (chosen.length >= cap) break;
-    if (usedSymbols.has(item.signal.symbol)) continue;
-    chosen.push(item);
-    usedSymbols.add(item.signal.symbol);
-  }
-
-  const chosenSet = new Set(chosen.map((item) => item.signal.uniq_key));
-  const overflow = selected.filter((item) => !chosenSet.has(item.signal.uniq_key));
   return { selected: chosen, overflow };
+}
+
+function countByAsset(selected: SelectedSignal[]): Record<AssetClass, number> {
+  return selected.reduce(
+    (acc, item) => {
+      acc[item.signal.asset_type] += 1;
+      return acc;
+    },
+    { stock: 0, crypto: 0 } as Record<AssetClass, number>,
+  );
+}
+
+function recordCadenceUsage(selected: SelectedSignal[], ledgerDate: string) {
+  const counts = countByAsset(selected);
+  if (counts.stock > 0) {
+    incrementLedger('stock', counts.stock, ledgerDate);
+  }
+  if (counts.crypto > 0) {
+    incrementLedger('crypto', counts.crypto, ledgerDate);
+  }
 }

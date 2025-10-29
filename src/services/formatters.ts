@@ -10,6 +10,12 @@ export type MessageBase = {
   score: number;
   subs?: Record<string, number>;
   assetType: AssetClass;
+  extras?: {
+    support?: number;
+    resistance?: number;
+    timeframe?: string;
+    riskNote?: string;
+  };
 };
 
 export type FormattedMessage = {
@@ -24,23 +30,34 @@ type Bundle = {
   entries: MessageBase[];
 };
 
-const tierMeta = {
+const tierMeta: Record<
+  Tier,
+  {
+    emoji: string;
+    label: string;
+    risk: string;
+    cta: string;
+  }
+> = {
   elite: {
     emoji: '👑',
     label: 'ELITE',
-    risk: 'Risk: size ≤1.0R, trail once +1R locked.',
+    risk: 'Risk: commit ≤1.0R; trail after locking +1R.',
+    cta: 'CTA: Sync with desk for execution and risk overlays.',
   },
   pro: {
     emoji: '⭐',
     label: 'PRO',
-    risk: 'Risk: size ≤0.75R, respect structure stops.',
+    risk: 'Risk: commit ≤0.75R; respect structure stops.',
+    cta: 'CTA: Execute via Aurora Portal; journal fills within 15m.',
   },
   free: {
     emoji: '⌛',
     label: 'FREE',
-    risk: 'Upgrade for realtime entries, stops, and targets.',
+    risk: 'Risk: delayed signal; manage entries with wide stops.',
+    cta: 'CTA: Upgrade for realtime alerts + desk support.',
   },
-} as const;
+};
 
 export function fmtEliteStock(entries: MessageBase[]): FormattedMessage {
   return formatBundle({ tier: 'elite', asset: 'stock', entries });
@@ -78,56 +95,109 @@ export function freeTeaser(entry: MessageBase | MessageBase[]): string {
   return fmtFreeTeaser(asset, items).telegram;
 }
 
-function formatBundle(bundle: Bundle): FormattedMessage {
-  const { tier, asset, entries } = bundle;
-  if (!entries.length) {
-    const fallback = `${headerLine(tier, asset)}\nNo signals selected.`;
-    return { telegram: fallback, plain: fallback, compact: fallback };
+export function formatWeeklyDigestMessage(summary: {
+  header: string;
+  bullets: string[];
+  cta?: string;
+}): FormattedMessage {
+  const lines = [escapeHtml(summary.header), ...summary.bullets.map((line) => `• ${escapeHtml(line)}`)];
+  if (summary.cta) {
+    lines.push(escapeHtml(summary.cta));
   }
-
-  const body: string[] = [];
-  const compactParts: string[] = [];
-  entries.forEach((entry) => {
-    const plan = buildPlan(entry);
-    const breakdown = conviction(entry.subs);
-    const context = entryContext(entry);
-    body.push(
-      `• <b>${escapeHtml(entry.symbol)}</b> — ${escapeHtml(context)}`,
-    );
-    body.push(
-      `  Trade plan: Entry ${priceFmt(entry.price)} | Stop ${priceFmt(plan.stop)} | Target ${priceFmt(plan.target)} | R/R ${rrFmt(plan.rr)}`,
-    );
-    body.push(
-      `  Conviction: ${escapeHtml(breakdown)} | Score ${scoreFmt(entry.score)}${entry.reason ? ` | Note: ${escapeHtml(entry.reason)}` : ''}`,
-    );
-
-    compactParts.push(
-      `${tierMeta[tier].emoji} ${entry.symbol}: Entry ${priceFmt(entry.price)}, Stop ${priceFmt(plan.stop)}, Target ${priceFmt(plan.target)}, R/R ${rrFmt(plan.rr)}, Score ${scoreFmt(entry.score)}, Conviction ${breakdown}`,
-    );
-  });
-
-  body.push(tierMeta[tier].risk);
-
-  const telegram = [headerLine(tier, asset), ...body].join('\n');
+  const telegram = lines.join('\n');
   const plain = stripHtml(telegram);
-  const compact = compactParts.join(' • ');
+  const compact = compactText(plain);
   return { telegram, plain, compact };
 }
 
-function headerLine(tier: Tier, asset: AssetClass): string {
+function formatBundle(bundle: Bundle): FormattedMessage {
+  const { tier, asset, entries } = bundle;
+  const header = headerLine(tier, asset, entries.length > 1 ? 'High-Conviction Set' : 'High-Conviction Signal');
+  if (!entries.length) {
+    const fallback = `${header}\nNo qualifying signals for this window.`;
+    return {
+      telegram: fallback,
+      plain: stripHtml(fallback),
+      compact: compactText(fallback),
+    };
+  }
+
+  const body: string[] = [];
+  for (const entry of entries) {
+    body.push(renderEntry(tier, asset, entry));
+  }
+
+  const footer = [
+    tierMeta[tier].risk,
+    tierMeta[tier].cta,
+    'Trade: https://aurorasignalx.app/trade | Connect: https://aurorasignalx.app/connect',
+  ].map(escapeHtml);
+
+  const telegram = [header, ...body, ...footer].join('\n');
+  const plain = stripHtml(telegram);
+  const compact = compactText(plain);
+  return { telegram, plain, compact };
+}
+
+function renderEntry(tier: Tier, asset: AssetClass, entry: MessageBase): string {
+  const lines: string[] = [];
+  const plan = buildPlan(entry);
+  const scoreLine = buildScoreLine(entry);
+  const triggers = buildTriggers(entry.reason);
+  const planLine = `Plan: Entry ${priceFmt(entry.price)} · Stop ${priceFmt(plan.stop)} · Target ${priceFmt(plan.target)} · R/R ${rrFmt(
+    plan.rr,
+  )}`;
+  const riskLine = entry.extras?.riskNote
+    ? `Risk: ${escapeHtml(entry.extras.riskNote)}`
+    : `Risk: ${tierMeta[tier].risk.replace(/^Risk:\s*/i, '')}`;
+
+  const contextParts = [
+    entry.assetType === 'stock' ? 'Equity' : 'Crypto',
+    entry.extras?.timeframe ? entry.extras.timeframe : 'Swing',
+    entryContext(entry),
+  ].filter(Boolean);
+
+  lines.push(
+    `• <b>${escapeHtml(entry.symbol)}</b> | ${escapeHtml(contextParts.join(' · '))}`,
+  );
+  lines.push(`  ${escapeHtml(scoreLine)}`);
+  if (triggers.length) {
+    lines.push(`  Triggers: ${triggers.map((t) => escapeHtml(t)).join(' • ')}`);
+  }
+  lines.push(`  ${escapeHtml(planLine)}`);
+  lines.push(`  ${escapeHtml(riskLine)}`);
+  return lines.join('\n');
+}
+
+function headerLine(tier: Tier, asset: AssetClass, type: string): string {
   const meta = tierMeta[tier];
-  const assetLabel = asset === 'stock' ? 'Stocks' : 'Crypto';
-  return `${meta.emoji} ${meta.label} • ${assetLabel} • Daily Signals`;
+  const assetLabel = asset === 'stock' ? 'STOCK' : 'CRYPTO';
+  return `${meta.emoji} [${meta.label}] ${assetLabel} ${type.toUpperCase()}`;
 }
 
 function buildPlan(entry: MessageBase): { stop?: number; target?: number; rr?: number } {
   const price = entry.price;
   if (!price || price <= 0) return {};
   const volatility = Math.max(Math.abs(entry.pct ?? 0.03), 0.015);
-  const stop = price * (1 - Math.max(0.015, volatility * 0.6));
-  const target = price * (1 + Math.max(0.03, volatility * 1.8));
+  const stop = entry.extras?.support ?? price * (1 - Math.max(0.015, volatility * 0.6));
+  const target = entry.extras?.resistance ?? price * (1 + Math.max(0.03, volatility * 1.8));
   const rr = (target - price) / Math.max(price - stop, 0.0001);
   return { stop, target, rr };
+}
+
+function buildScoreLine(entry: MessageBase): string {
+  const score = scoreFmt(entry.score);
+  const breakdown = conviction(entry.subs);
+  return `Score ${score}/100 (${breakdown})`;
+}
+
+function buildTriggers(reason?: string): string[] {
+  if (!reason) return [];
+  return reason
+    .split(/[\n•|-]+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .slice(0, 3);
 }
 
 function conviction(subs: Record<string, number> | undefined): string {
@@ -141,8 +211,14 @@ function conviction(subs: Record<string, number> | undefined): string {
   const weights = dimensions.map(({ key }) => Math.max(subs?.[key] ?? 0, 0));
   const total = weights.reduce((acc, value) => acc + value, 0) || 1;
   return dimensions
-    .map((dimension, index) => `${dimension.label} ${(weights[index] / total * 100).toFixed(0)}%`)
-    .join(' • ');
+    .map(({ label }, index) => `${label} ${(weights[index] / total * 100).toFixed(0)}%`)
+    .join(', ');
+}
+
+function entryContext(entry: MessageBase): string {
+  const trend = entry.pct !== undefined ? `Δ ${pctFmt(entry.pct)}` : 'Δ —';
+  const rvol = entry.rvol !== undefined ? `RVOL ${rvolFmt(entry.rvol)}` : 'RVOL —';
+  return `${trend} · ${rvol}`;
 }
 
 function asArray(entry: MessageBase | MessageBase[]): MessageBase[] {
@@ -162,11 +238,10 @@ function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, '');
 }
 
-function entryContext(entry: MessageBase): string {
-  const trend = entry.pct !== undefined ? `Δ ${pctFmt(entry.pct)}` : 'Δ —';
-  const rvol = entry.rvol !== undefined ? `RVOL ${rvolFmt(entry.rvol)}` : 'RVOL —';
-  const bias = entry.assetType === 'stock' ? 'Equity Swing' : 'Crypto Swing';
-  return `${bias} | ${trend} | ${rvol}`;
+function compactText(value: string, limit = 240): string {
+  const compressed = value.replace(/\s+/g, ' ').trim();
+  if (compressed.length <= limit) return compressed;
+  return `${compressed.slice(0, limit - 1)}…`;
 }
 
 function priceFmt(value?: number): string {

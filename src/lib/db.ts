@@ -78,6 +78,14 @@ CREATE TABLE IF NOT EXISTS signal_metrics (
   UNIQUE(signal_id, tier)
 );
 CREATE INDEX IF NOT EXISTS idx_metrics_signal ON signal_metrics(signal_id);
+
+CREATE TABLE IF NOT EXISTS publish_ledger (
+  ledger_date TEXT NOT NULL,
+  asset_class TEXT CHECK(asset_class IN ('stock','crypto','weekly')) NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  last_updated INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  PRIMARY KEY (ledger_date, asset_class)
+);
 `);
 
 export default db;
