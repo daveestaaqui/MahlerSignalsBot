@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { Hono } from 'hono';
 import type { Handler, MiddlewareHandler } from 'hono';
 import { acquireLock, releaseLock } from '../lib/locks.js';
-import { runDailyOnce, type RunDailyOptions } from '../jobs/runDaily.js';
+import { runDailyOnce, type RunDailyOptions, type DailyRunResult } from '../jobs/runDaily.js';
 import { flushPublishQueue } from '../jobs/publishWorker.js';
 import { buildWeeklyDigest } from '../services/weeklyDigest.js';
 import { dispatchWeeklyDigest } from '../services/weeklyDispatch.js';
@@ -89,6 +89,16 @@ const weeklySummaryHandler: Handler = (c) => {
   }
 };
 
+const previewDailyHandler: Handler = async (c) => {
+  try {
+    const result = await runDailyOnce({ preview: true });
+    return sendDailyResponse(c, result, { preview: true });
+  } catch (err) {
+    console.error('[preview/daily]', err);
+    return c.json(degradedPayload(err, { preview: true }), 200);
+  }
+};
+
 const adminAuth: MiddlewareHandler = async (c, next) => {
   if (!isAuthorized(c.req.raw)) {
     return c.json({ ok: false, error: 'unauthorized' }, 401);
@@ -97,6 +107,16 @@ const adminAuth: MiddlewareHandler = async (c, next) => {
 };
 
 const postDailyHandler: Handler = async (c) => {
+  const dryRunQuery = c.req.query('dry_run');
+  if (isTruthy(dryRunQuery)) {
+    try {
+      const result = await runDailyOnce({ preview: true });
+      return sendDailyResponse(c, result, { preview: true });
+    } catch (err) {
+      console.error('[admin/post-daily preview]', err);
+      return c.json(degradedPayload(err, { preview: true }), 200);
+    }
+  }
   return withLock(
     'daily-run',
     () =>
@@ -117,19 +137,80 @@ const postNowHandler: Handler = async (c) => {
   return withLock('manual-run', async () => {
     const assets = assetsWithRemainingCapacity();
     if (!assets.length) {
-      return c.json({
-        ok: false,
-        error: 'no_capacity',
+      const flags = resolveFlags();
+      const date = todayIso();
+      const ledger = getLedgerCounts(date);
+      const perAssetLimits = {
+        stock: CADENCE.ENABLE_STOCKS_DAILY ? 1 : 0,
+        crypto: CADENCE.ENABLE_CRYPTO_DAILY ? 1 : 0,
+      } as const;
+      const totalLimit =
+        Number.isFinite(CADENCE.MAX_POSTS_PER_DAY) && CADENCE.MAX_POSTS_PER_DAY > 0
+          ? CADENCE.MAX_POSTS_PER_DAY
+          : perAssetLimits.stock + perAssetLimits.crypto;
+      const capacityByAsset = {
+        stock: {
+          limit: perAssetLimits.stock,
+          remaining: Math.max(perAssetLimits.stock - Math.min(ledger.stock, perAssetLimits.stock), 0),
+        },
+        crypto: {
+          limit: perAssetLimits.crypto,
+          remaining: Math.max(perAssetLimits.crypto - Math.min(ledger.crypto, perAssetLimits.crypto), 0),
+        },
+      };
+      const totalUsed = Math.min(ledger.stock, perAssetLimits.stock) + Math.min(ledger.crypto, perAssetLimits.crypto);
+      const totalRemaining = Math.max(totalLimit - totalUsed, 0);
+      const nowSec = Math.floor(Date.now() / 1000);
+      const result: DailyRunResult = {
+        generatedAt: new Date().toISOString(),
+        dryRun: flags.dryRun,
+        postEnabled: flags.postEnabled,
+        preview: false,
         cadence: {
-          date: todayIso(),
-          ledger: getLedgerCounts(),
+          date,
           limits: {
-            total: CADENCE.MAX_POSTS_PER_DAY,
-            stock: CADENCE.ENABLE_STOCKS_DAILY ? 1 : 0,
-            crypto: CADENCE.ENABLE_CRYPTO_DAILY ? 1 : 0,
+            total: totalLimit,
+            byAsset: {
+              stock: perAssetLimits.stock,
+              crypto: perAssetLimits.crypto,
+            },
+          },
+          before: {
+            stock: ledger.stock ?? 0,
+            crypto: ledger.crypto ?? 0,
+          },
+          after: {
+            stock: ledger.stock ?? 0,
+            crypto: ledger.crypto ?? 0,
           },
         },
-      }, 400);
+        candidates: {
+          total: 0,
+          stock: 0,
+          crypto: 0,
+        },
+        selected: [],
+        rejected: [],
+        capacity: {
+          total: {
+            limit: totalLimit,
+            remaining: totalRemaining,
+          },
+          byAsset: capacityByAsset,
+        },
+        selectionMeta: {
+          now: nowSec,
+          cooldownCutoff: nowSec,
+        },
+        messages: [],
+        dispatch: [],
+        posted: 0,
+        reason: 'no_capacity',
+        providerErrors: [],
+        errors: [],
+        telemetry: [],
+      };
+      return sendDailyResponse(c, result);
     }
     return executeAdminRun(
       c,
@@ -179,6 +260,7 @@ app.get('/', (c) => c.json({ ok: true, version: APP_VERSION }));
 aliasRoutes(app, 'GET', '/status', statusHandler);
 aliasRoutes(app, 'GET', '/diagnostics', diagnosticsHandler);
 aliasRoutes(app, 'GET', '/weekly-summary', weeklySummaryHandler);
+aliasRoutes(app, 'GET', '/preview/daily', previewDailyHandler);
 aliasRoutes(app, 'POST', '/admin/post-now', adminAuth, postNowHandler);
 aliasRoutes(app, 'POST', '/admin/post-daily', adminAuth, postDailyHandler);
 aliasRoutes(app, 'POST', '/admin/post-weekly', adminAuth, postWeeklyHandler);
@@ -194,34 +276,10 @@ async function executeAdminRun(
   const flags = resolveFlags();
   try {
     const result = await runner();
-    const queued = result.postEnabled && !result.dryRun && result.messages.length > 0;
-    const status = queued ? 202 : 200;
-    return c.json(
-      {
-        ok: true,
-        queued,
-        dryRun: result.dryRun,
-        postEnabled: result.postEnabled,
-        cadence: result.cadence,
-        selected: result.selected,
-        capacity: result.capacity,
-        messages: result.messages,
-        ...extra,
-      },
-      status,
-    );
+    return sendDailyResponse(c, result, extra);
   } catch (err) {
     console.error(`[${label}]`, err);
-    const status = flags.postEnabled && !flags.dryRun ? 202 : 200;
-    return c.json(
-      degradedPayload(err, {
-        queued: false,
-        dryRun: flags.dryRun,
-        postEnabled: flags.postEnabled,
-        ...extra,
-      }),
-      status,
-    );
+    return sendDailyError(c, err, extra);
   }
 }
 
@@ -229,6 +287,33 @@ function resolveFlags() {
   const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
   const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
   return { dryRun, postEnabled };
+}
+
+function sendDailyResponse(
+  c: Parameters<Handler>[0],
+  result: Awaited<ReturnType<typeof runDailyOnce>>,
+  extra: Record<string, unknown> = {},
+) {
+  const errors = result.errors ?? [];
+  const body = {
+    ok: true,
+    posted: result.posted,
+    preview: result.preview,
+    dryRun: result.dryRun,
+    postEnabled: result.postEnabled,
+    reason: result.reason,
+    errors,
+    degraded: errors.length > 0,
+    selected: result.selected,
+    rejected: result.rejected,
+    dispatch: result.dispatch,
+    cadence: result.cadence,
+    capacity: result.capacity,
+    messages: result.messages,
+    telemetry: result.telemetry,
+    ...extra,
+  };
+  return c.json(body, 200);
 }
 
 function isAuthorized(req: Request) {
@@ -279,6 +364,34 @@ function assetsWithRemainingCapacity() {
     if (CADENCE.ENABLE_CRYPTO_DAILY) fallback.push('crypto');
     return fallback;
   }
+}
+
+function isTruthy(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return ['1', 'true', 'yes'].includes(value.toLowerCase());
+}
+
+function sendDailyError(c: Parameters<Handler>[0], err: unknown, extra: Record<string, unknown> = {}) {
+  const flags = resolveFlags();
+  const error = {
+    provider: 'internal',
+    message: formatReason(err),
+    retryInSec: 60,
+  };
+  return c.json(
+    {
+      ok: true,
+      posted: 0,
+      preview: false,
+      dryRun: flags.dryRun,
+      postEnabled: flags.postEnabled,
+      reason: 'internal_error',
+      errors: [error],
+      degraded: true,
+      ...extra,
+    },
+    200,
+  );
 }
 
 async function maybeFlush(result: Awaited<ReturnType<typeof runDailyOnce>>) {

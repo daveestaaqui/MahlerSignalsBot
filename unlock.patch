@@ -1,0 +1,50 @@
+*** a/src/web/server.ts
+--- b/src/web/server.ts
+@@
+ import { Hono } from 'hono';
+ import type { Handler } from 'hono';
+ import { aliasRoutes, adminAuth, formatReason } from './utils';
+-import { acquireLock, releaseLock } from '../lib/locks';
++import { acquireLock, releaseLock } from '../lib/locks';
+@@
+ const postWeeklyHandler: Handler = async (c) => {
+   return withHandledPost('weekly', c);
+ };
+ 
++// Admin: clear mutex locks so manual/daily runs can proceed
++const adminUnlockHandler: Handler = async (c) => {
++  let force = false;
++  try {
++    const q = c.req.query('force');
++    if (q && (q === '1' || q === 'true')) force = true;
++    const body = await c.req.json().catch(() => ({} as any));
++    if (body && (body.force === true || body.force === 'true' || body.force === 1)) force = true;
++  } catch {}
++  const locks = ['daily-run', 'manual-run'];
++  const cleared: string[] = [];
++  try {
++    for (const name of locks) {
++      if (force) {
++        releaseLock(name);
++        cleared.push(name);
++      } else {
++        const got = acquireLock(name, 1);
++        if (got) {
++          releaseLock(name);
++          cleared.push(name);
++        }
++      }
++    }
++    return c.json({ ok: true, cleared, force }, 200);
++  } catch (err) {
++    return c.json({ ok: false, error: formatReason(err) }, 500);
++  }
++};
++
+@@
+ aliasRoutes(app, 'GET', '/weekly-summary', weeklySummaryHandler);
+ aliasRoutes(app, 'POST', '/admin/post-now', adminAuth, postNowHandler);
+ aliasRoutes(app, 'POST', '/admin/post-daily', adminAuth, postDailyHandler);
+ aliasRoutes(app, 'POST', '/admin/post-weekly', adminAuth, postWeeklyHandler);
++aliasRoutes(app, 'POST', '/admin/unlock', adminAuth, adminUnlockHandler);
+*** End Patch

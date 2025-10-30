@@ -1,5 +1,6 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { request } from 'undici';
+import { withRetry } from '../lib/limits.js';
 import type { FormattedMessage } from './formatters.js';
 
 type Tier = 'FREE' | 'PRO' | 'ELITE';
@@ -56,11 +57,21 @@ export async function postTelegram(tierInput: TierInput, input: MessageInput) {
     log('info', 'telegram_dry_run', { tier, preview: payload.slice(0, 160) });
     return true;
   }
-  await bot.sendMessage(tgChats[tier], payload, {
-    disable_web_page_preview: true,
-    parse_mode: 'HTML',
-  });
-  return true;
+  try {
+    await withRetry(
+      () =>
+        bot.sendMessage(tgChats[tier], payload, {
+          disable_web_page_preview: true,
+          parse_mode: 'HTML',
+        }),
+      3,
+      400,
+    );
+    return true;
+  } catch (err) {
+    log('error', 'telegram_error', { tier, error: formatError(err) });
+    throw err;
+  }
 }
 
 export async function postDiscord(tierInput: TierInput, input: MessageInput) {
@@ -76,12 +87,22 @@ export async function postDiscord(tierInput: TierInput, input: MessageInput) {
     log('info', 'discord_dry_run', { tier, preview: payload.content.slice(0, 160) });
     return true;
   }
-  await request(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  return true;
+  try {
+    await withRetry(
+      () =>
+        request(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }),
+      3,
+      400,
+    );
+    return true;
+  } catch (err) {
+    log('error', 'discord_error', { tier, error: formatError(err) });
+    throw err;
+  }
 }
 
 export async function postX(input: MessageInput) {
@@ -124,4 +145,14 @@ function compressWhitespace(value: string): string {
 
 function log(level: 'info' | 'warn' | 'error', msg: string, meta?: Record<string, unknown>) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), level, msg, meta }));
+}
+
+function formatError(reason: unknown): string {
+  if (reason instanceof Error) return reason.message || reason.name;
+  if (typeof reason === 'string') return reason;
+  try {
+    return JSON.stringify(reason);
+  } catch {
+    return 'unknown-error';
+  }
 }
