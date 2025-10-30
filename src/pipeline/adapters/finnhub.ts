@@ -1,3 +1,5 @@
+import { withRetry } from '../../lib/limits.js';
+
 const BASE = 'https://finnhub.io/api/v1';
 const PROVIDER_TIMEOUT_MS = Number(process.env.HTTP_PROVIDER_TIMEOUT_MS ?? '4500');
 
@@ -26,8 +28,10 @@ export async function quote(symbol: string, apiKey = process.env.FINNHUB_KEY): P
     return fallbackQuote();
   }
   try {
-    const res = await fetchWithTimeout(
-      `${BASE}/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
+    const res = await withRetry(
+      () => fetchWithTimeout(`${BASE}/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`),
+      3,
+      400,
     );
     if (!res.ok) throw new Error(`finnhub ${res.status}`);
     return (await res.json()) as QuotePayload;
@@ -42,8 +46,10 @@ export async function newsSentiment(symbol: string, apiKey = process.env.FINNHUB
     return fallbackSentiment(symbol);
   }
   try {
-    const res = await fetchWithTimeout(
-      `${BASE}/news-sentiment?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
+    const res = await withRetry(
+      () => fetchWithTimeout(`${BASE}/news-sentiment?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`),
+      3,
+      400,
     );
     if (!res.ok) throw new Error(`finnhub ${res.status}`);
     return (await res.json()) as SentimentPayload;

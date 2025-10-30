@@ -21,6 +21,26 @@ import { getLedgerCounts, incrementLedger } from '../lib/publishLedger.js';
 type Tier = 'elite' | 'pro' | 'free';
 type AssetClass = 'stock' | 'crypto';
 
+type ProviderIssue = {
+  provider: string;
+  message: string;
+  retryInSec: number;
+};
+
+type TelemetryPhase = 'fetch' | 'score' | 'gate' | 'format' | 'dispatch';
+type TelemetryEvent = {
+  ts: string;
+  phase: TelemetryPhase;
+  asset?: AssetClass;
+  tier?: Tier;
+  symbol?: string;
+  score?: number;
+  channel?: string;
+  status?: string;
+  reason?: string;
+  error?: string;
+};
+
 const insertSignalStmt = db.prepare(`
   INSERT INTO signals (symbol, asset_type, tier_min, score, reason, features, created_at, embargo_until, uniq_key)
   VALUES (@symbol, @asset_type, @tier_min, @score, @reason, @features, @created_at, @embargo_until, @uniq_key)
@@ -48,6 +68,7 @@ export type DailyRunResult = {
   generatedAt: string;
   dryRun: boolean;
   postEnabled: boolean;
+  preview: boolean;
   cadence: {
     date: string;
     limits: {
@@ -94,18 +115,35 @@ export type DailyRunResult = {
     compact: string;
     symbols: string[];
   }>;
+  posted: number;
+  reason?: string;
+  providerErrors: ProviderIssue[];
+  telemetry: TelemetryEvent[];
+  errors: ProviderIssue[];
+  dispatch: Array<{ tier: Tier; asset: AssetClass; symbols: string[]; queued: boolean }>;
 };
 
 type PersistedSignal = { id: number; record: SignalRecord };
 const DEFAULT_ASSETS: AssetClass[] = ['stock', 'crypto'];
 const PER_ASSET_CAP = 2;
-const MIN_DISPATCH_SCORE = 0.85;
+const MIN_DISPATCH_SCORE = Math.max(POSTING_RULES.MIN_SCORE_PRO, 0.85);
 
 export type RunDailyOptions = {
   assets?: AssetClass[];
+  preview?: boolean;
 };
 
 export async function runDailyOnce(options: RunDailyOptions = {}): Promise<DailyRunResult> {
+  const preview = options.preview ?? false;
+  const providerErrors: ProviderIssue[] = [];
+  const telemetry: TelemetryEvent[] = [];
+
+  const logPhase = (event: Omit<TelemetryEvent, 'ts'>) => {
+    const payload: TelemetryEvent = { ts: new Date().toISOString(), ...event };
+    telemetry.push(payload);
+    console.log(JSON.stringify(payload));
+  };
+
   const ledgerDate = todayIso();
   const ledgerCounts = getLedgerCounts(ledgerDate);
 
@@ -125,12 +163,13 @@ export async function runDailyOnce(options: RunDailyOptions = {}): Promise<Daily
   const shouldRunStocks = assetsToRun.includes('stock');
   const shouldRunCrypto = assetsToRun.includes('crypto');
 
-  const [stockSignals, cryptoSignals] = await Promise.all([
-    shouldRunStocks ? runStocksOnce(STOCK_UNIVERSE) : Promise.resolve([]),
-    shouldRunCrypto ? runCryptoOnce(CRYPTO_UNIVERSE) : Promise.resolve([]),
-  ]);
+  const stockSignals = await safeFetchSignals('stock', shouldRunStocks, () => runStocksOnce(STOCK_UNIVERSE), providerErrors, logPhase);
+  const cryptoSignals = await safeFetchSignals('crypto', shouldRunCrypto, () => runCryptoOnce(CRYPTO_UNIVERSE), providerErrors, logPhase);
 
   const candidates = [...stockSignals, ...cryptoSignals];
+  candidates.forEach((candidate) => {
+    logPhase({ phase: 'score', asset: candidate.asset_type, symbol: candidate.symbol, score: candidate.score });
+  });
   const selection = selectDailySignals(candidates);
 
   const remainingByAsset: Record<AssetClass, number> = {
@@ -143,14 +182,22 @@ export async function runDailyOnce(options: RunDailyOptions = {}): Promise<Daily
   const overflow = [...cadenceTrimmed.overflow, ...lowScoreOverflow];
   const lowScoreSet = new Set(lowScoreOverflow.map((item) => item.signal.uniq_key));
 
-  const persisted: PersistedSignal[] = finalSelected.map(({ signal }) => ({
-    id: upsertSignal(signal),
+  selection.rejected.forEach(({ signal, reason }) => {
+    logPhase({ phase: 'gate', asset: signal.asset_type, symbol: signal.symbol, score: signal.score, reason });
+  });
+  overflow.forEach(({ signal }) => {
+    const reason = lowScoreSet.has(signal.uniq_key) ? 'score_below_threshold' : 'no_capacity';
+    logPhase({ phase: 'gate', asset: signal.asset_type, symbol: signal.symbol, score: signal.score, reason });
+  });
+
+  const persisted: PersistedSignal[] = finalSelected.map(({ signal }, idx) => ({
+    id: preview ? -(idx + 1) : upsertSignal(signal),
     record: signal,
   }));
 
   const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
   const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
-  const shouldDispatch = postEnabled && !dryRun && finalSelected.length > 0;
+  const shouldDispatch = !preview && postEnabled && !dryRun && finalSelected.length > 0;
 
   const groups = buildGroups(persisted);
   const composed = composeGroups(groups);
@@ -163,10 +210,31 @@ export async function runDailyOnce(options: RunDailyOptions = {}): Promise<Daily
   const countsUsed = countByAsset(finalSelected);
   const totalUsed = countsUsed.stock + countsUsed.crypto;
 
+  const posted = shouldDispatch ? totalUsed : 0;
+  let reason: string | undefined;
+  if (finalSelected.length === 0) {
+    reason = 'no_candidates_after_gating';
+  }
+  if (preview) {
+    reason = reason ?? 'preview';
+  }
+  if (!shouldDispatch && !preview && finalSelected.length > 0) {
+    reason = reason ?? (dryRun ? 'dry_run' : postEnabled ? 'queue_disabled' : 'post_disabled');
+  }
+  if (providerErrors.length && posted === 0) {
+    reason = reason ?? 'upstream_errors';
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     dryRun,
     postEnabled,
+    preview,
+    posted,
+    reason,
+    providerErrors,
+    errors: providerErrors,
+    telemetry,
     cadence: {
       date: ledgerDate,
       limits: {
@@ -231,6 +299,12 @@ export async function runDailyOnce(options: RunDailyOptions = {}): Promise<Daily
       compact: group.message.compact,
       symbols: group.symbols,
     })),
+    dispatch: composed.map((group) => ({
+      tier: group.tier,
+      asset: group.asset,
+      symbols: group.symbols,
+      queued: shouldDispatch,
+    })),
   };
 }
 
@@ -242,6 +316,28 @@ function normalizeAssets(assets: AssetClass[]): AssetClass[] {
     }
   }
   return Array.from(normalized);
+}
+
+async function safeFetchSignals(
+  asset: AssetClass,
+  shouldRun: boolean,
+  loader: () => Promise<SignalRecord[]>,
+  providerErrors: ProviderIssue[],
+  logPhase: (event: Omit<TelemetryEvent, 'ts'>) => void,
+): Promise<SignalRecord[]> {
+  if (!shouldRun) return [];
+  try {
+    const records = await loader();
+    records.forEach((record) => {
+      logPhase({ phase: 'fetch', asset, symbol: record.symbol, score: record.score });
+    });
+    return records;
+  } catch (err) {
+    const message = formatError(err);
+    providerErrors.push({ provider: asset, message, retryInSec: 60 });
+    logPhase({ phase: 'fetch', asset, error: message, status: 'degraded' });
+    return [];
+  }
 }
 
 function clampRemaining(remaining: number, globalRemaining: number): number {
@@ -355,6 +451,12 @@ function composeGroups(groups: Array<{ tier: Tier; asset: AssetClass; entries: P
   });
 }
 
+function averageScore(entries: PersistedSignal[]): number {
+  if (!entries.length) return 0;
+  const total = entries.reduce((acc, entry) => acc + entry.record.score, 0);
+  return Number((total / entries.length).toFixed(3));
+}
+
 function enqueueGroups(groups: Array<{
   tier: Tier;
   asset: AssetClass;
@@ -459,4 +561,14 @@ function partitionByScore(selected: SelectedSignal[], minScore: number): [Select
     }
   }
   return [passed, failed];
+}
+
+function formatError(reason: unknown): string {
+  if (reason instanceof Error) return reason.message || reason.name;
+  if (typeof reason === 'string') return reason;
+  try {
+    return JSON.stringify(reason);
+  } catch {
+    return 'unknown-error';
+  }
 }
