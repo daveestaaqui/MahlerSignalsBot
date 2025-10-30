@@ -58,11 +58,36 @@ npm run post-now
 GET /                   # static pricing UI (links to monthly checkout)
 GET /api/signals?tier=free|pro|elite   # JSON feed (FREE delayed 24h)
 GET /status            # counts and last signal timestamp
+GET /preview/daily     # preview of today’s formatted drops (no send)
 POST /admin/post       # trigger a run (ad hoc)
 POST /webhook/subscription  # {userId,tier}
 GET /checkout/pro      # redirect to CHECKOUT_PRO_URL
 GET /checkout/elite    # redirect to CHECKOUT_ELITE_URL
 ```
+
+### Admin responses
+
+- No candidates after gating:
+  ```json
+  {
+    "ok": true,
+    "posted": 0,
+    "errors": [],
+    "reason": "no_candidates_after_gating"
+  }
+  ```
+- Upstream provider degraded:
+  ```json
+  {
+    "ok": true,
+    "posted": 0,
+    "reason": "upstream_errors",
+    "errors": [
+      { "provider": "stock", "message": "rate limit", "retryInSec": 60 }
+    ],
+    "degraded": true
+  }
+  ```
 
 
 ## Deployment
