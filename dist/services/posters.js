@@ -1,5 +1,8 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { request } from 'undici';
+import { composePromo } from './templates.js';
+import { promoteAll } from './promo.js';
+import { POSTING_ENV } from '../config/posting.js';
 const tgToken = process.env.TELEGRAM_BOT_TOKEN || '';
 const tgChats = {
     FREE: process.env.TELEGRAM_CHAT_ID_FREE || '',
@@ -11,8 +14,8 @@ const discordWebhooks = {
     PRO: process.env.DISCORD_WEBHOOK_URL_PRO || '',
     ELITE: process.env.DISCORD_WEBHOOK_URL_ELITE || '',
 };
-const POST_ENABLED = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
-const DRY_RUN = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
+const POST_ENABLED = POSTING_ENV.POST_ENABLED;
+const DRY_RUN = POSTING_ENV.DRY_RUN;
 const xCreds = {
     apiKey: process.env.X_API_KEY,
     apiSecret: process.env.X_API_SECRET,
@@ -88,32 +91,57 @@ export async function postX(input) {
 }
 export async function broadcast(tierInput, input) {
     const tier = normalizeTier(tierInput);
-    const providers = [
-        { name: 'telegram', send: () => postTelegram(tier, input) },
-        { name: 'discord', send: () => postDiscord(tier, input) },
-    ];
+    const { message, symbols } = unwrapPayload(input);
     const summary = {
         posted: 0,
-        attempted: providers.length,
+        attempted: 2,
         errors: [],
     };
-    for (const provider of providers) {
-        try {
-            const ok = await provider.send();
-            if (ok) {
-                summary.posted += 1;
-            }
-            else {
-                const error = toProviderError(provider.name, 'not_configured', { tier });
-                summary.errors.push(error);
-                logProviderError(error);
-            }
+    let telegramSent = false;
+    try {
+        const ok = await postTelegram(tier, message);
+        if (ok) {
+            summary.posted += 1;
+            telegramSent = true;
         }
-        catch (err) {
-            const error = toProviderError(provider.name, err, { tier });
+        else {
+            const error = toProviderError('telegram', 'not_configured', { tier });
             summary.errors.push(error);
             logProviderError(error);
         }
+    }
+    catch (err) {
+        const error = toProviderError('telegram', err, { tier });
+        summary.errors.push(error);
+        logProviderError(error);
+    }
+    if (telegramSent) {
+        const promoText = composePromo([{ symbols, compact: message.compact, plain: message.plain }]);
+        try {
+            await promoteAll(promoText);
+        }
+        catch (err) {
+            log('warn', 'promo_dispatch_failed', {
+                provider: 'promo_all',
+                error: err instanceof Error ? err.message : String(err),
+            });
+        }
+    }
+    try {
+        const ok = await postDiscord(tier, message);
+        if (ok) {
+            summary.posted += 1;
+        }
+        else {
+            const error = toProviderError('discord', 'not_configured', { tier });
+            summary.errors.push(error);
+            logProviderError(error);
+        }
+    }
+    catch (err) {
+        const error = toProviderError('discord', err, { tier });
+        summary.errors.push(error);
+        logProviderError(error);
     }
     return summary;
 }
@@ -162,4 +190,32 @@ function logProviderError(error) {
         message,
         context: context ?? null,
     }));
+}
+function unwrapPayload(input) {
+    if (typeof input === 'string') {
+        try {
+            const parsed = JSON.parse(input);
+            if (parsed && parsed.message) {
+                return {
+                    message: toMessage(parsed.message),
+                    symbols: Array.isArray(parsed.symbols)
+                        ? parsed.symbols.filter((symbol) => typeof symbol === 'string')
+                        : [],
+                };
+            }
+        }
+        catch {
+            // best-effort fall through to treat as raw string
+        }
+    }
+    else if (input && typeof input === 'object' && 'symbols' in input) {
+        const candidate = input;
+        return {
+            message: toMessage(candidate),
+            symbols: Array.isArray(candidate.symbols)
+                ? candidate.symbols.filter((symbol) => typeof symbol === 'string')
+                : [],
+        };
+    }
+    return { message: toMessage(input), symbols: [] };
 }
