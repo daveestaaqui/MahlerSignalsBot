@@ -1,5 +1,5 @@
 import db from '../lib/db.js';
-import { broadcast } from '../services/posters.js';
+import { broadcast, type BroadcastSummary, type ProviderError } from '../services/posters.js';
 
 type Tier = 'free'|'pro'|'elite';
 
@@ -18,12 +18,29 @@ const insertMetric = db.prepare(`INSERT INTO signal_metrics(signal_id, tier, ent
 
 const MAX_ATTEMPTS = 3;
 
-export async function flushPublishQueue(limit = 10) {
+export type FlushSummary = {
+  attempted: number;
+  successes: number;
+  posted: number;
+  providerErrors: ProviderError[];
+};
+
+export async function flushPublishQueue(limit = 10): Promise<FlushSummary> {
   const now = Math.floor(Date.now() / 1000);
   const rows = selectQueue.all(now, limit) as { id:number; signal_id:number; tier:Tier; payload:string; attempts:number; features?:string }[];
+  const summary: FlushSummary = {
+    attempted: rows.length,
+    successes: 0,
+    posted: 0,
+    providerErrors: [],
+  };
+
   for (const row of rows) {
     try {
-      await broadcast(toTier(row.tier), row.payload);
+      const result = await broadcast(toTier(row.tier), row.payload);
+      summary.successes += 1;
+      summary.posted += result.posted;
+      summary.providerErrors.push(...result.errors);
       markSuccess.run(now, row.id);
       const entryPrice = extractEntryPrice(row.features);
       insertMetric.run(row.signal_id, row.tier, entryPrice, now);
@@ -38,6 +55,15 @@ export async function flushPublishQueue(limit = 10) {
       }
     }
   }
+
+  if (summary.providerErrors.length) {
+    log('warn', 'publish_provider_errors', {
+      total: summary.providerErrors.length,
+      providers: Array.from(new Set(summary.providerErrors.map((err) => err.provider))),
+    });
+  }
+
+  return summary;
 }
 
 function toTier(tier: Tier) {

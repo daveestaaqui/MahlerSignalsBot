@@ -51,6 +51,22 @@ tg-free:
 diagnostics:
 	curl -fsS "$${BASE_URL:-https://aurora-signals.onrender.com}/diagnostics" | jq .
 
+post-now:
+	@test -n "$$ADMIN_TOKEN" || (echo "ADMIN_TOKEN is required" >&2; exit 1)
+	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://aurora-signals.onrender.com}/admin/post-now"
+
+post-daily:
+	@test -n "$$ADMIN_TOKEN" || (echo "ADMIN_TOKEN is required" >&2; exit 1)
+	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://aurora-signals.onrender.com}/admin/post-daily"
+
+post-weekly:
+	@test -n "$$ADMIN_TOKEN" || (echo "ADMIN_TOKEN is required" >&2; exit 1)
+	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://aurora-signals.onrender.com}/admin/post-weekly"
+
+tg-sanity:
+	@test -n "$$ADMIN_TOKEN" || (echo "ADMIN_TOKEN is required" >&2; exit 1)
+	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://aurora-signals.onrender.com}/admin/test-telegram"
+
 build:
 	pnpm build
 

@@ -1,0 +1,57 @@
+name: Quick Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check secrets
+        id: secrets
+        env:
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          if [ -z "$ADMIN_TOKEN" ]; then
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "missing=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip when secrets missing
+        if: steps.secrets.outputs.missing == 'true'
+        run: echo "Skipping quick check; ADMIN_TOKEN secret not set."
+
+      - name: Checkout
+        if: steps.secrets.outputs.missing != 'true'
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        if: steps.secrets.outputs.missing != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          check-latest: true
+          cache: pnpm
+
+      - name: Set up pnpm
+        if: steps.secrets.outputs.missing != 'true'
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install dependencies
+        if: steps.secrets.outputs.missing != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        if: steps.secrets.outputs.missing != 'true'
+        run: pnpm build
+
+      - name: Node entrypoint smoke
+        if: steps.secrets.outputs.missing != 'true'
+        run: node dist/web/node.js --help

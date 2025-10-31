@@ -1,6 +1,5 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { request } from 'undici';
-import { withRetry } from '../lib/limits.js';
 const tgToken = process.env.TELEGRAM_BOT_TOKEN || '';
 const tgChats = {
     FREE: process.env.TELEGRAM_CHAT_ID_FREE || '',
@@ -46,17 +45,11 @@ export async function postTelegram(tierInput, input) {
         log('info', 'telegram_dry_run', { tier, preview: payload.slice(0, 160) });
         return true;
     }
-    try {
-        await withRetry(() => bot.sendMessage(tgChats[tier], payload, {
-            disable_web_page_preview: true,
-            parse_mode: 'HTML',
-        }), 3, 400);
-        return true;
-    }
-    catch (err) {
-        log('error', 'telegram_error', { tier, error: formatError(err) });
-        throw err;
-    }
+    await bot.sendMessage(tgChats[tier], payload, {
+        disable_web_page_preview: true,
+        parse_mode: 'HTML',
+    });
+    return true;
 }
 export async function postDiscord(tierInput, input) {
     const tier = normalizeTier(tierInput);
@@ -72,18 +65,12 @@ export async function postDiscord(tierInput, input) {
         log('info', 'discord_dry_run', { tier, preview: payload.content.slice(0, 160) });
         return true;
     }
-    try {
-        await withRetry(() => request(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        }), 3, 400);
-        return true;
-    }
-    catch (err) {
-        log('error', 'discord_error', { tier, error: formatError(err) });
-        throw err;
-    }
+    await request(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    return true;
 }
 export async function postX(input) {
     if (!xCreds.apiKey || !xCreds.apiSecret || !xCreds.accessToken || !xCreds.accessSecret) {
@@ -101,11 +88,34 @@ export async function postX(input) {
 }
 export async function broadcast(tierInput, input) {
     const tier = normalizeTier(tierInput);
-    const results = await Promise.allSettled([
-        postTelegram(tier, input),
-        postDiscord(tier, input),
-    ]);
-    return results.some((r) => r.status === 'fulfilled');
+    const providers = [
+        { name: 'telegram', send: () => postTelegram(tier, input) },
+        { name: 'discord', send: () => postDiscord(tier, input) },
+    ];
+    const summary = {
+        posted: 0,
+        attempted: providers.length,
+        errors: [],
+    };
+    for (const provider of providers) {
+        try {
+            const ok = await provider.send();
+            if (ok) {
+                summary.posted += 1;
+            }
+            else {
+                const error = toProviderError(provider.name, 'not_configured', { tier });
+                summary.errors.push(error);
+                logProviderError(error);
+            }
+        }
+        catch (err) {
+            const error = toProviderError(provider.name, err, { tier });
+            summary.errors.push(error);
+            logProviderError(error);
+        }
+    }
+    return summary;
 }
 export function teaserFor(tierInput, symbols) {
     const tier = normalizeTier(tierInput);
@@ -121,15 +131,35 @@ function compressWhitespace(value) {
 function log(level, msg, meta) {
     console.log(JSON.stringify({ ts: new Date().toISOString(), level, msg, meta }));
 }
-function formatError(reason) {
-    if (reason instanceof Error)
-        return reason.message || reason.name;
-    if (typeof reason === 'string')
-        return reason;
+function toProviderError(provider, err, context) {
+    if (typeof err === 'string') {
+        return { provider, message: err, context };
+    }
+    if (err instanceof Error) {
+        const maybeCode = err.code;
+        const code = typeof maybeCode === 'string' ? maybeCode : undefined;
+        return {
+            provider,
+            code,
+            message: err.message || err.name,
+            context,
+        };
+    }
     try {
-        return JSON.stringify(reason);
+        return { provider, message: JSON.stringify(err), context };
     }
     catch {
-        return 'unknown-error';
+        return { provider, message: 'unknown-error', context };
     }
+}
+function logProviderError(error) {
+    const { provider, code, message, context } = error;
+    console.log(JSON.stringify({
+        ts: new Date().toISOString(),
+        event: 'provider_error',
+        provider,
+        code: code ?? null,
+        message,
+        context: context ?? null,
+    }));
 }
