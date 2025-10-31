@@ -28,7 +28,7 @@ node scripts/health.mjs /
 
 ## Operations
 
-- Required env vars: `ADMIN_TOKEN`, `DRY_RUN`, `POST_ENABLED`, `AURORA_SQLITE_PATH`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID_FREE`, `TELEGRAM_CHAT_ID_PRO`, `TELEGRAM_CHAT_ID_ELITE`, `DISCORD_WEBHOOK_URL_FREE`, `DISCORD_WEBHOOK_URL_PRO`, `DISCORD_WEBHOOK_URL_ELITE`.
+- Required env vars: `ADMIN_TOKEN`, `DRY_RUN`, `POST_ENABLED`, `AURORA_SQLITE_PATH`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID_FREE`, `TELEGRAM_CHAT_ID_PRO`, `TELEGRAM_CHAT_ID_ELITE`, `DISCORD_WEBHOOK_URL_FREE`, `DISCORD_WEBHOOK_URL_PRO`, `DISCORD_WEBHOOK_URL_ELITE`, `PROMO_ENABLED`, `PROMO_X_ENABLED`, `PROMO_DISCORD_ENABLED`, `X_BEARER_TOKEN`, `DISCORD_WEBHOOK_URL`, `MARKETING_TELEGRAM_CHAT_ID`, `MARKETING_DISCORD_WEBHOOK_URL`, `X_ACCESS_TOKEN`, `HEALTH_PING_URL`.
 - Build & start:
   ```bash
   pnpm i
@@ -38,6 +38,7 @@ node scripts/health.mjs /
 - Local curls (set `ADMIN_TOKEN=TEST` for admin calls):
   ```bash
   curl -sS http://localhost:8787/status
+  curl -sS http://localhost:8787/health/providers
   curl -sS http://localhost:8787/preview/daily -H "Authorization: Bearer $ADMIN_TOKEN"
   curl -sS http://localhost:8787/api/preview/daily -H "Authorization: Bearer $ADMIN_TOKEN"
   curl -sS -X POST http://localhost:8787/admin/unlock -H "Authorization: Bearer $ADMIN_TOKEN"
@@ -46,6 +47,7 @@ node scripts/health.mjs /
   curl -sS -X POST http://localhost:8787/admin/post-weekly -H "Authorization: Bearer $ADMIN_TOKEN"
   curl -sS -X POST http://localhost:8787/admin/test-telegram -H "Authorization: Bearer $ADMIN_TOKEN"
   curl -sS -X POST http://localhost:8787/admin/test-discord -H "Authorization: Bearer $ADMIN_TOKEN"
+  curl -sS -X POST http://localhost:8787/admin/test-x -H "Authorization: Bearer $ADMIN_TOKEN"
   ```
 
 

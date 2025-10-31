@@ -2,6 +2,8 @@ import TelegramBot from 'node-telegram-bot-api';
 
 import type { FormattedMessage } from './formatters.js';
 import { POSTING_ENV } from '../config/posting.js';
+import { composePromo } from './templates.js';
+import { promoteAll } from './promo.js';
 import { dispatchToDiscord } from '../posters/discord.js';
 
 export type Tier = 'FREE' | 'PRO' | 'ELITE';
@@ -72,6 +74,7 @@ export async function postTelegram(tierInput: TierInput, input: MessageInput): P
       parse_mode: 'HTML',
     });
     log('info', 'telegram_post_success', { tier });
+    await triggerPromo(message);
     return { posted: true };
   } catch (err) {
     const messageText = err instanceof Error ? err.message : String(err);
@@ -150,4 +153,21 @@ function compressWhitespace(value: string): string {
 
 function log(level: 'info' | 'warn' | 'error', event: string, meta?: Record<string, unknown>) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), level, event, meta }));
+}
+
+async function triggerPromo(message: FormattedMessage) {
+  try {
+    const promoText = composePromo([
+      {
+        compact: message.compact,
+        plain: message.plain,
+      },
+    ]);
+    if (!promoText) return;
+    await promoteAll(promoText);
+  } catch (err) {
+    log('warn', 'promo_dispatch_error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }

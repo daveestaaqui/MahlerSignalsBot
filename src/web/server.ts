@@ -1,6 +1,5 @@
-import { mountAdmin } from "./admin.js";
-import { openDb } from "../db/sqlite.js";
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { Hono } from 'hono';
 import type { Handler, MiddlewareHandler } from 'hono';
 import { acquireLock, releaseLock } from '../lib/locks.js';
@@ -12,6 +11,8 @@ import { getLedgerCounts } from '../lib/publishLedger.js';
 import { CADENCE, todayIso } from '../config/cadence.js';
 import { POSTING_RULES, POSTING_ENV } from '../config/posting.js';
 import { postTelegram, postDiscord, type Tier as PosterTier } from '../services/posters.js';
+import { autoPromoteSignals } from '../services/marketing.js';
+import { postToX } from '../services/promo.js';
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const TEST_MESSAGE = 'Aurora Signals test';
@@ -111,11 +112,13 @@ const weeklySummaryHandler: Handler = (c) => {
 const previewDailyHandler: Handler = async (c) => {
   const limit = parseOptionalNumber(c.req.query('limit'));
   const minScore = parseOptionalNumber(c.req.query('minScore'));
+  const effectiveLimit = typeof limit === 'number' ? limit : 10;
+  const effectiveMinScore = typeof minScore === 'number' ? minScore : POSTING_RULES.MIN_SCORE_PRO;
   try {
     const previewPromise = runDaily({
       preview: true,
-      ...(typeof limit === 'number' ? { limit } : {}),
-      ...(typeof minScore === 'number' ? { minScore } : {}),
+      limit: effectiveLimit,
+      minScore: effectiveMinScore,
     });
 
     const raced = await Promise.race<
@@ -135,8 +138,8 @@ const previewDailyHandler: Handler = async (c) => {
           reason: 'timeout',
           preview: true,
           items: [],
-          limit: limit ?? null,
-          minScore: minScore ?? null,
+          limit: effectiveLimit,
+          minScore: effectiveMinScore,
           defaultMinScore: POSTING_RULES.MIN_SCORE_PRO,
         },
         200,
@@ -156,8 +159,8 @@ const previewDailyHandler: Handler = async (c) => {
         ok: true,
         preview: true,
         items,
-        limit: limit ?? null,
-        minScore: minScore ?? null,
+        limit: effectiveLimit,
+        minScore: effectiveMinScore,
         defaultMinScore: POSTING_RULES.MIN_SCORE_PRO,
         generatedAt: run.generatedAt,
       },
@@ -171,8 +174,8 @@ const previewDailyHandler: Handler = async (c) => {
         preview: true,
         error: formatReason(err),
         items: [],
-        limit: limit ?? null,
-        minScore: minScore ?? null,
+        limit: effectiveLimit,
+        minScore: effectiveMinScore,
         defaultMinScore: POSTING_RULES.MIN_SCORE_PRO,
       },
       200,
@@ -189,13 +192,17 @@ const adminAuth: MiddlewareHandler = async (c, next) => {
 
 const postDailyHandler: Handler = async (c) => {
   const route = 'admin/post-daily';
-  const force = isTruthy(c.req.query('force'));
+  const body = await readJsonBody(c);
+  const force = isTruthy(c.req.query('force')) || Boolean(boolFromInput(body.force));
   const flags = resolveFlags();
 
   if (flags.dryRun || !flags.postEnabled) {
     const preview = await runDaily({ preview: true });
+    const previewCount = preview.messages?.length ?? 0;
     return respondDryRun(c, route, flags, {
-      items: preview.messages?.length ?? 0,
+      items: previewCount,
+      count: previewCount,
+      skipped: previewCount,
     });
   }
 
@@ -220,8 +227,11 @@ const postDailyHandler: Handler = async (c) => {
 
 const postNowHandler: Handler = async (c) => {
   const route = 'admin/post-now';
-  const force = isTruthy(c.req.query('force'));
-  const minScore = parseOptionalNumber(c.req.query('minScore'));
+  const body = await readJsonBody(c);
+  const force = isTruthy(c.req.query('force')) || Boolean(boolFromInput(body.force));
+  const minScore =
+    parseOptionalNumber(c.req.query('minScore')) ??
+    parseOptionalNumberInput(body.minScore ?? body.min_score);
   const flags = resolveFlags();
 
   if (flags.dryRun || !flags.postEnabled) {
@@ -229,8 +239,11 @@ const postNowHandler: Handler = async (c) => {
       preview: true,
       ...(typeof minScore === 'number' ? { minScore } : {}),
     });
+    const previewCount = preview.messages?.length ?? 0;
     return respondDryRun(c, route, flags, {
       items: preview.messages?.length ?? 0,
+      count: previewCount,
+      skipped: previewCount,
       minScore: minScore ?? null,
     });
   }
@@ -343,7 +356,8 @@ const postNowHandler: Handler = async (c) => {
 
 const postWeeklyHandler: Handler = async (c) => {
   const route = 'admin/post-weekly';
-  const force = isTruthy(c.req.query('force'));
+  const body = await readJsonBody(c);
+  const force = isTruthy(c.req.query('force')) || Boolean(boolFromInput(body.force));
   const flags = resolveFlags();
 
   if (flags.dryRun || !flags.postEnabled) {
@@ -445,8 +459,55 @@ const testDiscordHandler: Handler = async (c) => {
   );
 };
 
+const testXHandler: Handler = async (c) => {
+  const flags = resolveFlags();
+  const route = 'admin/test-x';
+
+  if (!flags.postEnabled) {
+    return c.json(
+      {
+        ok: true,
+        dryRun: flags.dryRun,
+        postEnabled: flags.postEnabled,
+        route,
+        skipped: 'post_disabled',
+      },
+      200,
+    );
+  }
+
+  if (flags.dryRun || !promoXConfigured()) {
+    return c.json(
+      {
+        ok: true,
+        dryRun: true,
+        postEnabled: flags.postEnabled,
+        route,
+        skipped: flags.dryRun ? 'dry_run' : 'not_configured',
+      },
+      200,
+    );
+  }
+
+  const outcome = await postToX(`${TEST_MESSAGE} (X check)`);
+  const status = outcome.ok ? 200 : 207;
+
+  return c.json(
+    {
+      ok: outcome.ok,
+      dryRun: flags.dryRun,
+      postEnabled: flags.postEnabled,
+      route,
+      id: outcome.id ?? null,
+      error: outcome.error ?? null,
+    },
+    status,
+  );
+};
+
 const unlockHandler: Handler = async (c) => {
-  const force = isTruthy(c.req.query('force'));
+  const body = await readJsonBody(c);
+  const force = isTruthy(c.req.query('force')) || Boolean(boolFromInput(body.force));
   const flags = resolveFlags();
   const locks = ['manual-run', 'daily-run', 'weekly-run'] as const;
   for (const name of locks) {
@@ -474,6 +535,7 @@ const healthProvidersHandler: Handler = (c) => {
       postEnabled: flags.postEnabled,
       promo: {
         telegram: telegramConfigured(),
+        x: promoXConfigured(),
         discord: discordConfigured(),
       },
     },
@@ -486,14 +548,14 @@ app.get('/', (c) => c.json({ ok: true, version: APP_VERSION }));
 aliasRoutes(app, 'GET', '/status', statusHandler);
 aliasRoutes(app, 'GET', '/diagnostics', diagnosticsHandler);
 aliasRoutes(app, 'GET', '/weekly-summary', weeklySummaryHandler);
-app.get('/preview/daily', adminAuth, previewDailyHandler);
-app.get('/api/preview/daily', adminAuth, previewDailyHandler);
+aliasRoutes(app, 'GET', '/preview/daily', adminAuth, previewDailyHandler);
 aliasRoutes(app, 'GET', '/health/providers', healthProvidersHandler);
 aliasRoutes(app, 'POST', '/admin/post-now', adminAuth, postNowHandler);
 aliasRoutes(app, 'POST', '/admin/post-daily', adminAuth, postDailyHandler);
 aliasRoutes(app, 'POST', '/admin/post-weekly', adminAuth, postWeeklyHandler);
 aliasRoutes(app, 'POST', '/admin/test-telegram', adminAuth, testTelegramHandler);
 aliasRoutes(app, 'POST', '/admin/test-discord', adminAuth, testDiscordHandler);
+aliasRoutes(app, 'POST', '/admin/test-x', adminAuth, testXHandler);
 aliasRoutes(app, 'POST', '/admin/unlock', adminAuth, unlockHandler);
 
 type AdminRunner = () => Promise<RunDailyResult>;
@@ -507,6 +569,9 @@ async function executeAdminRun(
   const flags = resolveFlags();
   try {
     const result = await runner();
+    if (!result.preview) {
+      await autoPromoteSignals(result);
+    }
     return sendDailyResponse(c, result, extra);
   } catch (err) {
     console.error(`[${label}]`, err);
@@ -524,9 +589,14 @@ function resolveFlags() {
 function sendDailyResponse(c: Parameters<Handler>[0], result: RunDailyResult, extra: Record<string, unknown> = {}) {
   const errors = result.errors ?? [];
   const context = { ...extra };
+  const messageCount = Array.isArray(result.messages) ? result.messages.length : 0;
+  const postedCount = typeof result.posted === 'number' && Number.isFinite(result.posted) ? result.posted : 0;
+  const skippedCount = Math.max(messageCount - postedCount, 0);
   const body: Record<string, unknown> = {
     ok: true,
     posted: result.posted,
+    count: messageCount,
+    skipped: skippedCount,
     preview: result.preview,
     dryRun: result.dryRun,
     postEnabled: result.postEnabled,
@@ -612,6 +682,22 @@ function parseOptionalNumber(value: string | null | undefined): number | undefin
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function parseOptionalNumberInput(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return parseOptionalNumber(value);
+  }
+  return undefined;
+}
+
+function boolFromInput(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return isTruthy(value);
+  return undefined;
+}
+
 function respondDryRun(
   c: Parameters<Handler>[0],
   route: string,
@@ -621,6 +707,9 @@ function respondDryRun(
   return c.json(
     {
       ok: true,
+      posted: 0,
+      count: 0,
+      skipped: 0,
       dryRun: true,
       route,
       postEnabled: flags.postEnabled,
@@ -640,6 +729,8 @@ function sendDailyError(c: Parameters<Handler>[0], err: unknown, extra: Record<s
   const body: Record<string, unknown> = {
     ok: true,
     posted: 0,
+    count: 0,
+    skipped: 0,
     preview: false,
     dryRun: flags.dryRun,
     postEnabled: flags.postEnabled,
@@ -651,6 +742,22 @@ function sendDailyError(c: Parameters<Handler>[0], err: unknown, extra: Record<s
     body.context = extra;
   }
   return c.json(body, 200);
+}
+
+async function readJsonBody(c: Parameters<Handler>[0]): Promise<Record<string, unknown>> {
+  const contentType = c.req.header('content-type');
+  if (!contentType || !contentType.toLowerCase().includes('application/json')) {
+    return {};
+  }
+  try {
+    const body = await c.req.json();
+    if (body && typeof body === 'object') {
+      return body as Record<string, unknown>;
+    }
+  } catch (err) {
+    console.warn('[admin] invalid json body', formatReason(err));
+  }
+  return {};
 }
 
 async function maybeFlush(result: RunDailyResult) {
@@ -681,15 +788,24 @@ function formatReason(reason: unknown): string {
 }
 
 function readVersion(): string {
-  try {
-    const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
-      version?: string;
-    };
-    return pkg.version ?? '0.0.0';
-  } catch (err) {
-    console.error('[status] failed to read version', err);
-    return '0.0.0';
+  const candidates: Array<URL | string> = [
+    new URL('../../package.json', import.meta.url),
+    new URL('../../../package.json', import.meta.url),
+    resolve(process.cwd(), 'package.json'),
+  ];
+
+  for (const ref of candidates) {
+    try {
+      const contents = readFileSync(ref, 'utf8');
+      const pkg = JSON.parse(contents) as { version?: string };
+      if (pkg.version) {
+        return pkg.version;
+      }
+    } catch {
+      // try next candidate
+    }
   }
+  return '0.0.0';
 }
 
 function telegramConfigured(): boolean {
@@ -711,4 +827,11 @@ function discordConfigured(): boolean {
     process.env.DISCORD_WEBHOOK_URL_ELITE,
   ];
   return hooks.some((value) => typeof value === 'string' && value.trim().length > 0);
+}
+
+function promoXConfigured(): boolean {
+  const promoEnabled = POSTING_ENV.PROMO_ENABLED || isTruthy(process.env.PROMO_ENABLED);
+  const xEnabled = POSTING_ENV.PROMO_X_ENABLED || isTruthy(process.env.PROMO_X_ENABLED);
+  const token = (process.env.X_BEARER_TOKEN ?? POSTING_ENV.X_BEARER_TOKEN ?? '').trim();
+  return Boolean(promoEnabled && xEnabled && token.length > 0);
 }

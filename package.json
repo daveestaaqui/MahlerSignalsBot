@@ -18,8 +18,7 @@
     "set-tier": "node scripts/set-tier.mjs",
     "post-now": "node scripts/post-now.mjs",
     "env:check": "node --env-file=.env scripts/validate-env.mjs",
-    "once": "node -e \"import('./dist/jobs/runCycle.js').then(m=>m.runOnce())\"",
-    "postinstall": "npm_config_build_from_source=true pnpm rebuild better-sqlite3 || true"
+    "once": "node -e \"import('./dist/jobs/runCycle.js').then(m=>m.runOnce())\""
   },
   "dependencies": {
     "@hono/node-server": "^1.11.0",
@@ -27,6 +26,7 @@
     "axios": "^1.6.0",
     "better-sqlite3": "^9",
     "dotenv": "^16",
+    "express": "^5.0.1",
     "hono": "^4",
     "node-cron": "^3",
     "node-telegram-bot-api": "^0.64.0",

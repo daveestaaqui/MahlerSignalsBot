@@ -6,6 +6,9 @@ process.env.DRY_RUN = '1';
 process.env.POST_ENABLED = '0';
 process.env.TELEGRAM_BOT_TOKEN = '';
 process.env.ADMIN_TOKEN = 'test-token';
+process.env.PROMO_ENABLED = '0';
+process.env.PROMO_X_ENABLED = '0';
+process.env.PROMO_DISCORD_ENABLED = '0';
 
 const adminToken = process.env.ADMIN_TOKEN;
 
@@ -113,6 +116,20 @@ test('GET /api/preview/daily mirrors handler', async () => {
   }
 });
 
+test('GET /health/providers exposes promo flags', async () => {
+  const res = await app.request('/health/providers');
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.dryRun, true);
+  assert.equal(body.postEnabled, false);
+  assert.deepEqual(body.promo, {
+    telegram: false,
+    x: false,
+    discord: false,
+  });
+});
+
 test('Admin endpoints accept DRY_RUN execution', async () => {
   const routes = [
     ['/admin/unlock', 'POST'],
@@ -121,6 +138,7 @@ test('Admin endpoints accept DRY_RUN execution', async () => {
     ['/admin/post-weekly', 'POST'],
     ['/admin/test-telegram', 'POST'],
     ['/admin/test-discord', 'POST'],
+    ['/admin/test-x', 'POST'],
   ];
 
   for (const [path, method] of routes) {

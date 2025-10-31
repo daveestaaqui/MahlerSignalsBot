@@ -1,3 +1,9 @@
+/// <reference types="node" />
+/// <reference types="node-cron" />
+/// <reference types="better-sqlite3" />
+/// <reference types="node-telegram-bot-api" />
+/// <reference types="express" />
+
 declare var process: {
   env: Record<string, string | undefined>;
 };

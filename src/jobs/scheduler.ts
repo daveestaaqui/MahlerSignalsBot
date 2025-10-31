@@ -3,6 +3,8 @@ import { CADENCE } from '../config/cadence.js';
 import { runDailyOnce } from './runDaily.js';
 import { flushPublishQueue } from './publishWorker.js';
 import { dispatchWeeklyDigest } from '../services/weeklyDispatch.js';
+import { autoPromoteSignals } from '../services/marketing.js';
+import { dispatchToDiscord } from '../posters/discord.js';
 
 export function startSchedulers() {
   const tz = CADENCE.TIMEZONE || 'America/New_York';
@@ -33,10 +35,17 @@ export function startSchedulers() {
     () => runWeekly().catch((err) => console.error('[scheduler] weekly digest', err)),
     { timezone: tz },
   );
+
+  cron.schedule(
+    '0 */6 * * *',
+    () => runHealthCheck().catch((err) => console.error('[scheduler] health check', err)),
+    { timezone: tz },
+  );
 }
 
 async function runWindow(assets: Array<'stock' | 'crypto'>) {
   const result = await runDailyOnce({ assets });
+  await autoPromoteSignals(result);
   if (result.postEnabled && !result.dryRun && result.messages.length) {
     await flushPublishQueue();
   }
@@ -65,4 +74,20 @@ function toCronDow(value: string | undefined) {
     SAT: '6',
   };
   return map[clean] ?? '0';
+}
+
+async function runHealthCheck() {
+  const url = process.env.HEALTH_PING_URL ?? 'http://127.0.0.1:3000/status';
+  const start = Date.now();
+  try {
+    const response = await fetch(url);
+    const elapsed = Date.now() - start;
+    const body = await response.json().catch(() => ({}));
+    const status = response.ok ? 'OK' : `WARN ${response.status}`;
+    const message = `Health ${status} in ${elapsed}ms — tz ${body?.cadence?.timezone ?? 'n/a'} at ${body?.time ?? new Date().toISOString()}`;
+    await dispatchToDiscord({ tier: 'FREE', content: message });
+  } catch (err) {
+    const fallback = `[health] check failed: ${err instanceof Error ? err.message : String(err)}`;
+    await dispatchToDiscord({ tier: 'FREE', content: fallback });
+  }
 }
