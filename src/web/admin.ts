@@ -1,59 +1,59 @@
-import express, { Request, Response, Router, NextFunction } from "express";
-export function mountAdmin(router: Router, deps: {
-  postNow: (opts: { force?: boolean; minScore?: number; dryRun?: boolean }) => Promise<Record<string, any>>;
-  postDaily: (opts: { dryRun?: boolean }) => Promise<Record<string, any>>;
-  postWeekly: (opts: { dryRun?: boolean }) => Promise<Record<string, any>>;
-  testTelegram: () => Promise<Record<string, any>>;
-  testDiscord: () => Promise<Record<string, any>>;
-  unlock: (opts: { force?: boolean }) => Promise<Record<string, any>>;
-}) {
-  const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "";
-  router.use("/admin", (req: Request, res: Response, next: NextFunction) => {
-    const auth = req.header("authorization") || "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) return res.status(401).json({ ok: false });
-    next();
+import express, { Request, Response, NextFunction } from "express";
+
+type Deps = {
+  postNow: (opts:any)=>Promise<any>,
+  postDaily: (opts:any)=>Promise<any>,
+  postWeekly: (opts:any)=>Promise<any>,
+  testTelegram: ()=>Promise<any>,
+  testDiscord: ()=>Promise<any>,
+  unlock: (opts:any)=>Promise<any>,
+};
+
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (!token || token !== (process.env.ADMIN_TOKEN || "")) {
+    res.status(401).json({ ok:false, error:"unauthorized" });
+    return;
+  }
+  next();
+}
+
+export default function mountAdmin(app: express.Express, deps: Deps) {
+  const router = express.Router();
+  router.use(requireAdmin);
+
+  router.post("/unlock", async (_req: Request, res: Response) => {
+    const r = await deps.unlock({ force:true });
+    res.json({ ok:true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
   });
-  router.post("/admin/unlock", async (req: Request, res: Response) => {
-    const force = String(req.query.force || "") === "true";
-    const r = await deps.unlock({ force });
-    const body: any = { dryRun: !!process.env.DRY_RUN, ...r };
-    body.ok = r.ok ?? true;
-    res.json(body);
-  });
-  router.post("/admin/test-telegram", async (_req: Request, res: Response) => {
+
+  router.post("/test-telegram", async (_req: Request, res: Response) => {
     const r = await deps.testTelegram();
-    const body: any = { dryRun: !!process.env.DRY_RUN, ...r };
-    body.ok = r.ok ?? true;
-    res.json(body);
+    res.json({ ok:true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
   });
-  router.post("/admin/test-discord", async (_req: Request, res: Response) => {
+
+  router.post("/test-discord", async (_req: Request, res: Response) => {
     const r = await deps.testDiscord();
-    const body: any = { dryRun: !!process.env.DRY_RUN, ...r };
-    body.ok = r.ok ?? true;
-    res.json(body);
+    res.json({ ok:true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
   });
-  router.post("/admin/post-now", async (req: Request, res: Response) => {
-    const force = String(req.query.force || "") === "true";
-    const minScore = Number(req.query.minScore || 0);
-    const dryRun = String(process.env.POST_ENABLED||"0")!=="1";
-    const r = await deps.postNow({ force, minScore, dryRun });
-    const body: any = { dryRun, ...r };
-    body.ok = r.ok ?? true;
-    res.json(body);
+
+  router.post("/post-now", async (req: Request, res: Response) => {
+    const force = String(req.query.force||"") === "true";
+    const minScore = Number(req.query.minScore||0);
+    const r = await deps.postNow({ force, minScore, dryRun: String(process.env.POST_ENABLED||"0")!=="1" });
+    res.json({ ok:true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
   });
-  router.post("/admin/post-daily", async (_req: Request, res: Response) => {
-    const dryRun = String(process.env.POST_ENABLED||"0")!=="1";
-    const r = await deps.postDaily({ dryRun });
-    const body: any = { dryRun, ...r };
-    body.ok = r.ok ?? true;
-    res.json(body);
+
+  router.post("/post-daily", async (_req: Request, res: Response) => {
+    const r = await deps.postDaily({ dryRun: String(process.env.POST_ENABLED||"0")!=="1" });
+    res.json({ ok:true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
   });
-  router.post("/admin/post-weekly", async (_req: Request, res: Response) => {
-    const dryRun = String(process.env.POST_ENABLED||"0")!=="1";
-    const r = await deps.postWeekly({ dryRun });
-    const body: any = { dryRun, ...r };
-    body.ok = r.ok ?? true;
-    res.json(body);
+
+  router.post("/post-weekly", async (_req: Request, res: Response) => {
+    const r = await deps.postWeekly({ dryRun: String(process.env.POST_ENABLED||"0")!=="1" });
+    res.json({ ok:true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
   });
+
+  app.use("/admin", router);
 }
