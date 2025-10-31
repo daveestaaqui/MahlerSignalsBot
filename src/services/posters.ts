@@ -2,7 +2,7 @@ import TelegramBot from 'node-telegram-bot-api';
 
 import type { FormattedMessage } from './formatters.js';
 import { POSTING_ENV } from '../config/posting.js';
-import { postToDiscord as dispatchToDiscord } from './posters/discord.js';
+import { postToDiscord } from '../posters/discord.js';
 
 export type Tier = 'FREE' | 'PRO' | 'ELITE';
 export type Provider = 'telegram' | 'discord';
@@ -14,8 +14,10 @@ export type ProviderError = {
 };
 
 export type ProviderOutcome = {
-  posted: boolean;
-  skippedReason?: string;
+  ok: boolean;
+  provider: Provider;
+  delivered: boolean;
+  skipped?: string;
   error?: string;
 };
 
@@ -48,20 +50,21 @@ export function normalizeTier(input: TierInput): Tier {
 export async function postTelegram(tierInput: TierInput, input: MessageInput): Promise<ProviderOutcome> {
   const tier = normalizeTier(tierInput);
   const chatId = telegramChats[tier];
-  if (!tgToken || !chatId) {
-    log('warn', 'telegram_skip_missing_config', { tier });
-    return { posted: false, skippedReason: 'missing_config' };
-  }
-
   const message = toMessage(input);
   const payload = `${message.telegram}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
+  const logMeta = { tier, preview: payload.slice(0, 160) };
+
+  if (!tgToken || !chatId) {
+    log('warn', 'telegram_skip_missing_config', logMeta);
+    return { ok: false, provider: 'telegram', delivered: false, skipped: 'missing_config' };
+  }
   if (!POST_ENABLED) {
-    log('info', 'telegram_skip_post_disabled', { tier, preview: payload.slice(0, 160) });
-    return { posted: false, skippedReason: 'post_disabled' };
+    log('info', 'telegram_skip_post_disabled', logMeta);
+    return { ok: true, provider: 'telegram', delivered: false, skipped: 'post_disabled' };
   }
   if (DRY_RUN) {
-    log('info', 'telegram_skip_dry_run', { tier, preview: payload.slice(0, 160) });
-    return { posted: false, skippedReason: 'dry_run' };
+    log('info', 'telegram_skip_dry_run', logMeta);
+    return { ok: true, provider: 'telegram', delivered: false, skipped: 'dry_run' };
   }
 
   try {
@@ -71,11 +74,11 @@ export async function postTelegram(tierInput: TierInput, input: MessageInput): P
       parse_mode: 'HTML',
     });
     log('info', 'telegram_post_success', { tier });
-    return { posted: true };
+    return { ok: true, provider: 'telegram', delivered: true };
   } catch (err) {
     const messageText = err instanceof Error ? err.message : String(err);
     log('error', 'telegram_post_failed', { tier, error: messageText });
-    return { posted: false, error: messageText };
+    return { ok: false, provider: 'telegram', delivered: false, error: messageText };
   }
 }
 
@@ -83,45 +86,40 @@ export async function postDiscord(tierInput: TierInput, input: MessageInput): Pr
   const tier = normalizeTier(tierInput);
   const message = toMessage(input);
   const content = `${message.compact}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
-  const result = await dispatchToDiscord({ tier, content });
-  if (result.sent) {
-    return { posted: true };
+  const result = await postToDiscord({ tier, content });
+  if (result.delivered) {
+    return { ok: true, provider: 'discord', delivered: true };
   }
   if (result.error) {
-    return { posted: false, error: result.error };
+    return { ok: false, provider: 'discord', delivered: false, error: result.error };
   }
-  return { posted: false, skippedReason: result.skippedReason ?? 'skipped' };
+  return { ok: true, provider: 'discord', delivered: false, skipped: result.skipped };
 }
 
 export async function broadcast(tierInput: TierInput, input: MessageInput): Promise<BroadcastSummary> {
   const tier = normalizeTier(tierInput);
-  const summary: BroadcastSummary = {
-    posted: 0,
-    providerErrors: [],
-  };
+  const summary: BroadcastSummary = { posted: 0, providerErrors: [] };
 
-  const providers: Array<{ name: Provider; send: () => Promise<ProviderOutcome> }> = [
-    { name: 'telegram', send: () => postTelegram(tier, input) },
-    { name: 'discord', send: () => postDiscord(tier, input) },
+  const providers: Array<() => Promise<ProviderOutcome>> = [
+    () => postTelegram(tier, input),
+    () => postDiscord(tier, input),
   ];
 
-  for (const provider of providers) {
+  for (const send of providers) {
     try {
-      const outcome = await provider.send();
-      if (outcome.posted) {
+      const outcome = await send();
+      if (outcome.delivered) {
         summary.posted += 1;
-        continue;
-      }
-      if (outcome.error) {
+      } else if (outcome.error) {
         summary.providerErrors.push({
-          provider: provider.name,
+          provider: outcome.provider,
           message: outcome.error,
-          context: { tier },
+          context: { tier, skipped: outcome.skipped },
         });
       }
     } catch (err) {
       summary.providerErrors.push({
-        provider: provider.name,
+        provider: 'telegram',
         message: err instanceof Error ? err.message : String(err),
         context: { tier },
       });

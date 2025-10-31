@@ -8,12 +8,13 @@ import { buildWeeklyDigest } from '../services/weeklyDigest.js';
 import { dispatchWeeklyDigest } from '../services/weeklyDispatch.js';
 import { getLedgerCounts } from '../lib/publishLedger.js';
 import { CADENCE, todayIso } from '../config/cadence.js';
-import { POSTING_RULES } from '../config/posting.js';
+import { POSTING_RULES, POSTING_ENV } from '../config/posting.js';
 import { postTelegram, postDiscord, type Tier as PosterTier } from '../services/posters.js';
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const TEST_MESSAGE = 'Aurora Signals test';
 const APP_VERSION = readVersion();
+const PREVIEW_TIMEOUT_MS = 2500;
 
 const app = new Hono();
 
@@ -26,6 +27,8 @@ export function setRunDailyRunner(fn: typeof runDailyOnce) {
 export function resetRunDailyRunner() {
   runDaily = runDailyOnce;
 }
+
+type RunDailyResult = Awaited<ReturnType<typeof runDailyOnce>>;
 
 export { app };
 export default app;
@@ -103,29 +106,72 @@ const weeklySummaryHandler: Handler = (c) => {
 };
 
 const previewDailyHandler: Handler = async (c) => {
+  const limit = parseOptionalNumber(c.req.query('limit'));
+  const minScore = parseOptionalNumber(c.req.query('minScore'));
   try {
-    const limit = parseOptionalNumber(c.req.query('limit'));
-    const minScore = parseOptionalNumber(c.req.query('minScore'));
-    const result = await runDaily({
+    const previewPromise = runDaily({
       preview: true,
       ...(typeof limit === 'number' ? { limit } : {}),
       ...(typeof minScore === 'number' ? { minScore } : {}),
     });
-    return sendDailyResponse(c, result, {
-      preview: true,
-      limit: limit ?? null,
-      minScore: minScore ?? null,
-      defaultMinScore: POSTING_RULES.MIN_SCORE_PRO,
-    });
+
+    const raced = await Promise.race<
+      | { status: 'ok'; value: RunDailyResult }
+      | { status: 'timeout' }
+    >([
+      previewPromise.then((value) => ({ status: 'ok', value })),
+      new Promise<{ status: 'timeout' }>((resolve) =>
+        setTimeout(() => resolve({ status: 'timeout' }), PREVIEW_TIMEOUT_MS),
+      ),
+    ]);
+
+    if (raced.status === 'timeout') {
+      return c.json(
+        {
+          ok: true,
+          preview: true,
+          items: [],
+          limit: limit ?? null,
+          minScore: minScore ?? null,
+          defaultMinScore: POSTING_RULES.MIN_SCORE_PRO,
+          note: 'timeout',
+        },
+        200,
+      );
+    }
+
+    const run = raced.value;
+    const items = (run.messages ?? []).map((msg) => ({
+      tier: msg.tier,
+      asset: msg.asset,
+      text: msg.compact ?? msg.plain ?? msg.telegram,
+      symbols: msg.symbols ?? [],
+    }));
+
+    return c.json(
+      {
+        ok: true,
+        preview: true,
+        items,
+        limit: limit ?? null,
+        minScore: minScore ?? null,
+        defaultMinScore: POSTING_RULES.MIN_SCORE_PRO,
+        generatedAt: run.generatedAt,
+      },
+      200,
+    );
   } catch (err) {
     console.error('[preview/daily]', err);
     return c.json(
-      degradedPayload(err, {
+      {
+        ok: false,
         preview: true,
-        limit: c.req.query('limit') ?? null,
-        minScore: c.req.query('minScore') ?? null,
+        error: formatReason(err),
+        items: [],
+        limit: limit ?? null,
+        minScore: minScore ?? null,
         defaultMinScore: POSTING_RULES.MIN_SCORE_PRO,
-      }),
+      },
       200,
     );
   }
@@ -321,14 +367,14 @@ const postWeeklyHandler: Handler = async (c) => {
 const testTelegramHandler: Handler = async (c) => {
   const flags = resolveFlags();
   const tiers: PosterTier[] = ['PRO', 'ELITE', 'FREE'];
-  const results: Array<{ tier: PosterTier; posted: boolean; skipped?: string; error?: string }> = [];
+  const results: Array<{ tier: PosterTier; delivered: boolean; skipped?: string; error?: string }> = [];
 
   for (const tier of tiers) {
     const outcome = await postTelegram(tier, TEST_MESSAGE);
     results.push({
       tier,
-      posted: outcome.posted,
-      skipped: outcome.skippedReason,
+      delivered: outcome.delivered,
+      skipped: outcome.skipped,
       error: outcome.error,
     });
   }
@@ -348,14 +394,14 @@ const testTelegramHandler: Handler = async (c) => {
 const testDiscordHandler: Handler = async (c) => {
   const flags = resolveFlags();
   const tiers: PosterTier[] = ['FREE', 'PRO', 'ELITE'];
-  const results: Array<{ tier: PosterTier; posted: boolean; skipped?: string; error?: string }> = [];
+  const results: Array<{ tier: PosterTier; delivered: boolean; skipped?: string; error?: string }> = [];
 
   for (const tier of tiers) {
     const outcome = await postDiscord(tier, `${TEST_MESSAGE} (${tier})`);
     results.push({
       tier,
-      posted: outcome.posted,
-      skipped: outcome.skippedReason,
+      delivered: outcome.delivered,
+      skipped: outcome.skipped,
       error: outcome.error,
     });
   }
@@ -409,7 +455,8 @@ app.get('/', (c) => c.json({ ok: true, version: APP_VERSION }));
 aliasRoutes(app, 'GET', '/status', statusHandler);
 aliasRoutes(app, 'GET', '/diagnostics', diagnosticsHandler);
 aliasRoutes(app, 'GET', '/weekly-summary', weeklySummaryHandler);
-aliasRoutes(app, 'GET', '/preview/daily', adminAuth, previewDailyHandler);
+app.get('/preview/daily', adminAuth, previewDailyHandler);
+app.get('/api/preview/daily', adminAuth, previewDailyHandler);
 aliasRoutes(app, 'GET', '/health/providers', healthProvidersHandler);
 aliasRoutes(app, 'POST', '/admin/post-now', adminAuth, postNowHandler);
 aliasRoutes(app, 'POST', '/admin/post-daily', adminAuth, postDailyHandler);
@@ -418,7 +465,6 @@ aliasRoutes(app, 'POST', '/admin/test-telegram', adminAuth, testTelegramHandler)
 aliasRoutes(app, 'POST', '/admin/test-discord', adminAuth, testDiscordHandler);
 aliasRoutes(app, 'POST', '/admin/unlock', adminAuth, unlockHandler);
 
-type RunDailyResult = Awaited<ReturnType<typeof runDailyOnce>>;
 type AdminRunner = () => Promise<RunDailyResult>;
 
 async function executeAdminRun(
@@ -438,9 +484,10 @@ async function executeAdminRun(
 }
 
 function resolveFlags() {
-  const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
-  const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
-  return { dryRun, postEnabled };
+  return {
+    dryRun: POSTING_ENV.DRY_RUN,
+    postEnabled: POSTING_ENV.POST_ENABLED,
+  };
 }
 
 function sendDailyResponse(c: Parameters<Handler>[0], result: RunDailyResult, extra: Record<string, unknown> = {}) {
@@ -553,7 +600,7 @@ function sendDailyError(c: Parameters<Handler>[0], err: unknown, extra: Record<s
 }
 
 async function maybeFlush(result: RunDailyResult) {
-  if (!result.postEnabled || result.dryRun) return;
+  if (!result.postEnabled || result.dryRun || result.preview) return;
   if (!result.messages.length) return;
   await flushPublishQueue();
 }
