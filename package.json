@@ -7,7 +7,8 @@
     "n8n-mcp": "server.js"
   },
   "scripts": {
-    "prebuild": "pnpm install --frozen-lockfile || pnpm install",
+    "preinstall": "pnpm approve-builds better-sqlite3 || true",
+    "prebuild": "pnpm install",
     "build": "tsc -p . && tsc -p tsconfig.tests.json",
     "start": "node dist/web/node.js",
     "dev": "npm run start",

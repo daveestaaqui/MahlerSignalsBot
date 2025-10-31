@@ -501,22 +501,40 @@ CREATE TABLE IF NOT EXISTS publish_ledger (
 );
 `;
 
+const nodeEnv = (process.env.NODE_ENV ?? 'development').toLowerCase();
+const sqlitePath = process.env.AURORA_SQLITE_PATH;
+
 let database: any;
 
-try {
-  const module = await import('better-sqlite3');
-  const DatabaseCtor: any = module.default ?? module;
-  database = new DatabaseCtor('db/app.sqlite');
-  if (typeof database.pragma === 'function') {
-    database.pragma('journal_mode = WAL');
-  }
-  if (typeof database.exec === 'function') {
+if (!sqlitePath) {
+  if (nodeEnv === 'test') {
+    console.log('[db] using in-memory sqlite for tests');
+    database = new MemoryDB();
     database.exec(schema);
+  } else {
+    throw new Error('[db] AURORA_SQLITE_PATH must be set outside of tests');
   }
-} catch (err) {
-  console.warn('[db] using in-memory fallback (better-sqlite3 unavailable)', formatReason(err));
-  database = new MemoryDB();
-  database.exec(schema);
+} else {
+  try {
+    const module = await import('better-sqlite3');
+    const DatabaseCtor: any = module.default ?? module;
+    console.log(`[db] opening sqlite at ${sqlitePath}`);
+    database = new DatabaseCtor(sqlitePath);
+    if (typeof database.pragma === 'function') {
+      database.pragma('journal_mode = WAL');
+    }
+    if (typeof database.exec === 'function') {
+      database.exec(schema);
+    }
+  } catch (err) {
+    if (nodeEnv === 'test') {
+      console.log('[db] using in-memory sqlite for tests');
+      database = new MemoryDB();
+      database.exec(schema);
+    } else {
+      throw new Error(`[db] failed to open sqlite at ${sqlitePath}: ${formatReason(err)}`);
+    }
+  }
 }
 
 export default database;

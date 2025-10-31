@@ -1,6 +1,8 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
+process.env.NODE_ENV = 'test';
+
 const adminToken = 'test-token';
 process.env.ADMIN_TOKEN = adminToken;
 

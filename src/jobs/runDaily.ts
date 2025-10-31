@@ -131,6 +131,8 @@ const MIN_DISPATCH_SCORE = Math.max(POSTING_RULES.MIN_SCORE_PRO, 0.85);
 export type RunDailyOptions = {
   assets?: AssetClass[];
   preview?: boolean;
+  minScore?: number;
+  limit?: number;
 };
 
 export async function runDailyOnce(options: RunDailyOptions = {}): Promise<DailyRunResult> {
@@ -177,9 +179,29 @@ export async function runDailyOnce(options: RunDailyOptions = {}): Promise<Daily
     crypto: clampRemaining(assetCaps.crypto - ledgerCounts.crypto, globalRemainingBefore),
   };
 
+  const minScoreOverride =
+    typeof options.minScore === 'number' && Number.isFinite(options.minScore)
+      ? options.minScore
+      : MIN_DISPATCH_SCORE;
+
   const cadenceTrimmed = enforceCadence(selection.selected, remainingByAsset, globalRemainingBefore);
-  const [finalSelected, lowScoreOverflow] = partitionByScore(cadenceTrimmed.selected, MIN_DISPATCH_SCORE);
-  const overflow = [...cadenceTrimmed.overflow, ...lowScoreOverflow];
+  const [selectedAboveThreshold, lowScoreOverflow] = partitionByScore(cadenceTrimmed.selected, minScoreOverride);
+
+  let finalSelected = selectedAboveThreshold;
+  let trimmedOverflow: SelectedSignal[] = [];
+  if (
+    preview &&
+    typeof options.limit === 'number' &&
+    Number.isFinite(options.limit) &&
+    options.limit >= 0 &&
+    finalSelected.length > options.limit
+  ) {
+    const limit = Math.max(0, Math.floor(options.limit));
+    trimmedOverflow = finalSelected.slice(limit);
+    finalSelected = finalSelected.slice(0, limit);
+  }
+
+  const overflow = [...cadenceTrimmed.overflow, ...lowScoreOverflow, ...trimmedOverflow];
   const lowScoreSet = new Set(lowScoreOverflow.map((item) => item.signal.uniq_key));
 
   selection.rejected.forEach(({ signal, reason }) => {

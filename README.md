@@ -26,6 +26,19 @@ curl -X POST http://127.0.0.1:8787/admin/post
 node scripts/health.mjs /
 ```
 
+## Operations
+
+- Use Node 20 (`.nvmrc` included) and `pnpm` for installs/builds.
+- Configure `AURORA_SQLITE_PATH=/var/data/aurora.sqlite` in production; tests fall back to in-memory.
+- Toggle runtime safely with `DRY_RUN=true` and/or `POST_ENABLED=false`.
+- Admin checks (set `ADMIN_TOKEN` first):
+  ```bash
+  curl -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/status"
+  curl -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/preview/daily"
+  curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/admin/post-now?force=true&minScore=0.10"
+  curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/admin/test-discord"
+  ```
+
 
 ## Commands
 

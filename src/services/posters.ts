@@ -1,63 +1,157 @@
-export type Tier = 'PRO' | 'ELITE' | 'FREE'
-export type Provider = 'telegram' | 'x' | 'discord'
-export type ProviderError = { provider: Provider, error: string }
-export type BroadcastSummary = { posted: number, providerErrors: ProviderError[], errors?: ProviderError[] }
+import TelegramBot from 'node-telegram-bot-api';
 
-type Payload = { text: string; html?: string }
+import type { FormattedMessage } from './formatters.js';
+import { POSTING_ENV } from '../config/posting.js';
+import { postToDiscord as dispatchToDiscord } from './posters/discord.js';
 
-async function postTelegram(_p: Payload): Promise<boolean> {
-  const token = process.env.TELEGRAM_BOT_TOKEN
-  const chats = [process.env.TELEGRAM_CHAT_ID_PRO, process.env.TELEGRAM_CHAT_ID_ELITE, process.env.TELEGRAM_CHAT_ID_FREE].filter(Boolean) as string[]
-  if (!token || chats.length === 0) return false
-  return true
+export type Tier = 'FREE' | 'PRO' | 'ELITE';
+export type Provider = 'telegram' | 'discord';
+
+export type ProviderError = {
+  provider: Provider;
+  message: string;
+  context?: Record<string, unknown>;
+};
+
+export type ProviderOutcome = {
+  posted: boolean;
+  skippedReason?: string;
+  error?: string;
+};
+
+export type BroadcastSummary = {
+  posted: number;
+  providerErrors: ProviderError[];
+};
+
+type TierInput = Tier | Lowercase<Tier>;
+type MessageInput = string | FormattedMessage;
+
+const tgToken = process.env.TELEGRAM_BOT_TOKEN ?? '';
+const telegramChats: Record<Tier, string> = {
+  FREE: process.env.TELEGRAM_CHAT_ID_FREE ?? '',
+  PRO: process.env.TELEGRAM_CHAT_ID_PRO ?? '',
+  ELITE: process.env.TELEGRAM_CHAT_ID_ELITE ?? '',
+};
+
+const POST_ENABLED = POSTING_ENV.POST_ENABLED;
+const DRY_RUN = POSTING_ENV.DRY_RUN;
+
+export function normalizeTier(input: TierInput): Tier {
+  const upper = String(input ?? '').toUpperCase() as Tier;
+  if (upper === 'FREE' || upper === 'PRO' || upper === 'ELITE') {
+    return upper;
+  }
+  return 'FREE';
 }
 
-async function postX(_p: Payload): Promise<boolean> {
-  const key = process.env.X_BEARER_TOKEN || process.env.TWITTER_BEARER_TOKEN
-  if (!key) return false
-  return true
+export async function postTelegram(tierInput: TierInput, input: MessageInput): Promise<ProviderOutcome> {
+  const tier = normalizeTier(tierInput);
+  const chatId = telegramChats[tier];
+  if (!tgToken || !chatId) {
+    log('warn', 'telegram_skip_missing_config', { tier });
+    return { posted: false, skippedReason: 'missing_config' };
+  }
+
+  const message = toMessage(input);
+  const payload = `${message.telegram}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
+  if (!POST_ENABLED) {
+    log('info', 'telegram_skip_post_disabled', { tier, preview: payload.slice(0, 160) });
+    return { posted: false, skippedReason: 'post_disabled' };
+  }
+  if (DRY_RUN) {
+    log('info', 'telegram_skip_dry_run', { tier, preview: payload.slice(0, 160) });
+    return { posted: false, skippedReason: 'dry_run' };
+  }
+
+  try {
+    const bot = new TelegramBot(tgToken, { polling: false });
+    await bot.sendMessage(chatId, payload, {
+      disable_web_page_preview: true,
+      parse_mode: 'HTML',
+    });
+    log('info', 'telegram_post_success', { tier });
+    return { posted: true };
+  } catch (err) {
+    const messageText = err instanceof Error ? err.message : String(err);
+    log('error', 'telegram_post_failed', { tier, error: messageText });
+    return { posted: false, error: messageText };
+  }
 }
 
-async function postDiscord(_p: Payload): Promise<boolean> {
-  const hooks = [process.env.DISCORD_WEBHOOK_URL_PRO, process.env.DISCORD_WEBHOOK_URL_ELITE, process.env.DISCORD_WEBHOOK_URL_FREE].filter(Boolean) as string[]
-  if (hooks.length === 0) return false
-  return true
+export async function postDiscord(tierInput: TierInput, input: MessageInput): Promise<ProviderOutcome> {
+  const tier = normalizeTier(tierInput);
+  const message = toMessage(input);
+  const content = `${message.compact}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
+  const result = await dispatchToDiscord({ tier, content });
+  if (result.sent) {
+    return { posted: true };
+  }
+  if (result.error) {
+    return { posted: false, error: result.error };
+  }
+  return { posted: false, skippedReason: result.skippedReason ?? 'skipped' };
 }
 
-function normalizePayload(a: unknown, b?: unknown): Payload {
-  if (typeof a === 'string' && typeof b === 'string') return { text: b }
-  if (typeof a === 'string' && b && typeof b === 'object') return b as Payload
-  if (typeof a === 'string' && b === undefined) return { text: a }
-  return a as Payload
-}
+export async function broadcast(tierInput: TierInput, input: MessageInput): Promise<BroadcastSummary> {
+  const tier = normalizeTier(tierInput);
+  const summary: BroadcastSummary = {
+    posted: 0,
+    providerErrors: [],
+  };
 
-export function toTier(t: string): Tier {
-  const up = (t || '').toUpperCase()
-  if (up === 'PRO' || up === 'ELITE' || up === 'FREE') return up
-  return 'FREE'
-}
+  const providers: Array<{ name: Provider; send: () => Promise<ProviderOutcome> }> = [
+    { name: 'telegram', send: () => postTelegram(tier, input) },
+    { name: 'discord', send: () => postDiscord(tier, input) },
+  ];
 
-export async function broadcast(payload: Payload): Promise<BroadcastSummary>
-export async function broadcast(tier: Tier | string, payload: Payload | string): Promise<BroadcastSummary>
-export async function broadcast(a: unknown, b?: unknown): Promise<BroadcastSummary> {
-  const _ = normalizePayload(a, b)
-  const providerErrors: ProviderError[] = []
-  let posted = 0
-  const tasks: Array<Promise<[Provider, boolean]>> = [
-    postTelegram(_).then(ok => ['telegram', ok] as [Provider, boolean]),
-    postX(_).then(ok => ['x', ok] as [Provider, boolean]),
-    postDiscord(_).then(ok => ['discord', ok] as [Provider, boolean]),
-  ]
-  const results = await Promise.allSettled(tasks)
-  for (const r of results) {
-    if (r.status === 'fulfilled') {
-      const [provider, ok] = r.value
-      if (ok) posted += 1
-      else providerErrors.push({ provider, error: 'not-configured-or-rejected' })
-    } else {
-      const msg = r.reason?.message || String(r.reason || 'unknown')
-      providerErrors.push({ provider: 'telegram', error: msg })
+  for (const provider of providers) {
+    try {
+      const outcome = await provider.send();
+      if (outcome.posted) {
+        summary.posted += 1;
+        continue;
+      }
+      if (outcome.error) {
+        summary.providerErrors.push({
+          provider: provider.name,
+          message: outcome.error,
+          context: { tier },
+        });
+      }
+    } catch (err) {
+      summary.providerErrors.push({
+        provider: provider.name,
+        message: err instanceof Error ? err.message : String(err),
+        context: { tier },
+      });
     }
   }
-  return { posted, providerErrors, errors: providerErrors }
+
+  return summary;
+}
+
+function toMessage(input: MessageInput): FormattedMessage {
+  if (typeof input === 'string') {
+    return {
+      telegram: input,
+      plain: stripHtml(input),
+      compact: compressWhitespace(stripHtml(input)),
+    };
+  }
+  const compact = input.compact ?? compressWhitespace(input.plain ?? stripHtml(input.telegram));
+  const plain = input.plain ?? stripHtml(input.telegram);
+  return { ...input, compact, plain };
+}
+
+function stripHtml(value: string): string {
+  return value.replace(/<[^>]*>/g, '');
+}
+
+function compressWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function log(level: 'info' | 'warn' | 'error', event: string, meta?: Record<string, unknown>) {
+  console.log(JSON.stringify({ ts: new Date().toISOString(), level, event, meta }));
 }
