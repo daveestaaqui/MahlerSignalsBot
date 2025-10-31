@@ -26,14 +26,20 @@ function normalizePayload(a, b) {
         return { text: a };
     return a;
 }
+export function toTier(t) {
+    const up = (t || '').toUpperCase();
+    if (up === 'PRO' || up === 'ELITE' || up === 'FREE')
+        return up;
+    return 'FREE';
+}
 export async function broadcast(a, b) {
-    const payload = normalizePayload(a, b);
+    const _ = normalizePayload(a, b);
     const providerErrors = [];
     let posted = 0;
     const tasks = [
-        postTelegram(payload).then(ok => ['telegram', ok]),
-        postX(payload).then(ok => ['x', ok]),
-        postDiscord(payload).then(ok => ['discord', ok]),
+        postTelegram(_).then(ok => ['telegram', ok]),
+        postX(_).then(ok => ['x', ok]),
+        postDiscord(_).then(ok => ['discord', ok]),
     ];
     const results = await Promise.allSettled(tasks);
     for (const r of results) {

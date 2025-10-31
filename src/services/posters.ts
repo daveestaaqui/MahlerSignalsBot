@@ -31,14 +31,22 @@ function normalizePayload(a: unknown, b?: unknown): Payload {
   return a as Payload
 }
 
+export function toTier(t: string): Tier {
+  const up = (t || '').toUpperCase()
+  if (up === 'PRO' || up === 'ELITE' || up === 'FREE') return up
+  return 'FREE'
+}
+
+export async function broadcast(payload: Payload): Promise<BroadcastSummary>
+export async function broadcast(tier: Tier | string, payload: Payload | string): Promise<BroadcastSummary>
 export async function broadcast(a: unknown, b?: unknown): Promise<BroadcastSummary> {
-  const payload = normalizePayload(a, b)
+  const _ = normalizePayload(a, b)
   const providerErrors: ProviderError[] = []
   let posted = 0
   const tasks: Array<Promise<[Provider, boolean]>> = [
-    postTelegram(payload).then(ok => ['telegram', ok] as [Provider, boolean]),
-    postX(payload).then(ok => ['x', ok] as [Provider, boolean]),
-    postDiscord(payload).then(ok => ['discord', ok] as [Provider, boolean]),
+    postTelegram(_).then(ok => ['telegram', ok] as [Provider, boolean]),
+    postX(_).then(ok => ['x', ok] as [Provider, boolean]),
+    postDiscord(_).then(ok => ['discord', ok] as [Provider, boolean]),
   ]
   const results = await Promise.allSettled(tasks)
   for (const r of results) {

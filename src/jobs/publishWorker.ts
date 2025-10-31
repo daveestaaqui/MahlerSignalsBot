@@ -40,7 +40,7 @@ export async function flushPublishQueue(limit = 10): Promise<FlushSummary> {
       const result = await broadcast(toTier(row.tier), row.payload);
       summary.successes += 1;
       summary.posted += result.posted;
-      summary.providerErrors.push(...result.errors);
+      summary.providerErrors.push(...(result.providerErrors || []));
       markSuccess.run(now, row.id);
       const entryPrice = extractEntryPrice(row.features);
       insertMetric.run(row.signal_id, row.tier, entryPrice, now);
