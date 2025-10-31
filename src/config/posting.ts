@@ -15,7 +15,8 @@ export const POSTING_RULES = {
 };
 const toBool = (value: string | undefined, fallback: boolean) => {
   if (value === undefined) return fallback;
-  return value.toLowerCase() === 'true';
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
 };
 
 export const POSTING_ENV = {

@@ -1,3 +1,7 @@
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+
 type RunResult = { changes: number; lastInsertRowid?: number };
 
 const SQL_INSERT_USER = normalizeSql(
@@ -501,40 +505,45 @@ CREATE TABLE IF NOT EXISTS publish_ledger (
 );
 `;
 
-const nodeEnv = (process.env.NODE_ENV ?? 'development').toLowerCase();
-const sqlitePath = process.env.AURORA_SQLITE_PATH;
-
 let database: any;
 
-if (!sqlitePath) {
-  if (nodeEnv === 'test') {
+function initialise(): any {
+  const nodeEnv = (process.env.NODE_ENV ?? 'development').toLowerCase();
+  const sqlitePath = process.env.AURORA_SQLITE_PATH;
+  const isTest = nodeEnv === 'test';
+
+  if (isTest) {
     console.log('[db] using in-memory sqlite for tests');
-    database = new MemoryDB();
-    database.exec(schema);
-  } else {
-    throw new Error('[db] AURORA_SQLITE_PATH must be set outside of tests');
+    const memory = new MemoryDB();
+    memory.exec(schema);
+    return memory;
   }
-} else {
+
+  if (!sqlitePath || sqlitePath.trim().length === 0) {
+    throw new Error('[db] AURORA_SQLITE_PATH required in production');
+  }
+
   try {
-    const module = await import('better-sqlite3');
-    const DatabaseCtor: any = module.default ?? module;
+    const DatabaseCtor: any = require('better-sqlite3');
     console.log(`[db] opening sqlite at ${sqlitePath}`);
-    database = new DatabaseCtor(sqlitePath);
-    if (typeof database.pragma === 'function') {
-      database.pragma('journal_mode = WAL');
+    const instance = new DatabaseCtor(sqlitePath);
+    if (typeof instance.pragma === 'function') {
+      instance.pragma('journal_mode = WAL');
     }
-    if (typeof database.exec === 'function') {
-      database.exec(schema);
+    if (typeof instance.exec === 'function') {
+      instance.exec(schema);
     }
+    return instance;
   } catch (err) {
-    if (nodeEnv === 'test') {
-      console.log('[db] using in-memory sqlite for tests');
-      database = new MemoryDB();
-      database.exec(schema);
-    } else {
-      throw new Error(`[db] failed to open sqlite at ${sqlitePath}: ${formatReason(err)}`);
-    }
+    throw new Error(`[db] failed to open sqlite at ${sqlitePath}: ${formatReason(err)}`);
   }
 }
 
-export default database;
+export function getDB() {
+  if (!database) {
+    database = initialise();
+  }
+  return database;
+}
+
+export default getDB();

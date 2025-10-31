@@ -18,6 +18,14 @@ import { CADENCE, todayIso } from '../config/cadence.js';
 import { POSTING_RULES } from '../config/posting.js';
 import { getLedgerCounts, incrementLedger } from '../lib/publishLedger.js';
 
+const envBool = (value: string | undefined, fallback: boolean) => {
+  if (value === undefined) return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes'].includes(normalized)) return true;
+  if (['0', 'false', 'no'].includes(normalized)) return false;
+  return fallback;
+};
+
 type Tier = 'elite' | 'pro' | 'free';
 type AssetClass = 'stock' | 'crypto';
 
@@ -217,8 +225,8 @@ export async function runDailyOnce(options: RunDailyOptions = {}): Promise<Daily
     record: signal,
   }));
 
-  const dryRun = (process.env.DRY_RUN || 'false').toLowerCase() === 'true';
-  const postEnabled = (process.env.POST_ENABLED || 'true').toLowerCase() === 'true';
+  const dryRun = envBool(process.env.DRY_RUN, false);
+  const postEnabled = envBool(process.env.POST_ENABLED, true);
   const shouldDispatch = !preview && postEnabled && !dryRun && finalSelected.length > 0;
 
   const groups = buildGroups(persisted);

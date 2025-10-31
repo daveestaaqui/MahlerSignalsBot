@@ -2,7 +2,7 @@ import TelegramBot from 'node-telegram-bot-api';
 
 import type { FormattedMessage } from './formatters.js';
 import { POSTING_ENV } from '../config/posting.js';
-import { postToDiscord } from '../posters/discord.js';
+import { dispatchToDiscord } from '../posters/discord.js';
 
 export type Tier = 'FREE' | 'PRO' | 'ELITE';
 export type Provider = 'telegram' | 'discord';
@@ -14,10 +14,8 @@ export type ProviderError = {
 };
 
 export type ProviderOutcome = {
-  ok: boolean;
-  provider: Provider;
-  delivered: boolean;
-  skipped?: string;
+  posted: boolean;
+  skippedReason?: string;
   error?: string;
 };
 
@@ -56,15 +54,15 @@ export async function postTelegram(tierInput: TierInput, input: MessageInput): P
 
   if (!tgToken || !chatId) {
     log('warn', 'telegram_skip_missing_config', logMeta);
-    return { ok: false, provider: 'telegram', delivered: false, skipped: 'missing_config' };
+    return { posted: false, skippedReason: 'not_configured' };
   }
   if (!POST_ENABLED) {
     log('info', 'telegram_skip_post_disabled', logMeta);
-    return { ok: true, provider: 'telegram', delivered: false, skipped: 'post_disabled' };
+    return { posted: false, skippedReason: 'post_disabled' };
   }
   if (DRY_RUN) {
     log('info', 'telegram_skip_dry_run', logMeta);
-    return { ok: true, provider: 'telegram', delivered: false, skipped: 'dry_run' };
+    return { posted: false, skippedReason: 'dry_run' };
   }
 
   try {
@@ -74,11 +72,11 @@ export async function postTelegram(tierInput: TierInput, input: MessageInput): P
       parse_mode: 'HTML',
     });
     log('info', 'telegram_post_success', { tier });
-    return { ok: true, provider: 'telegram', delivered: true };
+    return { posted: true };
   } catch (err) {
     const messageText = err instanceof Error ? err.message : String(err);
     log('error', 'telegram_post_failed', { tier, error: messageText });
-    return { ok: false, provider: 'telegram', delivered: false, error: messageText };
+    return { posted: false, error: messageText };
   }
 }
 
@@ -86,40 +84,40 @@ export async function postDiscord(tierInput: TierInput, input: MessageInput): Pr
   const tier = normalizeTier(tierInput);
   const message = toMessage(input);
   const content = `${message.compact}\n\n⚠️ Not financial advice • https://aurora-signals.onrender.com`;
-  const result = await postToDiscord({ tier, content });
-  if (result.delivered) {
-    return { ok: true, provider: 'discord', delivered: true };
+  const result = await dispatchToDiscord({ tier, content });
+  if (result.sent) {
+    return { posted: true };
   }
   if (result.error) {
-    return { ok: false, provider: 'discord', delivered: false, error: result.error };
+    return { posted: false, error: result.error };
   }
-  return { ok: true, provider: 'discord', delivered: false, skipped: result.skipped };
+  return { posted: false, skippedReason: result.skippedReason };
 }
 
 export async function broadcast(tierInput: TierInput, input: MessageInput): Promise<BroadcastSummary> {
   const tier = normalizeTier(tierInput);
   const summary: BroadcastSummary = { posted: 0, providerErrors: [] };
 
-  const providers: Array<() => Promise<ProviderOutcome>> = [
-    () => postTelegram(tier, input),
-    () => postDiscord(tier, input),
+  const providers: Array<[Provider, () => Promise<ProviderOutcome>]> = [
+    ['telegram', () => postTelegram(tier, input)],
+    ['discord', () => postDiscord(tier, input)],
   ];
 
-  for (const send of providers) {
+  for (const [provider, send] of providers) {
     try {
       const outcome = await send();
-      if (outcome.delivered) {
+      if (outcome.posted) {
         summary.posted += 1;
       } else if (outcome.error) {
         summary.providerErrors.push({
-          provider: outcome.provider,
+          provider,
           message: outcome.error,
-          context: { tier, skipped: outcome.skipped },
+          context: { tier },
         });
       }
     } catch (err) {
       summary.providerErrors.push({
-        provider: 'telegram',
+        provider,
         message: err instanceof Error ? err.message : String(err),
         context: { tier },
       });

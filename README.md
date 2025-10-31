@@ -35,17 +35,17 @@ node scripts/health.mjs /
   pnpm build
   node dist/web/node.js
   ```
-- Admin curls (set `BASE_URL` and `ADMIN_TOKEN`):
+- Local curls (set `ADMIN_TOKEN=TEST` for admin calls):
   ```bash
-  curl -sS "$BASE_URL/status"
-  curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/preview/daily"
-  curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/api/preview/daily"
-  curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/admin/unlock?force=true"
-  curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/admin/post-now?force=true&minScore=0.10"
-  curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/admin/post-daily"
-  curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/admin/post-weekly"
-  curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/admin/test-telegram"
-  curl -sS -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE_URL/admin/test-discord"
+  curl -sS http://localhost:8787/status
+  curl -sS http://localhost:8787/preview/daily -H "Authorization: Bearer $ADMIN_TOKEN"
+  curl -sS http://localhost:8787/api/preview/daily -H "Authorization: Bearer $ADMIN_TOKEN"
+  curl -sS -X POST http://localhost:8787/admin/unlock -H "Authorization: Bearer $ADMIN_TOKEN"
+  curl -sS -X POST "http://localhost:8787/admin/post-now?force=true&minScore=0.10" -H "Authorization: Bearer $ADMIN_TOKEN"
+  curl -sS -X POST http://localhost:8787/admin/post-daily -H "Authorization: Bearer $ADMIN_TOKEN"
+  curl -sS -X POST http://localhost:8787/admin/post-weekly -H "Authorization: Bearer $ADMIN_TOKEN"
+  curl -sS -X POST http://localhost:8787/admin/test-telegram -H "Authorization: Bearer $ADMIN_TOKEN"
+  curl -sS -X POST http://localhost:8787/admin/test-discord -H "Authorization: Bearer $ADMIN_TOKEN"
   ```
 
 

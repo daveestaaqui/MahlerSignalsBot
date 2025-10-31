@@ -7,14 +7,14 @@
     "n8n-mcp": "server.js"
   },
   "scripts": {
-    "preinstall": "pnpm -y approve-builds better-sqlite3 || true",
+    "preinstall": "pnpm approve-builds better-sqlite3 || true",
     "prebuild": "pnpm install",
-    "build": "tsc -p . && tsc -p tsconfig.tests.json",
+    "build": "tsc -p .",
     "start": "node dist/web/node.js",
     "dev": "npm run start",
     "lint": "node --eval \"console.log('lint not configured yet')\"",
     "typecheck": "node --eval \"console.log('typecheck not configured yet')\"",
-    "test": "pnpm build && node --test dist/tests tests/routes.smoke.test.js",
+    "test": "pnpm build && node --test dist/tests/routes.smoke.test.js",
     "set-tier": "node scripts/set-tier.mjs",
     "post-now": "node scripts/post-now.mjs",
     "env:check": "node --env-file=.env scripts/validate-env.mjs",

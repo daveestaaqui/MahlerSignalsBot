@@ -29,6 +29,7 @@ export function resetRunDailyRunner() {
 }
 
 type RunDailyResult = Awaited<ReturnType<typeof runDailyOnce>>;
+type Flags = ReturnType<typeof resolveFlags>;
 
 export { app };
 export default app;
@@ -128,13 +129,13 @@ const previewDailyHandler: Handler = async (c) => {
     if (raced.status === 'timeout') {
       return c.json(
         {
-          ok: true,
+          ok: false,
+          reason: 'timeout',
           preview: true,
           items: [],
           limit: limit ?? null,
           minScore: minScore ?? null,
           defaultMinScore: POSTING_RULES.MIN_SCORE_PRO,
-          note: 'timeout',
         },
         200,
       );
@@ -185,26 +186,27 @@ const adminAuth: MiddlewareHandler = async (c, next) => {
 };
 
 const postDailyHandler: Handler = async (c) => {
+  const route = 'admin/post-daily';
   const force = isTruthy(c.req.query('force'));
-  const dryRunQuery = c.req.query('dry_run');
-  if (isTruthy(dryRunQuery)) {
-    try {
-      const result = await runDaily({ preview: true });
-      return sendDailyResponse(c, result, { preview: true });
-    } catch (err) {
-      console.error('[admin/post-daily preview]', err);
-      return c.json(degradedPayload(err, { preview: true }), 200);
-    }
+  const flags = resolveFlags();
+
+  if (flags.dryRun || !flags.postEnabled) {
+    const preview = await runDaily({ preview: true });
+    return respondDryRun(c, route, flags, {
+      items: preview.messages?.length ?? 0,
+    });
   }
+
   const runner = () =>
     executeAdminRun(
       c,
-      'admin/post-daily',
+      route,
       async () => {
         const result = await runDaily();
         await maybeFlush(result);
         return result;
       },
+      { route },
     );
 
   if (force) {
@@ -215,13 +217,25 @@ const postDailyHandler: Handler = async (c) => {
 };
 
 const postNowHandler: Handler = async (c) => {
+  const route = 'admin/post-now';
   const force = isTruthy(c.req.query('force'));
   const minScore = parseOptionalNumber(c.req.query('minScore'));
+  const flags = resolveFlags();
+
+  if (flags.dryRun || !flags.postEnabled) {
+    const preview = await runDaily({
+      preview: true,
+      ...(typeof minScore === 'number' ? { minScore } : {}),
+    });
+    return respondDryRun(c, route, flags, {
+      items: preview.messages?.length ?? 0,
+      minScore: minScore ?? null,
+    });
+  }
 
   const runner = async () => {
     const assets = assetsWithRemainingCapacity();
     if (!assets.length) {
-      const flags = resolveFlags();
       const date = todayIso();
       const ledger = getLedgerCounts(date);
       const perAssetLimits = {
@@ -294,11 +308,11 @@ const postNowHandler: Handler = async (c) => {
         errors: [],
         telemetry: [],
       };
-      return sendDailyResponse(c, result);
+      return sendDailyResponse(c, result, { route });
     }
     return executeAdminRun(
       c,
-      'admin/post-now',
+      route,
       async () => {
         const options: RunDailyOptions = { assets };
         if (typeof minScore === 'number') {
@@ -309,6 +323,7 @@ const postNowHandler: Handler = async (c) => {
         return result;
       },
       {
+        route,
         assetsRequested: assets,
         minScoreOverride: minScore ?? null,
         force,
@@ -325,7 +340,13 @@ const postNowHandler: Handler = async (c) => {
 };
 
 const postWeeklyHandler: Handler = async (c) => {
+  const route = 'admin/post-weekly';
   const force = isTruthy(c.req.query('force'));
+  const flags = resolveFlags();
+
+  if (flags.dryRun || !flags.postEnabled) {
+    return respondDryRun(c, route, flags);
+  }
 
   const runner = async () => {
     const env = resolveFlags();
@@ -339,6 +360,7 @@ const postWeeklyHandler: Handler = async (c) => {
           dryRun: env.dryRun,
           postEnabled: env.postEnabled,
           summary: digest.summary,
+          route,
         },
         queued ? 202 : 200,
       );
@@ -351,6 +373,7 @@ const postWeeklyHandler: Handler = async (c) => {
           dryRun: env.dryRun,
           postEnabled: env.postEnabled,
           summary: null,
+          route,
         }),
         status,
       );
@@ -367,14 +390,14 @@ const postWeeklyHandler: Handler = async (c) => {
 const testTelegramHandler: Handler = async (c) => {
   const flags = resolveFlags();
   const tiers: PosterTier[] = ['PRO', 'ELITE', 'FREE'];
-  const results: Array<{ tier: PosterTier; delivered: boolean; skipped?: string; error?: string }> = [];
+  const results: Array<{ tier: PosterTier; posted: boolean; skipped?: string; error?: string }> = [];
 
   for (const tier of tiers) {
     const outcome = await postTelegram(tier, TEST_MESSAGE);
     results.push({
       tier,
-      delivered: outcome.delivered,
-      skipped: outcome.skipped,
+      posted: outcome.posted,
+      skipped: outcome.skippedReason,
       error: outcome.error,
     });
   }
@@ -385,6 +408,7 @@ const testTelegramHandler: Handler = async (c) => {
       ok: failures.length === 0,
       dryRun: flags.dryRun,
       postEnabled: flags.postEnabled,
+      route: 'admin/test-telegram',
       results,
     },
     failures.length ? 207 : 200,
@@ -394,14 +418,14 @@ const testTelegramHandler: Handler = async (c) => {
 const testDiscordHandler: Handler = async (c) => {
   const flags = resolveFlags();
   const tiers: PosterTier[] = ['FREE', 'PRO', 'ELITE'];
-  const results: Array<{ tier: PosterTier; delivered: boolean; skipped?: string; error?: string }> = [];
+  const results: Array<{ tier: PosterTier; posted: boolean; skipped?: string; error?: string }> = [];
 
   for (const tier of tiers) {
     const outcome = await postDiscord(tier, `${TEST_MESSAGE} (${tier})`);
     results.push({
       tier,
-      delivered: outcome.delivered,
-      skipped: outcome.skipped,
+      posted: outcome.posted,
+      skipped: outcome.skippedReason,
       error: outcome.error,
     });
   }
@@ -412,6 +436,7 @@ const testDiscordHandler: Handler = async (c) => {
       ok: failures.length === 0,
       dryRun: flags.dryRun,
       postEnabled: flags.postEnabled,
+      route: 'admin/test-discord',
       results,
     },
     failures.length ? 207 : 200,
@@ -420,6 +445,7 @@ const testDiscordHandler: Handler = async (c) => {
 
 const unlockHandler: Handler = async (c) => {
   const force = isTruthy(c.req.query('force'));
+  const flags = resolveFlags();
   const locks = ['manual-run', 'daily-run', 'weekly-run'] as const;
   for (const name of locks) {
     releaseLock(name);
@@ -427,8 +453,11 @@ const unlockHandler: Handler = async (c) => {
   return c.json(
     {
       ok: true,
+      dryRun: flags.dryRun,
+      postEnabled: flags.postEnabled,
       cleared: locks,
       force,
+      route: 'admin/unlock',
     },
     200,
   );
@@ -492,6 +521,7 @@ function resolveFlags() {
 
 function sendDailyResponse(c: Parameters<Handler>[0], result: RunDailyResult, extra: Record<string, unknown> = {}) {
   const errors = result.errors ?? [];
+  const context = { ...extra };
   const body: Record<string, unknown> = {
     ok: true,
     posted: result.posted,
@@ -509,8 +539,12 @@ function sendDailyResponse(c: Parameters<Handler>[0], result: RunDailyResult, ex
     messages: result.messages,
     telemetry: result.telemetry,
   };
-  if (Object.keys(extra).length > 0) {
-    body.context = extra;
+  if (context.route) {
+    body.route = context.route;
+    delete context.route;
+  }
+  if (Object.keys(context).length > 0) {
+    body.context = context;
   }
   return c.json(body, 200);
 }
@@ -574,6 +608,24 @@ function parseOptionalNumber(value: string | null | undefined): number | undefin
   if (value === null || value === undefined || value === '') return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function respondDryRun(
+  c: Parameters<Handler>[0],
+  route: string,
+  flags: Flags,
+  extra: Record<string, unknown> = {},
+) {
+  return c.json(
+    {
+      ok: true,
+      dryRun: true,
+      route,
+      postEnabled: flags.postEnabled,
+      ...extra,
+    },
+    200,
+  );
 }
 
 function sendDailyError(c: Parameters<Handler>[0], err: unknown, extra: Record<string, unknown> = {}) {
