@@ -17,7 +17,17 @@ async function postDiscord(_p) {
         return false;
     return true;
 }
-export async function broadcast(payload) {
+function normalizePayload(a, b) {
+    if (typeof a === 'string' && typeof b === 'string')
+        return { text: b };
+    if (typeof a === 'string' && b && typeof b === 'object')
+        return b;
+    if (typeof a === 'string' && b === undefined)
+        return { text: a };
+    return a;
+}
+export async function broadcast(a, b) {
+    const payload = normalizePayload(a, b);
     const providerErrors = [];
     let posted = 0;
     const tasks = [
@@ -32,12 +42,12 @@ export async function broadcast(payload) {
             if (ok)
                 posted += 1;
             else
-                providerErrors.push({ provider: provider, error: 'not-configured-or-rejected' });
+                providerErrors.push({ provider, error: 'not-configured-or-rejected' });
         }
         else {
             const msg = r.reason?.message || String(r.reason || 'unknown');
             providerErrors.push({ provider: 'telegram', error: msg });
         }
     }
-    return { posted, providerErrors };
+    return { posted, providerErrors, errors: providerErrors };
 }

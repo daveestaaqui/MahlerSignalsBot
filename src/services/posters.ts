@@ -1,5 +1,7 @@
-export type ProviderError = { provider: 'telegram' | 'x' | 'discord', error: string }
-export type BroadcastSummary = { posted: number, providerErrors: ProviderError[] }
+export type Tier = 'PRO' | 'ELITE' | 'FREE'
+export type Provider = 'telegram' | 'x' | 'discord'
+export type ProviderError = { provider: Provider, error: string }
+export type BroadcastSummary = { posted: number, providerErrors: ProviderError[], errors?: ProviderError[] }
 
 type Payload = { text: string; html?: string }
 
@@ -22,24 +24,32 @@ async function postDiscord(_p: Payload): Promise<boolean> {
   return true
 }
 
-export async function broadcast(payload: Payload): Promise<BroadcastSummary> {
+function normalizePayload(a: unknown, b?: unknown): Payload {
+  if (typeof a === 'string' && typeof b === 'string') return { text: b }
+  if (typeof a === 'string' && b && typeof b === 'object') return b as Payload
+  if (typeof a === 'string' && b === undefined) return { text: a }
+  return a as Payload
+}
+
+export async function broadcast(a: unknown, b?: unknown): Promise<BroadcastSummary> {
+  const payload = normalizePayload(a, b)
   const providerErrors: ProviderError[] = []
   let posted = 0
-  const tasks: Array<Promise<[string, boolean]>> = [
-    postTelegram(payload).then(ok => ['telegram', ok] as [string, boolean]),
-    postX(payload).then(ok => ['x', ok] as [string, boolean]),
-    postDiscord(payload).then(ok => ['discord', ok] as [string, boolean]),
+  const tasks: Array<Promise<[Provider, boolean]>> = [
+    postTelegram(payload).then(ok => ['telegram', ok] as [Provider, boolean]),
+    postX(payload).then(ok => ['x', ok] as [Provider, boolean]),
+    postDiscord(payload).then(ok => ['discord', ok] as [Provider, boolean]),
   ]
   const results = await Promise.allSettled(tasks)
   for (const r of results) {
     if (r.status === 'fulfilled') {
       const [provider, ok] = r.value
       if (ok) posted += 1
-      else providerErrors.push({ provider: provider as any, error: 'not-configured-or-rejected' })
+      else providerErrors.push({ provider, error: 'not-configured-or-rejected' })
     } else {
       const msg = r.reason?.message || String(r.reason || 'unknown')
       providerErrors.push({ provider: 'telegram', error: msg })
     }
   }
-  return { posted, providerErrors }
+  return { posted, providerErrors, errors: providerErrors }
 }
