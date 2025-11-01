@@ -1,9 +1,8 @@
-version: 1
-files:
-  ignore:
-    - node_modules/**
-    - dist/**
-    - .git/**
+project: { name: aurora-signals, language: typescript }
 review:
-  diff_context: 3
-  concise: true
+  goals:
+    - Find bugs, null/undefined hazards, security risks
+    - Improve clarity; follow Node/n8n best practices
+  suggestions: { style: concise, include_code_diffs: true }
+  exclude: ["node_modules/**","dist/**",".git/**"]
+autofix: { allow_formatting: true, allow_safe_refactors: true }

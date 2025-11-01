@@ -1,14 +1,10 @@
-Free — $0/mo
-- Alerts delayed by 24 hours
-- 3 alerts each week
-- No integrations or early access
+# Aurora Signals Pricing
 
-Pro — $14/mo
-- 30 alerts daily for SOL and ETH
-- Standard support, no API or webhooks
-- Early access disabled
+**FREE — $0/mo**
+Delayed signals (24h), 3 alerts/week, basic summaries.
 
-Elite — $39/mo
-- Unlimited alerts across SOL and ETH
-- API + webhook integrations included
-- Early access to new features
+**PRO — $14/mo or $140/yr**
+Real-time alerts (SOL + ETH), whale/flow + composite scoring, up to 30 alerts/day.
+
+**ELITE — $39/mo or $390/yr**
+Unlimited alerts, API & webhooks, early features, private AI chat.
