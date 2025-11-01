@@ -10,7 +10,7 @@
     "preinstall": "pnpm approve-builds better-sqlite3 || true",
     "prebuild": "pnpm install",
     "build": "tsc -p .",
-    "start": "node dist/web/server.js",
+    "start": "node dist/web/node.js",
     "dev": "npm run start",
     "lint": "node --eval \"console.log('lint not configured yet')\"",
     "typecheck": "node --eval \"console.log('typecheck not configured yet')\"",
