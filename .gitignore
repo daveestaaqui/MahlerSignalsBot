@@ -1,9 +1,8 @@
-
-# env files
-.env
-.env.*
-
-.env.local
-# dependencies
 node_modules/
 dist/
+.env
+.env.*
+.DS_Store
+coverage/
+.idea/
+.vscode/
