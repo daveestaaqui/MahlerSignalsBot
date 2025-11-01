@@ -753,7 +753,11 @@ async function readJsonBody(c: Parameters<Handler>[0]): Promise<Record<string, u
     return {};
   }
   try {
-    const body = await c.req.json();
+    const raw = await c.req.text();
+    if (!raw || !raw.trim()) {
+      return {};
+    }
+    const body = JSON.parse(raw);
     if (body && typeof body === 'object') {
       return body as Record<string, unknown>;
     }

@@ -1,8 +1,10 @@
-node_modules/
-dist/
+.DS_Store
+.deploy.json
 .env
 .env.*
-.DS_Store
-coverage/
 .idea/
 .vscode/
+coverage/
+dist/
+node_modules/
+pnpm-lock.yaml
