@@ -64,6 +64,8 @@ const statusHandler: Handler = (c) => {
   }
 };
 
+const healthzHandler: Handler = (c) => c.text('ok', 200);
+
 const diagnosticsHandler: Handler = (c) => {
   try {
     const env = resolveFlags();
@@ -546,6 +548,7 @@ const healthProvidersHandler: Handler = (c) => {
 app.get('/', (c) => c.json({ ok: true, version: APP_VERSION }));
 
 aliasRoutes(app, 'GET', '/status', statusHandler);
+aliasRoutes(app, 'GET', '/healthz', healthzHandler);
 aliasRoutes(app, 'GET', '/diagnostics', diagnosticsHandler);
 aliasRoutes(app, 'GET', '/weekly-summary', weeklySummaryHandler);
 aliasRoutes(app, 'GET', '/preview/daily', adminAuth, previewDailyHandler);

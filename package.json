@@ -14,11 +14,13 @@
     "dev": "npm run start",
     "lint": "node --eval \"console.log('lint not configured yet')\"",
     "typecheck": "tsc --noEmit",
-    "test": "pnpm build && node --test dist/tests/routes.smoke.test.js",
+    "test": "vitest run",
     "set-tier": "node scripts/set-tier.mjs",
     "post-now": "node scripts/post-now.mjs",
     "env:check": "node --env-file=.env scripts/validate-env.mjs",
-    "once": "node -e \"import('./dist/jobs/runCycle.js').then(m=>m.runOnce())\""
+    "once": "node -e \"import('./dist/jobs/runCycle.js').then(m=>m.runOnce())\"",
+    "test:watch": "vitest",
+    "test:e2e": "node scripts/test-e2e.cjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.11.0",
@@ -39,7 +41,10 @@
     "@types/node": "^20.14.2",
     "@types/node-cron": "^3.0.11",
     "@types/node-telegram-bot-api": "^0.64.11",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.3",
+    "supertest": "^7.0.0",
+    "@types/supertest": "^2.0.16"
   },
   "packageManager": "pnpm@10.19.0+sha512.c9fc7236e92adf5c8af42fd5bf1612df99c2ceb62f27047032f4720b33f8eacdde311865e91c411f2774f618d82f320808ecb51718bfa82c060c4ba7c76a32b8",
   "engines": {
