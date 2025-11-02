@@ -1,3 +1,4 @@
+
 export async function sendDiscord(text: string) {
   const hook = process.env.DISCORD_WEBHOOK_URL
   if (!hook) return { ok:false, skipped:'discord env missing' }

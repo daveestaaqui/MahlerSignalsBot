@@ -1,3 +1,4 @@
+
 import { buildDailyAnalysis, buildMarketingPosts } from '../logic/analysis'
 import { sendTelegram } from '../integrations/telegram'
 import { sendDiscord } from '../integrations/discord'
@@ -7,7 +8,7 @@ export async function postNow() {
   const { text } = await buildDailyAnalysis()
   const mk = buildMarketingPosts()
   const payload = [text, '', mk.telegram].join('\n')
-  const out = []
+  const out:any[] = []
   out.push(await sendTelegram(payload))
   out.push(await sendDiscord(payload))
   out.push(await sendMastodon(payload))
@@ -19,25 +20,19 @@ export async function postDaily(dryRun:boolean=false) {
   const mk = buildMarketingPosts()
   const msg = [text, '', mk.discord].join('\n')
   if (dryRun) return [{ ok:true, dryRun:true }]
-  const out = []
+  const out:any[] = []
   out.push(await sendTelegram(msg))
   out.push(await sendDiscord(msg))
   out.push(await sendMastodon(msg))
   return out
 }
 
-
-import { buildDailyAnalysis, buildMarketingPosts } from '../logic/analysis'
-import { sendTelegram } from '../integrations/telegram'
-import { sendDiscord } from '../integrations/discord'
-import { sendMastodon } from '../integrations/mastodon'
-
 export async function marketingBlast(topic?: string) {
-  const { text } = await buildDailyAnalysis().catch(()=>({ text: 'AuroraSignals — Daily Update' }))
+  const { text } = await buildDailyAnalysis()
   const mk = buildMarketingPosts()
-  const header = topic && topic.trim() ? `**${topic.trim()}**\n` : ''
+  const header = topic && topic.trim() ? `${topic.trim()}\n` : ''
   const payload = [header + text, '', mk.telegram].join('\n')
-  const out = []
+  const out:any[] = []
   out.push(await sendTelegram(payload))
   out.push(await sendDiscord(payload))
   out.push(await sendMastodon(payload))

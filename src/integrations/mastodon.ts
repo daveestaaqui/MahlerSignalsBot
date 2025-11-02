@@ -1,3 +1,4 @@
+
 export async function sendMastodon(text: string) {
   const base = process.env.MASTODON_BASE
   const token = process.env.MASTODON_TOKEN
