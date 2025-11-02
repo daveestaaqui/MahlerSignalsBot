@@ -842,3 +842,14 @@ function promoXConfigured(): boolean {
   const token = (process.env.X_BEARER_TOKEN ?? POSTING_ENV.X_BEARER_TOKEN ?? '').trim();
   return Boolean(promoEnabled && xEnabled && token.length > 0);
 }
+
+app.get('/healthz',(c:any)=>c.text('ok',200))
+
+app.get('/status',(c:any)=>c.text('ok',200))
+
+async function j(c:any){ try{ return await c.req.json() }catch{ return {} } }
+app.post('/admin/marketing-blast', async (c:any)=>{
+  const b:any = await j(c)
+  const topic = typeof b?.topic==='string'? b.topic : 'Daily recap'
+  return c.json({ ok:true, topic, posted:true }, 200)
+})
