@@ -1,4 +1,3 @@
-
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import stripe from './stripe.js';
@@ -11,7 +10,3 @@ app.route('/', stripe);
 
 serve({ fetch: app.fetch, port: 8787 });
 export default app;
-
-
-export const setRunDailyRunner = (_fn?: any) => {};
-export const resetRunDailyRunner = () => {};
