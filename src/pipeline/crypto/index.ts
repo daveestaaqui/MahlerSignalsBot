@@ -29,7 +29,11 @@ export async function runCryptoOnce(symbols:readonly string[]): Promise<SignalRe
     const pct50 = (last.c - sma50)/sma50;
 
     const whales = await getWhaleEvents(symbol).catch(()=>[]);
-    const totalWhaleAmount = whales.reduce((sum:number, event:any)=>{
+    const totalWhaleAmount = (whales ?? []).reduce((sum: number, event: any) => {
+  const v = Number((event as any)?.amount ?? (event as any)?.usd ?? (event as any)?.value ?? (event as any)?.size ?? 0);
+  return sum + (Number.isFinite(v) ? v : 0);
+}, 0);
+=>{
       const value = typeof event?.amount === 'number' ? event.amount : Number(event?.amount ?? 0);
       return Number.isFinite(value) ? sum + value : sum;
     }, 0);

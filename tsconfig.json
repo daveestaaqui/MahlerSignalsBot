@@ -4,25 +4,14 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
-    "rootDir": ".",
-    "strict": true,
-    "skipLibCheck": true,
     "esModuleInterop": true,
-    "types": [
-      "node",
-      "node-cron",
-      "better-sqlite3",
-      "node-telegram-bot-api",
-      "express"
-    ],
-    "resolveJsonModule": true
+    "skipLibCheck": true
   },
   "include": [
-    "src/**/*",
-    "tests/**/*"
+    "src/**/*.ts"
   ],
   "exclude": [
-    "dist",
-    "node_modules"
+    "tests",
+    "**/*.test.ts"
   ]
 }
