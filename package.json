@@ -2,7 +2,6 @@
   "name": "mcp-n8n",
   "version": "1.0.0",
   "description": "MCP bridge for n8n",
-  "type": "module",
   "bin": {
     "n8n-mcp": "server.js"
   },
