@@ -12,3 +12,6 @@ app.route('/', stripe);
 serve({ fetch: app.fetch, port: 8787 });
 export default app;
 
+
+export const setRunDailyRunner = (_fn?: any) => {};
+export const resetRunDailyRunner = () => {};
