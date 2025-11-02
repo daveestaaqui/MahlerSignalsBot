@@ -25,3 +25,21 @@ export async function postDaily(dryRun:boolean=false) {
   out.push(await sendMastodon(msg))
   return out
 }
+
+
+import { buildDailyAnalysis, buildMarketingPosts } from '../logic/analysis'
+import { sendTelegram } from '../integrations/telegram'
+import { sendDiscord } from '../integrations/discord'
+import { sendMastodon } from '../integrations/mastodon'
+
+export async function marketingBlast(topic?: string) {
+  const { text } = await buildDailyAnalysis().catch(()=>({ text: 'AuroraSignals — Daily Update' }))
+  const mk = buildMarketingPosts()
+  const header = topic && topic.trim() ? `**${topic.trim()}**\n` : ''
+  const payload = [header + text, '', mk.telegram].join('\n')
+  const out = []
+  out.push(await sendTelegram(payload))
+  out.push(await sendDiscord(payload))
+  out.push(await sendMastodon(payload))
+  return out
+}
