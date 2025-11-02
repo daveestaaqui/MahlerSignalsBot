@@ -7,7 +7,6 @@
     "n8n-mcp": "server.js"
   },
   "scripts": {
-    "preinstall": "pnpm approve-builds better-sqlite3 || true",
     "prebuild": "pnpm install",
     "build": "tsc -p .",
     "start": "node dist/web/server.js",
