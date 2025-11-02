@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 
-const app = new Hono()
+export const app = new Hono()
 
 const ok = (c:any, body:any={ ok:true }) => c.json(body, 200)
 const txt = (c:any, s:string) => c.text(s, 200)
@@ -58,3 +58,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT || 3000)
   serve({ fetch: app.fetch, port })
 }
+
+export const setRunDailyRunner = (_fn?:any)=>{};
+export const resetRunDailyRunner = ()=>{};

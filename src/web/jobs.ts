@@ -1,8 +1,8 @@
 
-import { buildDailyAnalysis, buildMarketingPosts } from '../logic/analysis'
-import { sendTelegram } from '../integrations/telegram'
-import { sendDiscord } from '../integrations/discord'
-import { sendMastodon } from '../integrations/mastodon'
+import { buildDailyAnalysis, buildMarketingPosts } from '../logic/analysis.js'
+import { sendTelegram } from '../integrations/telegram.js'
+import { sendDiscord } from '../integrations/discord.js'
+import { sendMastodon } from '../integrations/mastodon.js'
 
 export async function postNow() {
   const { text } = await buildDailyAnalysis()
