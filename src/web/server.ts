@@ -6,6 +6,8 @@ export const app = new Hono();
 app.get('/status', (c) => c.json({ ok: true }));
 app.get('/healthz', (c) => c.text('healthy'));
 
+app.get('/test', (c) => c.json({ message: 'Test route works!' }));
+
 mountAdmin(app);
 
 export const setRunDailyRunner = (_fn?: any) => {};
