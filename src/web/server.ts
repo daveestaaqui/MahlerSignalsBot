@@ -24,7 +24,9 @@ async function adminAuth(c: Context, next: Function) {
 const admin = new Hono();
 admin.use(adminAuth);
 
-app.post('/admin/post-now', async (c) => {
+app.route('/admin', admin);
+
+admin.post('/post-now', async (c) => {
 
   const force = c.req.query('force') === 'true';
 
@@ -38,7 +40,7 @@ app.post('/admin/post-now', async (c) => {
 
 
 
-app.post('/admin/post-daily', async (c) => {
+admin.post('/post-daily', async (c) => {
 
   const dryRun = c.req.json().then((body: any) => body.dryRun === true).catch(() => false);
 
@@ -50,7 +52,7 @@ app.post('/admin/post-daily', async (c) => {
 
 
 
-app.post('/admin/post-weekly', async (c) => {
+admin.post('/post-weekly', async (c) => {
 
   const dryRun = c.req.json().then((body: any) => body.dryRun === true).catch(() => false);
 
@@ -62,7 +64,7 @@ app.post('/admin/post-weekly', async (c) => {
 
 
 
-app.post('/admin/test-telegram', async (c) => {
+admin.post('/test-telegram', async (c) => {
 
   const r = await sendTelegram("Test message from admin endpoint");
 
@@ -72,7 +74,7 @@ app.post('/admin/test-telegram', async (c) => {
 
 
 
-app.post('/admin/test-discord', async (c) => {
+admin.post('/test-discord', async (c) => {
 
   const r = await sendDiscord("Test message from admin endpoint");
 
@@ -82,7 +84,7 @@ app.post('/admin/test-discord', async (c) => {
 
 
 
-app.post('/admin/unlock', async (c) => {
+admin.post('/unlock', async (c) => {
 
   let force = false;
 
