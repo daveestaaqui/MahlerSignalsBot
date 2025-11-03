@@ -6,7 +6,7 @@ services:
     region: oregon
     runtime: node
     buildCommand: ""
-    startCommand: "node dist/index.js"
+    startCommand: "node dist/web/server.js"
     autoDeploy: true
     healthCheckPath: "/status"
     envVars:
