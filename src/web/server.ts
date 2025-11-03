@@ -24,36 +24,36 @@ async function adminAuth(c: Context, next: Function) {
 const admin = new Hono();
 admin.use(adminAuth);
 
-app.post('/admin/post-now', adminAuth, async (c) => {
+app.post('/admin/post-now', async (c) => {
   const force = c.req.query('force') === 'true';
   const minScore = Number(c.req.query('minScore') || 0);
   const r = await postNow();
   return c.json({ ok: true, results: r });
 });
 
-app.post('/admin/post-daily', adminAuth, async (c) => {
+app.post('/admin/post-daily', async (c) => {
   const dryRun = c.req.json().then((body: any) => body.dryRun === true).catch(() => false);
   const r = await postDaily(await dryRun);
   return c.json({ ok: true, results: r });
 });
 
-app.post('/admin/post-weekly', adminAuth, async (c) => {
+app.post('/admin/post-weekly', async (c) => {
   const dryRun = c.req.json().then((body: any) => body.dryRun === true).catch(() => false);
   const r = await runWeekly(); // runWeekly does not take dryRun as a parameter
   return c.json({ ok: true });
 });
 
-app.post('/admin/test-telegram', adminAuth, async (c) => {
+app.post('/admin/test-telegram', async (c) => {
   const r = await sendTelegram("Test message from admin endpoint");
   return c.json({ ok: true, ...r });
 });
 
-app.post('/admin/test-discord', adminAuth, async (c) => {
+app.post('/admin/test-discord', async (c) => {
   const r = await sendDiscord("Test message from admin endpoint");
   return c.json({ ok: true, ...r });
 });
 
-app.post('/admin/unlock', adminAuth, async (c) => {
+app.post('/admin/unlock', async (c) => {
   let force = false;
   try {
     const q = c.req.query('force');
