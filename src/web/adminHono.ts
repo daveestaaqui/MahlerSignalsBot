@@ -24,19 +24,19 @@ export default function mountAdmin(app: Hono) {
     const force = c.req.query('force') === 'true';
     const minScore = Number(c.req.query('minScore') || 0);
     const r = await postNow();
-    return c.json({ ok: true, ...r });
+    return c.json({ ok: true, results: r });
   });
 
   admin.post('/post-daily', async (c) => {
     const dryRun = c.req.json().then((body: any) => body.dryRun === true).catch(() => false);
     const r = await postDaily(await dryRun);
-    return c.json({ ok: true, ...r });
+    return c.json({ ok: true, results: r });
   });
 
   admin.post('/post-weekly', async (c) => {
     const dryRun = c.req.json().then((body: any) => body.dryRun === true).catch(() => false);
     const r = await runWeekly(); // runWeekly does not take dryRun as a parameter
-    return c.json({ ok: true, ...r });
+    return c.json({ ok: true });
   });
 
   admin.post('/test-telegram', async (c) => {
