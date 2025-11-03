@@ -11,6 +11,14 @@ export const app = new Hono();
 app.get('/status', (c) => c.json({ ok: true }));
 app.get('/healthz', (c) => c.text('healthy'));
 
+app.get('/api/preview/daily', async (c) => {
+  return c.json({ ok: true, message: 'Placeholder for daily preview' });
+});
+
+app.post('/webhooks/stripe', async (c) => {
+  return c.json({ ok: true, message: 'Placeholder for Stripe webhook' });
+});
+
 // Admin authentication middleware for Hono
 async function adminAuth(c: Context, next: Function) {
   const header = c.req.header('Authorization') || '';
