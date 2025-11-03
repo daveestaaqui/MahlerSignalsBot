@@ -23,7 +23,7 @@ export default function mountAdmin(app: Hono) {
   admin.post('/post-now', async (c) => {
     const force = c.req.query('force') === 'true';
     const minScore = Number(c.req.query('minScore') || 0);
-    const r = await postNow({ force, minScore });
+    const r = await postNow();
     return c.json({ ok: true, ...r });
   });
 

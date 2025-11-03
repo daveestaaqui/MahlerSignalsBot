@@ -51,7 +51,7 @@ async function runWindow(assets: Array<'stock' | 'crypto'>) {
   }
 }
 
-async function runWeekly() {
+export async function runWeekly() {
   const flags = resolveFlags();
   await dispatchWeeklyDigest(flags);
 }
