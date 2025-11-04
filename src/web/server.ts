@@ -1,154 +1,38 @@
-import { Hono } from 'hono';
-import { serve } from '@hono/node-server';
-import { Context } from 'hono';
-import { acquireLock, releaseLock } from '../lib/locks.js';
-import { postNow, postDaily } from './jobs.js';
-import { runWeekly } from '../jobs/scheduler.js';
-import { sendTelegram } from '../integrations/telegram.js';
-import { sendDiscord } from '../integrations/discord.js';
+import express, { Request, Response, NextFunction } from 'express';
+import bodyParser from 'body-parser';
+import adminRouter from './routes/admin.js';
+import stripeHandler from './routes/stripe.js';
 
-export const app = new Hono();
-app.get('/status', (c) => c.json({ ok: true }));
-app.get('/healthz', (c) => c.text('healthy'));
+const app = express();
 
-app.get('/api/preview/daily', async (c) => {
-  return c.json({ ok: true, message: 'Placeholder for daily preview' });
+app.disable('x-powered-by');
+app.use(bodyParser.json({ type: '*/*' }));
+
+app.get('/status', (_req, res) => {
+  res.json({ ok: true, ts: Date.now(), uptime: process.uptime() });
 });
 
-app.post('/webhooks/stripe', async (c) => {
-  return c.json({ ok: true, message: 'Placeholder for Stripe webhook' });
+app.get('/healthz', (_req, res) => {
+  res.status(200).end('ok');
 });
 
-// Admin authentication middleware for Hono
-async function adminAuth(c: Context, next: Function) {
-  const header = c.req.header('Authorization') || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (!token || token !== (process.env.ADMIN_TOKEN || '')) {
-    return c.json({ ok: false, error: 'unauthorized' }, 401);
-  }
-  await next();
-}
-
-const admin = new Hono();
-admin.use(adminAuth);
-
-app.route('/admin', admin);
-
-admin.post('/post-now', async (c) => {
-
-  const force = c.req.query('force') === 'true';
-
-  const minScore = Number(c.req.query('minScore') || 0);
-
-  const r = await postNow();
-
-  return c.json({ ok: true, results: r });
-
+app.get('/api/preview/daily', (_req, res) => {
+  res.json({ ok: true, message: 'Daily preview placeholder' });
 });
 
+app.use('/admin', adminRouter);
+app.post('/webhooks/stripe', stripeHandler);
 
-
-admin.post('/post-daily', async (c) => {
-
-  const dryRun = c.req.json().then((body: any) => body.dryRun === true).catch(() => false);
-
-  const r = await postDaily(await dryRun);
-
-  return c.json({ ok: true, results: r });
-
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  const message = err instanceof Error ? err.message : 'internal_error';
+  console.error('[web] request failed', err);
+  if (res.headersSent) return;
+  res.status(500).json({ ok: false, error: message });
 });
 
-
-
-admin.post('/post-weekly', async (c) => {
-
-  const dryRun = c.req.json().then((body: any) => body.dryRun === true).catch(() => false);
-
-  const r = await runWeekly(); // runWeekly does not take dryRun as a parameter
-
-  return c.json({ ok: true });
-
+const port = Number(process.env.PORT ?? 3000);
+app.listen(port, () => {
+  console.log(`[web] listening on :${port}`);
 });
 
-
-
-admin.post('/test-telegram', async (c) => {
-
-  const r = await sendTelegram("Test message from admin endpoint");
-
-  return c.json({ ok: true, ...r });
-
-});
-
-
-
-admin.post('/test-discord', async (c) => {
-
-  const r = await sendDiscord("Test message from admin endpoint");
-
-  return c.json({ ok: true, ...r });
-
-});
-
-
-
-admin.post('/unlock', async (c) => {
-
-  let force = false;
-
-  try {
-
-    const q = c.req.query('force');
-
-    if (q && (q === '1' || q === 'true')) force = true;
-
-    const body = await c.req.json().catch(() => ({} as any));
-
-    if (body && (body.force === true || body.force === 'true' || body.force === 1)) force = true;
-
-  } catch {}
-
-  const locks = ['daily-run', 'manual-run'];
-
-  const cleared: string[] = [];
-
-  try {
-
-    for (const name of locks) {
-
-      if (force) {
-
-        releaseLock(name);
-
-        cleared.push(name);
-
-      } else {
-
-        const got = acquireLock(name, 1);
-
-        if (got) {
-
-          releaseLock(name);
-
-          cleared.push(name);
-
-        }
-
-      }
-
-    }
-
-    return c.json({ ok: true, cleared, force }, 200);
-
-  } catch (err: any) {
-
-    return c.json({ ok: false, error: err.message || 'unknown-error' }, 500);
-
-  }
-
-});
-
-export const setRunDailyRunner = (_fn?: any) => {};
-export const resetRunDailyRunner = () => {};
-serve({ fetch: app.fetch, port: 8787 });
 export default app;

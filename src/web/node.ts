@@ -1,12 +1,7 @@
-import { serve } from "@hono/node-server";
 import "../config/providers.js";
-import { app } from "./server.js";
+import "./server.js";
 import { startSchedulers } from "../jobs/scheduler.js";
 import { flushPublishQueue } from "../jobs/publishWorker.js";
-
-const port = Number(process.env.PORT || 3000);
-console.log(`[AuroraSignalX] listening on :${port}`);
-serve({ fetch: app.fetch, port });
 
 startSchedulers();
 setTimeout(() => {

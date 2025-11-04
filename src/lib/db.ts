@@ -1,7 +1,3 @@
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-
 type RunResult = { changes: number; lastInsertRowid?: number };
 
 const SQL_INSERT_USER = normalizeSql(
