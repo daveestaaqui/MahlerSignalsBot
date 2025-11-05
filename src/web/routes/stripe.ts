@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
-import crypto from "node:crypto";
+import crypto from "crypto";
 
-const text = (payload: Buffer | unknown) => {
+const toText = (payload: Buffer | unknown) => {
   if (Buffer.isBuffer(payload)) return payload.toString("utf8");
   if (typeof payload === "string") return payload;
   try {
@@ -13,21 +13,21 @@ const text = (payload: Buffer | unknown) => {
 
 export default function stripeHandler(req: Request, res: Response) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET || "";
-  const sigHeader = (req.headers["stripe-signature"] as string) || "";
+  const signature = (req.headers["stripe-signature"] as string) || "";
 
   const raw = req.body as unknown as Buffer;
-  const bodyStr = text(raw);
+  const bodyText = toText(raw);
 
   const type = (() => {
     try {
-      const parsed = JSON.parse(bodyStr || "{}");
+      const parsed = JSON.parse(bodyText || "{}");
       return parsed?.type || "unknown";
     } catch {
       return "unknown";
     }
   })();
 
-  if (!secret || !sigHeader) {
+  if (!secret || !signature) {
     if (type === "ping") {
       return res.status(200).json({ received: true, type });
     }
@@ -37,8 +37,8 @@ export default function stripeHandler(req: Request, res: Response) {
   }
 
   try {
-    const hmac = crypto.createHmac("sha256", secret).update(bodyStr).digest("hex");
-    const v1 = sigHeader
+    const hmac = crypto.createHmac("sha256", secret).update(bodyText).digest("hex");
+    const v1 = signature
       .split(",")
       .map((part) => part.trim())
       .find((part) => part.startsWith("v1="))
