@@ -6,6 +6,25 @@ import stripeHandler from "./routes/stripe";
 
 const app = express();
 
+app.use((req, _res, next) => {
+  const contentType = req.headers["content-type"] || "";
+  if (!contentType.includes("application/json")) {
+    (req as any)._raw = Buffer.alloc(0);
+    return next();
+  }
+  const chunks: Buffer[] = [];
+  req.on("data", (chunk) => {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  });
+  req.on("end", () => {
+    (req as any)._raw = Buffer.concat(chunks);
+    next();
+  });
+  req.on("error", (err) => {
+    next(err);
+  });
+});
+
 app.use(bodyParser.json({ type: "*/*" }));
 
 app.get("/status", (_req, res) => res.json({ ok: true, ts: Date.now() }));

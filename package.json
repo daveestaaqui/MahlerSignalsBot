@@ -8,7 +8,8 @@
   "scripts": {
     "build": "tsc -p .",
     "start": "node dist/web/server.js",
-    "postbuild": "mkdir -p dist/web && [ -f dist/web/server.js ] || cp -f dist/server.js dist/web/server.js"
+    "postbuild": "mkdir -p dist/web && [ -f dist/web/server.js ] || cp -f dist/server.js dist/web/server.js",
+    "lint:routes": "node -e \"console.log('admin:',!!require('./dist/web/server.js'))\""
   },
   "dependencies": {
     "@hono/node-server": "^1.11.0",
