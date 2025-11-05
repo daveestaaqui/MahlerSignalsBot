@@ -1,8 +1,7 @@
 import express from "express";
-import bodyParser from "body-parser";
-import adminRouter from "./routes/admin";
-import stripeHandler from "./routes/stripe";
-import { requireBearer } from "../middleware/auth";
+import adminRouter from "./routes/admin.js";
+import stripeHandler from "./routes/stripe.js";
+import { requireBearer } from "./middleware/auth.js";
 
 const app = express();
 
@@ -14,7 +13,7 @@ app.post(
 );
 
 // All other routes parse JSON normally
-app.use(bodyParser.json({ type: "application/json" }));
+app.use(express.json());
 
 app.get("/status", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 app.get("/healthz", (_req, res) => res.status(200).end("ok"));

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node16",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "outDir": "./dist",
     "strict": true,
@@ -11,10 +11,9 @@
     "src/**/*"
   ],
   "exclude": [
-    "tests",
-    "src/tests",
     "**/*.test.ts",
-    "**/*.spec.ts",
-    "**/__tests__/**"
+    "**/__tests__/**",
+    "tests",
+    "src/tests"
   ]
 }
