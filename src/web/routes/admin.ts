@@ -11,7 +11,7 @@ const guard = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-const respondNoContent = (_req: Request, res: Response) => res.status(204).end();
+const respondNoContent = (_req: Request, res: Response) => res.sendStatus(204);
 
 router.use(guard);
 router.post("/post-now", respondNoContent);
