@@ -6,32 +6,19 @@ import stripeHandler from "./routes/stripe";
 
 const app = express();
 
-app.use((req, _res, next) => {
-  const contentType = req.headers["content-type"] || "";
-  if (!contentType.includes("application/json")) {
-    (req as any)._raw = Buffer.alloc(0);
-    return next();
-  }
-  const chunks: Buffer[] = [];
-  req.on("data", (chunk) => {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  });
-  req.on("end", () => {
-    (req as any)._raw = Buffer.concat(chunks);
-    next();
-  });
-  req.on("error", (err) => {
-    next(err);
-  });
-});
+// Stripe needs raw body for signature verification — mount FIRST
+app.post(
+  "/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  stripeHandler
+);
 
-app.use(bodyParser.json({ type: "*/*" }));
+// All other routes parse JSON normally
+app.use(bodyParser.json({ type: "application/json" }));
 
 app.get("/status", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 app.get("/healthz", (_req, res) => res.status(200).end("ok"));
-
 app.use("/admin", adminRouter);
-app.post("/webhooks/stripe", stripeHandler);
 
 if (process.env.NODE_ENV !== "production") {
   app.get("/routes", (_req, res) => {
