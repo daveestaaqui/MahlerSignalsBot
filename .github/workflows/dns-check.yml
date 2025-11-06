@@ -1,0 +1,19 @@
+name: DNS Check
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve discord.com (nslookup)
+        run: nslookup discord.com
+      - name: Resolve and curl webhook (dry post)
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.ALERT_DISCORD_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DISCORD_WEBHOOK:-}" ]; then echo "No webhook"; exit 1; fi
+          echo '{}' > /tmp/empty.json
+          curl -sS -o /dev/null -w "curl_to_discord %{http_code}\n" \
+            --retry 5 --retry-all-errors --max-time 15 \
+            -H "Content-Type: application/json" \
+            -X POST --data-binary @/tmp/empty.json "$DISCORD_WEBHOOK" || true
