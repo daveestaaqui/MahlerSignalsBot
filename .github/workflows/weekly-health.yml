@@ -1,0 +1,37 @@
+name: Weekly Health Check
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    env:
+      BASE: https://aurora-signals.onrender.com
+      ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+    steps:
+      - name: Check GET endpoints
+        run: |
+          set -euo pipefail
+          curl -sS -o /dev/null -w "status  -> %{http_code}\n"  "$BASE/status"
+          curl -sS -o /dev/null -w "healthz -> %{http_code}\n" "$BASE/healthz"
+      - name: Check admin POST endpoints (Bearer)
+        run: |
+          set -euo pipefail
+          c() { curl -sS -o .out -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data "${2:-{}}" "$BASE/$1" || true; }
+          check() {
+            ep="$1"; data="$2"
+            code="$(c "$ep" "$data")"
+            echo "$ep -> $code"
+            if [ "$code" != "204" ] && [ "$code" != "200" ]; then
+              echo "---- body ----"; cat .out || true; echo "--------------"; exit 1
+            fi
+          }
+          check "admin/post-now"       '{}'
+          check "admin/post-daily"     '{"dryRun":false}'
+          check "admin/post-weekly"    '{"dryRun":false}'
+          check "admin/test-telegram"  '{}'
+          check "admin/test-discord"   '{}'
