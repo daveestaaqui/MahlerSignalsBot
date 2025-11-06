@@ -1,0 +1,40 @@
+name: Post Jobs
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 14 * * *"   # daily 14:00 UTC
+    - cron: "5 14 * * 1"   # weekly Mon 14:05 UTC
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      BASE: https://aurora-signals.onrender.com
+      ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+    steps:
+      - name: Daily post (idempotent)
+        run: |
+          set -euo pipefail
+          C="curl"
+          endpoint="$BASE/admin/post-daily"
+          payload='{"dryRun":false}'
+          code="$($C --retry 3 --retry-all-errors -sS -o .out -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+            --data "$payload" "$endpoint" || true)"
+          echo "daily -> $code"
+          if [ "$code" = "204" ] || [ "$code" = "200" ]; then exit 0; fi
+          echo "Daily failed ($code). Body:"; head -c 400 .out || true; exit 1
+
+      - name: Weekly post (idempotent)
+        if: ${{ startsWith(github.event.schedule, '5 14') || github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          C="curl"
+          endpoint="$BASE/admin/post-weekly"
+          payload='{"dryRun":false}'
+          code="$($C --retry 3 --retry-all-errors -sS -o .out -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+            --data "$payload" "$endpoint" || true)"
+          echo "weekly -> $code"
+          if [ "$code" = "204" ] || [ "$code" = "200" ]; then exit 0; fi
+          echo "Weekly failed ($code). Body:"; head -c 400 .out || true; exit 1
