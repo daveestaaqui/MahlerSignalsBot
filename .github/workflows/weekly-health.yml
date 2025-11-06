@@ -49,6 +49,7 @@ jobs:
           post_no_body "admin/post-now"
           post_no_body "admin/test-telegram"
           post_no_body "admin/test-discord"
+              post_no_body "admin/post-nowz"
           # JSON body:
           post_json "admin/post-daily"  '{"dryRun":false}'
           post_json "admin/post-weekly" '{"dryRun":false}'
