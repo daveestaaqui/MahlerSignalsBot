@@ -1,7 +1,7 @@
 name: Alert on Health Workflow Failure
 on:
   workflow_run:
-    workflows: ["Weekly Health Check"]
+    workflows: ["Weekly Health Check", "Daily Health Check"]
     types: [completed]
 
 jobs:
