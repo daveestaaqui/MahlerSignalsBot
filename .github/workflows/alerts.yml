@@ -1,0 +1,35 @@
+name: Alert on Health Workflow Failure
+on:
+  workflow_run:
+    workflows: ["Weekly Health Check"]
+    types: [completed]
+
+jobs:
+  alert:
+    if: ${{ github.event.workflow_run.conclusion != 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build alert payload
+        id: p
+        run: |
+          run_url="${{ github.event.workflow_run.html_url }}"
+          name="${{ github.event.workflow_run.name }}"
+          conclusion="${{ github.event.workflow_run.conclusion }}"
+          cat > payload.json <<JSON
+          {
+            "content": "",
+            "embeds": [{
+              "title": "❌ Health Check Failed",
+              "description": "**Workflow:** ${name}\n**Conclusion:** ${conclusion}\n[Open Run](${run_url})",
+              "color": 14495300
+            }]
+          }
+          JSON
+
+      - name: Send Discord alert
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.ALERT_DISCORD_WEBHOOK }}
+        run: |
+          curl -sS -o /dev/null -w "%{http_code}\n" \
+            -H "Content-Type: application/json" \
+            -X POST --data-binary @payload.json "$DISCORD_WEBHOOK"
