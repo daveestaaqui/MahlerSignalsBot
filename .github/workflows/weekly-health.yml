@@ -1,4 +1,4 @@
-name: Weekly Health Check
+admin/post-now  admin/post-nowzname: Weekly Health Check
 
 on:
   schedule:
@@ -46,7 +46,7 @@ jobs:
             fi
           }
           # No body:
-          post_no_body "admin/post-now"
+          post_no_body "admin/post-nowz"
           post_no_body "admin/test-telegram"
           post_no_body "admin/test-discord"
           # JSON body:
