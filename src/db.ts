@@ -1,2 +1,2 @@
-export { getDB } from './lib/db.js';
-export { default } from './lib/db.js';
+export { getDB } from './lib/db';
+export { default } from './lib/db';
