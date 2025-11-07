@@ -13,6 +13,31 @@ type Deps = {
   unlock: (opts:any)=>Promise<any>,
 };
 
+function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+function log(level: string, msg: string, context?: any): void {
+  console[level as keyof typeof console]?.(msg, context || '');
+}
+
+function setSourceFlags(sources: any): void {
+  // Mark sources as already posted
+  if (Array.isArray(sources)) {
+    sources.forEach((s: any) => { s.posted = true; });
+  }
+}
+
+async function formatWithFooters(text: string): Promise<string> {
+  return `${text}\n\n-\n${CTA_FOOTER}\n${LEGAL_FOOTER}`;
+}
+
+async function dispatchToAll(body: string): Promise<void> {
+  await Promise.all([postTelegram(body), postDiscord(body)]);
+}
+
+
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
