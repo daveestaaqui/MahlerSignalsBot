@@ -49,18 +49,40 @@ export default function mountAdmin(app: express.Express, deps: Deps) {
     res.json({ ok:true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
   });
 
-  router.post("/post-daily", async (_req: Request, res: Response) => {
-    const summary = await buildSummary('daily');
-    const body = `${summary.text}\n\n—\n${CTA_FOOTER}\n${LEGAL_FOOTER}`;
-    const r = await deps.postDaily({ body, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...{} });
-    res.json({ ok: true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
+router.post("/post-daily", async (req: Request, res: Response) => {
+  try {
+    const dryRun = Boolean((req.body as any)?.dryRun);
+    const summary = await buildSummary("daily");
+    setSourceFlags(summary.sources);
+    const body = await formatWithFooters(summary.text);
+    if (!dryRun) {
+      await dispatchToAll(body);
+    }
+    res.status(204).end();
+  } catch (err) {
+    const message = describeError(err);
+    log("error", "admin post-daily failed", { error: message });
+    res.status(500).json({ ok: false, error: message });
   }
-  router.post("/post-weekly", async (_req: Request, res: Response) => {
-    const summary = await buildSummary('weekly');
-    const body = `${summary.text}\n\n—\n${CTA_FOOTER}\n${LEGAL_FOOTER}`;
-    const r = await deps.postWeekly({ body, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...{} });
-    res.json({ ok: true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
-  }  });
+});
+
+router.post("/post-weekly", async (req: Request, res: Response) => {
+  try {
+    const dryRun = Boolean((req.body as any)?.dryRun);
+    const summary = await buildSummary("weekly");
+    setSourceFlags(summary.sources);
+    const body = await formatWithFooters(summary.text);
+    if (!dryRun) {
+      await dispatchToAll(body);
+    }
+    res.status(204).end();
+  } catch (err) {
+    const message = describeError(err);
+    log("error", "admin post-weekly failed", { error: message });
+    res.status(500).json({ ok: false, error: message });
+  }
+});
+
 
   app.use("/admin", router);
 }
