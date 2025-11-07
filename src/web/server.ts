@@ -1,6 +1,6 @@
 import express from "express";
 import adminRouter from "./routes/admin.js";
-import { metricsRouter } from "./routes/metrics.js";
+import metricsRouter from "./routes/metrics.js";
 import stripeHandler from "./routes/stripe.js";
 import { requireBearer } from "./middleware/auth.js";
 
