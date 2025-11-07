@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import cron from 'node-cron';
-import './web/server.js';
-import { runOnce } from './jobs/runCycle.js';
-import { flushPublishQueue } from './jobs/publishWorker.js';
-import { scheduleDailyPipelines } from './jobs/dailyScheduler.js';
+import './web/server';
+import { runOnce } from './jobs/runCycle';
+import { flushPublishQueue } from './jobs/publishWorker';
+import { scheduleDailyPipelines } from './jobs/dailyScheduler';
 
 console.log('Starting scheduler…');
 // Run at startup + every 30 minutes
