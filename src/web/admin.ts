@@ -1,3 +1,7 @@
+import { buildSummary } from '../../services/analysis.js';
+import { LEGAL_FOOTER, CTA_FOOTER } from '../../lib/legal.js';
+import { postTelegram, postDiscord } from '../../services/directPosters.js';
+
 import express, { Request, Response, NextFunction } from "express";
 
 type Deps = {
@@ -46,14 +50,17 @@ export default function mountAdmin(app: express.Express, deps: Deps) {
   });
 
   router.post("/post-daily", async (_req: Request, res: Response) => {
-    const r = await deps.postDaily({ dryRun: String(process.env.POST_ENABLED||"0")!=="1" });
-    res.json({ ok:true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
-  });
-
+    const summary = await buildSummary('daily');
+    const body = `${summary.text}\n\n—\n${CTA_FOOTER}\n${LEGAL_FOOTER}`;
+    const r = await deps.postDaily({ body, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...{} });
+    res.json({ ok: true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
+  }
   router.post("/post-weekly", async (_req: Request, res: Response) => {
-    const r = await deps.postWeekly({ dryRun: String(process.env.POST_ENABLED||"0")!=="1" });
-    res.json({ ok:true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
-  });
+    const summary = await buildSummary('weekly');
+    const body = `${summary.text}\n\n—\n${CTA_FOOTER}\n${LEGAL_FOOTER}`;
+    const r = await deps.postWeekly({ body, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...{} });
+    res.json({ ok: true, dryRun: String(process.env.POST_ENABLED||"0")!=="1", ...r });
+  }  });
 
   app.use("/admin", router);
 }
