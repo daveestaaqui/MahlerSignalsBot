@@ -1,9 +1,6 @@
-import { buildSummary } from '../../services/analysis.js';
-import { LEGAL_FOOTER, CTA_FOOTER } from '../../lib/legal.js';
-import { postTelegram, postDiscord } from '../../services/directPosters.js';
-
-import express, { Request, Response, NextFunction } from "express";
-
+import { buildSummary } from '../../services/analysis';import { LEGAL_FOOTER, CTA_FOOTER } from '../../lib/legal.js';
+import { LEGAL_FOOTER, CTA_FOOTER } from '../../lib/legal';
+import { postTelegram, postDiscord } from '../../services/directPosters';
 type Deps = {
   postNow: (opts:any)=>Promise<any>,
   postDaily: (opts:any)=>Promise<any>,
