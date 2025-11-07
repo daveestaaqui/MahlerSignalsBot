@@ -1,4 +1,4 @@
-import { buildSummary } from '../../services/analysis';import { LEGAL_FOOTER, CTA_FOOTER } from '../../lib/legal.js';
+import { buildSummary } from '../../services/analysis';
 import { LEGAL_FOOTER, CTA_FOOTER } from '../../lib/legal';
 import { postTelegram, postDiscord } from '../../services/directPosters';
 type Deps = {
@@ -15,8 +15,15 @@ function describeError(err: unknown): string {
   return String(err);
 }
 
-function log(level: string, msg: string, context?: any): void {
-  console[level as keyof typeof console]?.(msg, context || '');
+type LogLevel = "error"|"warn"|"info"|"log";
+  function log(level: LogLevel, msg: string, context?: unknown): void {
+  const map: Record<LogLevel, (...a:any[])=>void> = {
+    error: console.error.bind(console),
+    warn:  console.warn.bind(console),
+    info:  console.info.bind(console),
+    log:   console.log.bind(console),
+  };
+  map[level](msg, context ?? "");
 }
 
 function setSourceFlags(sources: any): void {
