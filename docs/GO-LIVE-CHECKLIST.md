@@ -1,25 +1,39 @@
 # Aurora-Signals Go-Live Checklist
 
-> **Disclaimer:** This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.
+> This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.
 
 ## Pre-Deploy
-- [ ] `pnpm install && pnpm run build` succeeds locally.
-- [ ] `node dist/web/server.js` + `scripts/check-endpoints.mjs` return 200s.
-- [ ] README + docs updated for any new features.
-- [ ] Secrets (ADMIN_TOKEN, API keys) set in Render and GitHub.
+
+- [ ] All PRs reviewed and merged into `main`.
+- [ ] `.github/workflows/ci.yml` passing on `main`.
+- [ ] `.github/workflows/AURORA-health-monitor.yml` present.
+- [ ] `docs/legal.md` includes the required disclaimer text.
+- [ ] At least one blog post in `docs/blog/*.md`.
+- [ ] `public/robots.txt` and `public/sitemap.xml` exist and reference the correct base URL.
+- [ ] `ADMIN_TOKEN` and `BASE_URL` set in Render environment.
+- [ ] Any Discord/Telegram/X/LinkedIn secrets configured (if used).
 
 ## Deploy
-- [ ] Merge PR into `main` (CI green).
-- [ ] Trigger Render deploy (`render services deploy <service>` or via UI).
-- [ ] Watch logs for successful boot (`listening on port ...`).
 
-## Post-Deploy Validation
-- [ ] `BASE=https://aurora-signals.onrender.com node scripts/check-endpoints.mjs` → all 200.
-- [ ] Admin dry-run endpoints (`/admin/post-daily`, `/admin/post-weekly`) return 204 with `dryRun=true`.
-- [ ] `.github/workflows/AURORA-health-monitor.yml` shows next scheduled run.
-- [ ] Update `docs/post-deploy-report.md` with timestamp + statuses.
+- [ ] Render deploy for latest `main` commit finished successfully.
+- [ ] `/status` returns HTTP 200 and JSON `{ "ok": true, "ts": ... }`.
+- [ ] `/healthz` returns HTTP 200 and body `ok`.
+- [ ] `/metrics` returns HTTP 200 with `version` and `ts`.
+- [ ] `/legal` returns HTTP 200 and contains the disclaimer line:
+      "This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice."
+- [ ] `/blog` returns HTTP 200 and lists posts.
+- [ ] `/blog/hello-world` (or another slug) returns HTTP 200 and serves markdown.
+- [ ] `/robots.txt` and `/sitemap.xml` return HTTP 200.
 
-## Incident Response
-- [ ] If 5xx detected, roll back via Render deploy history.
-- [ ] Reference `docs/ops-runbook.md` for detailed steps.
-- [ ] Communicate status in team channel.
+## Post-Deploy
+
+- [ ] GitHub Actions "AURORA Health Monitor" last run succeeded.
+- [ ] Optional: `post-deploy-check` workflow succeeded after merge.
+- [ ] Admin endpoints (`/admin/*`) return 401 without token and 200 with valid `ADMIN_TOKEN`.
+- [ ] No unexpected 5xx errors in Render logs.
+
+## On-Going Ops
+
+- [ ] Monitor hourly health monitor runs.
+- [ ] Rotate `ADMIN_TOKEN` and other secrets regularly.
+- [ ] Any new marketing copy or blog posts include the disclaimer text.

@@ -347,3 +347,19 @@ pnpm start
 | `/admin/post-weekly` | POST | Requires `ADMIN_TOKEN`, weekly recap |
 
 This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.
+
+## Aurora-Signals Production Edition
+
+Aurora-Signals is deployed as a live SaaS service (Node 20 + Express + Render) exposing:
+
+- `/` — basic health text.
+- `/status` — JSON health.
+- `/healthz` — plain `ok`.
+- `/metrics` — JSON metrics.
+- `/legal` — legal notice and disclaimer.
+- `/blog` and `/blog/{slug}` — blog listing and posts.
+- `/robots.txt` and `/sitemap.xml` — SEO assets.
+
+> This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.
+
+For operations details, see `docs/ops-runbook.md` and `docs/GO-LIVE-CHECKLIST.md`.
