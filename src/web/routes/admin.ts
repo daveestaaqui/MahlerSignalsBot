@@ -2,32 +2,9 @@ import type { Request, Response } from "express";
 import { Router } from "express";
 import { buildDailySummary, buildNowSummary } from "../../services/analysis";
 import { postDiscord, postTelegram } from "../../services/directPosters";
+import { logger } from "../../lib/logger";
 
 const router = Router();
-
-const logger = {
-  info: (message: string, context?: unknown) => {
-    if (context !== undefined) {
-      console.info(message, context);
-    } else {
-      console.info(message);
-    }
-  },
-  warn: (message: string, context?: unknown) => {
-    if (context !== undefined) {
-      console.warn(message, context);
-    } else {
-      console.warn(message);
-    }
-  },
-  error: (message: string, context?: unknown) => {
-    if (context !== undefined) {
-      console.error(message, context);
-    } else {
-      console.error(message);
-    }
-  }
-};
 
 type PosterConfig = {
   telegramToken?: string;
