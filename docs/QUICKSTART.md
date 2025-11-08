@@ -1,19 +1,51 @@
+# Aurora-Signals Quickstart
+
+> This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.
+
+## 1. Clone and install
 
 ```bash
-pnpm dev # or pnpm start once built
+git clone https://github.com/daveestaaqui/MahlerSignalsBot.git
+cd MahlerSignalsBot
+corepack enable
+corepack prepare pnpm@9 --activate
+pnpm install --no-frozen-lockfile
 ```
 
-Visit http://localhost:3000 to verify `/status`, `/healthz`, `/metrics`, `/legal`, `/blog`, and `/blog/hello-world`.
+## 2. Configure env
 
-## Deploying
+Create a .env (not committed):
 
-1. Push to `main`.
-2. Ensure Render service is configured with build command `pnpm install --frozen-lockfile && pnpm run build` and start command `node dist/web/server.js`.
-3. Trigger deploy via Render (UI or API).
-4. Run the smoke test:
+```
+ADMIN_TOKEN=your-admin-token
+BASE_URL=http://localhost:3000
+```
+
+## 3. Build and run
 
 ```bash
-BASE=https://aurora-signals.onrender.com node scripts/check-endpoints.mjs
+pnpm run build
+node dist/web/server.js
 ```
 
-If any endpoint fails, consult `docs/ops-runbook.md` for recovery steps.
+Check:
+- http://localhost:3000/status
+- http://localhost:3000/healthz
+- http://localhost:3000/legal
+
+## 4. Deploy to Render
+
+- Build command:
+  ```bash
+  corepack enable && corepack prepare pnpm@9 --activate && pnpm install --no-frozen-lockfile && pnpm run build
+  ```
+- Start command:
+  ```bash
+  node dist/web/server.js
+  ```
+- Set ADMIN_TOKEN and BASE_URL in Render env.
+
+## 5. CI / Health
+
+- CI: .github/workflows/ci.yml
+- Health monitor: .github/workflows/AURORA-health-monitor.yml

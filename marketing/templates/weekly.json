@@ -1,12 +1,6 @@
 {
-  "title": "📊 Weekly Market Recap (Week {{week}})",
-  "sections": [
-    { "header": "Top Crypto Movers", "content": "{{top_crypto}}" },
-    { "header": "Top Stock Movers", "content": "{{top_stocks}}" },
-    { "header": "Notable Events", "content": "{{events}}" },
-    { "header": "Performance Summary", "content": "{{performance_summary}}" }
-  ],
-  "url": "https://aurora-signals.onrender.com/blog",
-  "hashtags": ["#MarketRecap", "#Crypto", "#Stocks", "#AuroraSignals"],
+  "title": "Weekly Market Recap: Week {{weekNumber}}",
+  "body": "Highlights: BTC {{btcChange}}%, ETH {{ethChange}}%, top signal {{topSymbol}}. Sentiment: {{sentiment}}.",
+  "cta": "Read the full recap on the Aurora-Signals blog.",
   "disclaimer": "This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice."
 }
