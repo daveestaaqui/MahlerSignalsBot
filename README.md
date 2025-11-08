@@ -322,3 +322,28 @@ docker run --rm -p 8787:8787 --env-file .env aurora:latest
    make once
    ```
 4) **Go live**: set DRY_RUN=false in Render and Save (redeploy).
+
+## Setup (Node 20 + pnpm 9)
+
+```bash
+corepack enable
+corepack prepare pnpm@9 --activate
+pnpm install --no-frozen-lockfile
+pnpm build
+pnpm start
+```
+
+## Key Endpoints
+
+| Route | Method | Notes |
+| ----- | ------ | ----- |
+| `/` | GET | Root health/info payload |
+| `/status` | GET | JSON uptime/ts |
+| `/healthz` | GET | K8s-style liveness |
+| `/metrics` | GET | Prometheus metrics |
+| `/legal` | GET | Markdown legal notice |
+| `/blog` | GET | Lists Markdown blog posts |
+| `/admin/post-daily` | POST | Requires `ADMIN_TOKEN`, processes daily signals |
+| `/admin/post-weekly` | POST | Requires `ADMIN_TOKEN`, weekly recap |
+
+This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.

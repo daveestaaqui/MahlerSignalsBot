@@ -3,6 +3,7 @@ import adminRouter from "./routes/admin";
 import metricsRouter from "./routes/metrics";
 import stripeHandler from "./routes/stripe";
 import legalRouter from "./routes/legal";
+import blogRouter from "./routes/blog";
 import { requireBearer } from "./middleware/auth";
 
 const app = express();
@@ -17,12 +18,20 @@ app.post(
 // All other routes parse JSON normally
 app.use(express.json());
 
+app.get("/", (_req, res) =>
+  res.json({
+    ok: true,
+    service: "Aurora-Signals",
+    message: "See /status, /metrics, /blog, /legal for more details."
+  })
+);
 app.get("/status", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 app.get("/healthz", (_req, res) => res.status(200).end("ok"));
 
 // Protect admin routes with Bearer
 app.use("/admin", requireBearer, adminRouter);
 app.use("/metrics", metricsRouter);
+app.use("/", blogRouter);
 app.use("/", legalRouter);
 
 const port = Number(process.env.PORT || 3000);
