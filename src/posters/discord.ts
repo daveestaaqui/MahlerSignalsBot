@@ -1,6 +1,6 @@
 import { request } from 'undici';
 
-import { POSTING_ENV } from '../config/posting.js';
+import { POSTING_ENV } from '../config/posting';
 
 export type DiscordTier = 'FREE' | 'PRO' | 'ELITE';
 

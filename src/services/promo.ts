@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { request as undiciRequest } from 'undici';
 
-import { POSTING_ENV } from '../config/posting.js';
-import { seen } from '../lib/idempotency.js';
+import { POSTING_ENV } from '../config/posting';
+import { seen } from '../lib/idempotency';
 
 const X_ENDPOINT = 'https://api.x.com/2/tweets';
 

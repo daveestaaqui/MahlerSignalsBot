@@ -1,9 +1,9 @@
-import { getStockDaily, getOptionsFlow, Candle } from '../../adapters/polygon.js';
-import { score } from '../../signals/scoring.js';
-import { stockUniq, type SignalRecord } from '../../signals/rules.js';
-import { TIER_GATES } from '../../config/tiers.js';
-import { POSTING_RULES } from '../../config/posting.js';
-import { sma, rvol, gapFlags } from '../../lib/indicators.js';
+import { getStockDaily, getOptionsFlow, Candle } from '../../adapters/polygon';
+import { score } from '../../signals/scoring';
+import { stockUniq, type SignalRecord } from '../../signals/rules';
+import { TIER_GATES } from '../../config/tiers';
+import { POSTING_RULES } from '../../config/posting';
+import { sma, rvol, gapFlags } from '../../lib/indicators';
 
 const MIN_TOTAL = Math.max(POSTING_RULES.MIN_SCORE_PRO, 0.65);
 

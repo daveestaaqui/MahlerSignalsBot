@@ -1,4 +1,4 @@
-import { AggregatedAsset, loadAggregatedAssets } from '../services/dataHub.js';
+import { AggregatedAsset, loadAggregatedAssets } from '../services/dataHub';
 
 export type Signal = {
   id: string;

@@ -1,5 +1,14 @@
-import { logger } from '../lib/logger';
-import { LEGAL_FOOTER, CTA_FOOTER } from '../lib/legal';
+import { fetch } from "undici";
+import { log } from "../lib/log";
+import { LEGAL_FOOTER, CTA_FOOTER } from "../lib/legal";
+
+type Meta = Record<string, unknown>;
+
+const logger = {
+  info: (msg: string, context?: Meta) => log("info", msg, context ?? {}),
+  warn: (msg: string, context?: Meta) => log("warn", msg, context ?? {}),
+  error: (msg: string, context?: Meta) => log("error", msg, context ?? {}),
+};
 
 export type DailySummaryOptions = {
   window: '24h' | '7d' | string;
@@ -25,6 +34,7 @@ interface AnalysisResult {
   topMomentum: Asset[];
   underwatchlist: Asset[];
   summary: string;
+  text: string;
   markdown: string;
   sources: {
     coingecko: boolean;
@@ -43,7 +53,7 @@ async function fetchWithRetry(url: string, timeout = 8000): Promise<any> {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (error) {
-    logger.error(`Fetch failed: ${url}`, error);
+    logger.error(`Fetch failed: ${url}`, { error: describeError(error) });
     return null;
   }
 }
@@ -72,7 +82,7 @@ async function fetchCoinGecko(): Promise<Asset[] | null> {
       chain: 'ETH'
     }));
   } catch (error) {
-    logger.error('CoinGecko fetch error', error);
+    logger.error("CoinGecko fetch error", { error: describeError(error) });
     return null;
   }
 }
@@ -95,14 +105,17 @@ export async function buildSummary(options: DailySummaryOptions): Promise<Analys
       window: options.window,
       topMomentum: [],
       underwatchlist: [],
-      summary: 'No market data available.',
-      markdown: 'No market data available',
+      summary: "No market data available.",
+      text: "No market data available",
+      markdown: "No market data available",
       sources
     };
   }
 
   const topMomentum = assets.slice(0, 5);
-  const markdown = `Market Analysis: ${topMomentum.map(a => `${a.symbol}: ${a.change24h.toFixed(1)}%`).join(', ')}
+  const markdown = `Market Analysis: ${topMomentum
+    .map((a) => `${a.symbol}: ${a.change24h.toFixed(1)}%`)
+    .join(", ")}
 
 ${LEGAL_FOOTER}
 
@@ -115,16 +128,25 @@ ${CTA_FOOTER}`;
     topMomentum,
     underwatchlist: [],
     summary: markdown,
+    text: markdown,
     markdown,
     sources
   };
 }
 
 export async function buildNowSummary(): Promise<string> {
-  return 'AuroraSignals OK';
+  const summary = await buildSummary({ window: "now" });
+  return summary.markdown;
 }
 
-export async function buildDailySummary(): Promise<string> {
-  const result = await buildSummary({ window: '24h' });
+export async function buildDailySummary(window: "24h" | "7d" = "24h"): Promise<string> {
+  const result = await buildSummary({ window });
   return result.markdown;
+}
+
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return typeof error === "string" ? error : "unknown_error";
 }

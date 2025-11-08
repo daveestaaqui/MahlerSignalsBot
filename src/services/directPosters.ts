@@ -1,5 +1,5 @@
 import { fetch } from "undici";
-import { log } from "../lib/log.js";
+import { log } from "../lib/log";
 
 export type PostResult = {
   ok: boolean;

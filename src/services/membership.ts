@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { log } from "../lib/log.js";
+import { log } from "../lib/log";
 
 export type MemberRole = "pro" | "elite";
 

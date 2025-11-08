@@ -1,9 +1,9 @@
-import db from '../lib/db.js';
-import { STOCK_UNIVERSE, CRYPTO_UNIVERSE } from '../config/universe.js';
-import { runStocksOnce } from '../pipeline/stocks/index.js';
-import { runCryptoOnce } from '../pipeline/crypto/index.js';
-import { selectDailySignals, type SelectedSignal } from '../services/selector.js';
-import { canPublish } from '../services/gating.js';
+import db from '../lib/db';
+import { STOCK_UNIVERSE, CRYPTO_UNIVERSE } from '../config/universe';
+import { runStocksOnce } from '../pipeline/stocks/index';
+import { runCryptoOnce } from '../pipeline/crypto/index';
+import { selectDailySignals, type SelectedSignal } from '../services/selector';
+import { canPublish } from '../services/gating';
 import {
   fmtEliteStock,
   fmtEliteCrypto,
@@ -11,12 +11,12 @@ import {
   fmtFreeTeaser,
   type MessageBase,
   type FormattedMessage,
-} from '../services/formatters.js';
-import { TIER_GATES } from '../config/tiers.js';
-import type { SignalRecord } from '../signals/rules.js';
-import { CADENCE, todayIso } from '../config/cadence.js';
-import { POSTING_RULES } from '../config/posting.js';
-import { getLedgerCounts, incrementLedger } from '../lib/publishLedger.js';
+} from '../services/formatters';
+import { TIER_GATES } from '../config/tiers';
+import type { SignalRecord } from '../signals/rules';
+import { CADENCE, todayIso } from '../config/cadence';
+import { POSTING_RULES } from '../config/posting';
+import { getLedgerCounts, incrementLedger } from '../lib/publishLedger';
 
 const envBool = (value: string | undefined, fallback: boolean) => {
   if (value === undefined) return fallback;

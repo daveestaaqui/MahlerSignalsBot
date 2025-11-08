@@ -1,5 +1,5 @@
-import { generateWeeklySummary, type WeeklySummary } from './weeklySummary.js';
-import { formatWeeklyDigestMessage, type FormattedMessage } from './formatters.js';
+import { generateWeeklySummary, type WeeklySummary } from './weeklySummary';
+import { formatWeeklyDigestMessage, type FormattedMessage } from './formatters';
 
 export type WeeklyDigestPayload = {
   summary: WeeklySummary;

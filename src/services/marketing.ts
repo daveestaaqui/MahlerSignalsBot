@@ -1,9 +1,9 @@
 import TelegramBot from 'node-telegram-bot-api';
 
-import type { DailyRunResult } from '../jobs/runDaily.js';
-import { dispatchToDiscord } from '../posters/discord.js';
-import { composePromo } from './templates.js';
-import { promoteAll } from './promo.js';
+import type { DailyRunResult } from '../jobs/runDaily';
+import { dispatchToDiscord } from '../posters/discord';
+import { composePromo } from './templates';
+import { promoteAll } from './promo';
 
 const marketingTelegramChatId = process.env.MARKETING_TELEGRAM_CHAT_ID ?? '';
 const marketingDiscordWebhook = process.env.MARKETING_DISCORD_WEBHOOK_URL ?? '';

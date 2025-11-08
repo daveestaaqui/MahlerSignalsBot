@@ -1,4 +1,4 @@
-import { CRYPTO_MAJORS, TIER_GATES } from '../config/tiers.js';
+import { CRYPTO_MAJORS, TIER_GATES } from '../config/tiers';
 
 type AssetClass = 'stock' | 'crypto';
 type Tier = 'free' | 'pro' | 'elite';

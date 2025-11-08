@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 import { Router } from "express";
-import { buildDailySummary, buildNowSummary } from "../../services/analysis.js";
-import { postDiscord, postTelegram } from "../../services/directPosters.js";
-import { log } from "../../lib/log.js";
+import { buildDailySummary, buildNowSummary } from "../../services/analysis";
+import { postDiscord, postTelegram } from "../../services/directPosters";
+import { log } from "../../lib/log";
 
 const router = Router();
 
@@ -77,7 +77,7 @@ async function handleScheduled(
 ) {
   const dryRun = getDryRun(req);
   const config = resolvePosterConfig();
-  const summary = await buildDailySummary({ window });
+  const summary = await buildDailySummary(window);
 
   await dispatchSummary(summary, config, {
     dryRun,

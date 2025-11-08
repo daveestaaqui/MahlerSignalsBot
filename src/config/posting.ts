@@ -1,4 +1,4 @@
-import { CADENCE } from './cadence.js';
+import { CADENCE } from './cadence';
 
 const dailyCap = Number(process.env.DAILY_POST_CAP ?? '4');
 const minScorePro = Number(process.env.MIN_SCORE_PRO ?? '0.85');

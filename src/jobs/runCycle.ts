@@ -1,6 +1,6 @@
-import { runDailyOnce } from './runDaily.js';
+import { runDailyOnce } from './runDaily';
 
-export type { DailyRunResult } from './runDaily.js';
+export type { DailyRunResult } from './runDaily';
 
 export async function runOnce() {
   return runDailyOnce();

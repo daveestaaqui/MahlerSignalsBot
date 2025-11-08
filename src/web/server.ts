@@ -1,9 +1,9 @@
 import express from "express";
-import adminRouter from "./routes/admin.js";
-import metricsRouter from "./routes/metrics.js";
-import stripeHandler from "./routes/stripe.js";
-import legalRouter from './routes/legal.js';
-import { requireBearer } from "./middleware/auth.js";
+import adminRouter from "./routes/admin";
+import metricsRouter from "./routes/metrics";
+import stripeHandler from "./routes/stripe";
+import legalRouter from "./routes/legal";
+import { requireBearer } from "./middleware/auth";
 
 const app = express();
 
@@ -23,7 +23,7 @@ app.get("/healthz", (_req, res) => res.status(200).end("ok"));
 // Protect admin routes with Bearer
 app.use("/admin", requireBearer, adminRouter);
 app.use("/metrics", metricsRouter);
-app.use('/', legalRouter);
+app.use("/", legalRouter);
 
 const port = Number(process.env.PORT || 3000);
 app.listen(port);
