@@ -1,0 +1,21 @@
+name: Post-Deploy Check
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  check-production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /status endpoint
+        id: call_status
+        run: |
+          set -e
+          RESP=$(curl -s -o /dev/null -w '%{http_code}' "${BASE_URL:-https://aurora-signals.onrender.com}/status" || echo 000)
+          echo "response_code=$RESP" >> "$GITHUB_OUTPUT"
+      - name: Fail on non-200
+        if: steps.call_status.outputs.response_code != '200'
+        run: |
+          echo "::error ::Status endpoint returned ${RESPONSE_CODE:-unknown}"
+          exit 1
