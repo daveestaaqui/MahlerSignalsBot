@@ -8,6 +8,9 @@ import { requireBearer } from "../lib/auth";
 const app = express();
 app.use(express.json());
 
+// serve static files from public directory
+app.use(express.static("public"));
+
 // core endpoints
 app.get("/", (_req, res) => res.status(200).end("Aurora-Signals OK"));
 app.get("/status", (_req, res) => res.json({ ok: true, ts: Date.now() }));
