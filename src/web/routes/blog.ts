@@ -1,24 +1,18 @@
-import { Router } from 'express';
-import { readFileSync, readdirSync } from 'fs';
-import { join } from 'path';
-
+import { Router } from "express";
+import fs from "fs";
+import path from "path";
 const router = Router();
+const blogDir = path.join(process.cwd(), "docs/blog");
 
-router.get('/blog/:slug?', (req, res) => {
-  const blogDir = join(__dirname, '../../..', 'docs', 'blog');
-  const slug = req.params.slug;
-  try {
-    if (!slug) {
-      const files = readdirSync(blogDir).filter((f) => f.endsWith('.md'));
-      res.json({ posts: files.map((f) => f.replace(/\.md$/, '')) });
-    } else {
-      const mdPath = join(blogDir, `${slug}.md`);
-      const content = readFileSync(mdPath, 'utf-8');
-      res.type('text/markdown').send(content);
-    }
-  } catch {
-    res.status(404).json({ ok: false, error: 'post not found' });
-  }
+router.get("/", (_req, res) => {
+  const posts = fs.readdirSync(blogDir).filter(f => f.endsWith(".md")).map(f => f.replace(".md",""));
+  res.json(posts);
+});
+
+router.get("/:slug", (req, res) => {
+  const file = path.join(blogDir, `${req.params.slug}.md`);
+  if (!fs.existsSync(file)) return res.status(404).send("Post not found");
+  res.type("text/markdown").send(fs.readFileSync(file, "utf8"));
 });
 
 export default router;
