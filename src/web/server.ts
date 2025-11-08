@@ -1,8 +1,8 @@
 import express from "express";
 import adminRouter from "./routes/admin";
 import metricsRouter from "./routes/metrics";
-import legalRouter from "./routes/legal";
 import blogRouter from "./routes/blog";
+import legalRouter from "./routes/legal";
 import { requireBearer } from "../lib/auth";
 
 const app = express();
@@ -22,5 +22,4 @@ app.use("/blog", blogRouter);
 export default app;
 
 // --- ensure blog route mounted ---
-import blogRouter from './routes/blog';
 app.use('/blog', blogRouter);
