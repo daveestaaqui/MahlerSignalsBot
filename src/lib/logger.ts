@@ -17,7 +17,7 @@ export const logError = (message: string, meta?: LogMeta): void => write("error"
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
   const start = process.hrtime.bigint();
   const requestId = Math.random().toString(36).slice(2, 10);
-  (req as Record<string, unknown>).requestId = requestId;
+  Reflect.set(req, "requestId", requestId);
 
   res.on("finish", () => {
     const durationMs = Number(process.hrtime.bigint() - start) / 1_000_000;

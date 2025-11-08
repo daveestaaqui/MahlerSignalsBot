@@ -1,6 +1,13 @@
 import { fetch } from "undici";
 import { log } from "../lib/log";
-import { LEGAL_FOOTER, CTA_FOOTER } from "../lib/legal";
+import { LEGAL_FOOTER } from "../lib/legal";
+import { SHORT_DISCLAIMER } from "../domain/legal";
+import {
+  AssetClass,
+  SignalSummary,
+  Timeframe,
+  buildSignalSummaryText,
+} from "../domain/signals";
 
 type Meta = Record<string, unknown>;
 
@@ -113,13 +120,15 @@ export async function buildSummary(options: DailySummaryOptions): Promise<Analys
   }
 
   const topMomentum = assets.slice(0, 5);
-  const markdown = `Market Analysis: ${topMomentum
-    .map((a) => `${a.symbol}: ${a.change24h.toFixed(1)}%`)
-    .join(", ")}
+  const signalSummaries = topMomentum.slice(0, 3).map((asset) =>
+    toSignalSummary(asset, options.window, timestamp)
+  );
+  const signalText = signalSummaries.map(buildSignalSummaryText).join("\n\n");
+  const markdown = `${signalText}
 
-${LEGAL_FOOTER}
+${SHORT_DISCLAIMER}
 
-${CTA_FOOTER}`;
+${LEGAL_FOOTER}`;
 
   return {
     timestamp,
@@ -142,6 +151,45 @@ export async function buildNowSummary(): Promise<string> {
 export async function buildDailySummary(window: "24h" | "7d" = "24h"): Promise<string> {
   const result = await buildSummary({ window });
   return result.markdown;
+}
+
+function toSignalSummary(asset: Asset, window: string, generatedAt: string): SignalSummary {
+  const direction: SignalSummary["direction"] =
+    asset.change24h >= 0 ? "bullish" : asset.change24h <= -0.5 ? "bearish" : "neutral";
+  const magnitude = Math.max(Math.abs(asset.change24h), Math.abs(asset.change7d), 1);
+  const min = Math.max(1, Math.round(magnitude / 2));
+  const max = Math.max(min + 1, Math.round(magnitude));
+
+  const timeframe: Timeframe =
+    window === "24h"
+      ? "1-3 days"
+      : window === "7d"
+      ? "1-2 weeks"
+      : "1-3 months";
+
+  const assetClass: AssetClass =
+    asset.chain === "SOL"
+      ? "crypto-sol"
+      : asset.chain === "ETH"
+      ? "crypto-eth"
+      : "stock";
+
+  const stopLossPct = Math.min(5, Math.max(2, Math.round(max * 0.6)));
+  const rationale = `Momentum change last 24h: ${asset.change24h.toFixed(
+    1
+  )}% • Volume: $${(asset.volume24h / 1_000_000).toFixed(1)}M`;
+
+  return {
+    symbol: asset.symbol,
+    assetClass,
+    direction,
+    timeframe,
+    expectedMovePctRange: { min, max },
+    stopLossPct,
+    confidence: Math.min(0.95, Math.max(0.4, (asset.score ?? 0.6))),
+    rationale,
+    generatedAt,
+  };
 }
 
 function describeError(error: unknown): string {

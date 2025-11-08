@@ -8,7 +8,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/web/server.js",
-    "dev": "tsx watch src/web/server.ts"
+    "dev": "tsx watch src/web/server.ts",
+    "smoke:endpoints": "node scripts/check-endpoints.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.11.0",

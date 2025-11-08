@@ -1,0 +1,2 @@
+export const STRIPE_PRICING_PRO_URL = process.env.STRIPE_PRICING_PRO_URL || "#";
+export const STRIPE_PRICING_ENTERPRISE_URL = process.env.STRIPE_PRICING_ENTERPRISE_URL || "#";

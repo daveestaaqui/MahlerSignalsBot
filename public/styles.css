@@ -1,0 +1,173 @@
+:root {
+  --bg: #05060a;
+  --text: #f4f6ff;
+  --muted: #a9b2d9;
+  --accent: #6c63ff;
+  --accent-alt: #3ed598;
+  --card: #111322;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.hero {
+  background: radial-gradient(circle at top, rgba(108, 99, 255, 0.35), transparent 60%),
+    radial-gradient(circle at 20% 20%, rgba(62, 213, 152, 0.25), transparent 30%),
+    var(--bg);
+  padding: 2.5rem clamp(1.5rem, 6vw, 5rem) 4rem;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.nav ul {
+  list-style: none;
+  display: flex;
+  gap: 1rem;
+  padding: 0;
+  margin: 0;
+}
+
+.nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.hero-content {
+  max-width: 720px;
+  margin-top: 3rem;
+}
+
+.hero h1 {
+  font-size: clamp(2.5rem, 6vw, 3.8rem);
+  margin-bottom: 1rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--accent-alt);
+  font-size: 0.8rem;
+}
+
+.subheadline {
+  color: var(--muted);
+}
+
+.cta-group {
+  display: flex;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.btn {
+  padding: 0.85rem 1.8rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  font-weight: 600;
+  text-align: center;
+  display: inline-block;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #05060a;
+}
+
+.btn.secondary {
+  border-color: rgba(244, 246, 255, 0.4);
+  color: var(--text);
+}
+
+.section {
+  padding: 4rem clamp(1.5rem, 6vw, 5rem);
+}
+
+.section h2 {
+  margin-top: 0;
+  font-size: 2rem;
+}
+
+.steps,
+.signals-grid,
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.steps article,
+.signals-grid article,
+.pricing-grid article {
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
+.pricing-grid article {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pricing-grid ul {
+  padding-left: 1.1rem;
+  color: var(--muted);
+}
+
+.footer-links {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+footer {
+  padding: 2rem 1rem;
+  text-align: center;
+  background: #05060a;
+}
+
+footer a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.disclaimer,
+.signal-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .nav ul {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .cta-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -1,3 +1,5 @@
+import { SHORT_DISCLAIMER } from "../domain/legal";
+
 type PromoSource =
   | { messages?: Array<{ symbols?: string[]; compact?: string; plain?: string }> }
   | Array<{ symbols?: string[]; compact?: string; plain?: string }>
@@ -37,12 +39,10 @@ export function composePromo(batchOrMsgs: PromoSource): string {
 }
 
 function finalize(text: string): string {
-  if (!text) {
-    return 'Fresh flow alerts. More in PRO/ELITE.';
+  const base = text && text.trim() ? text.replace(/\s+/g, ' ').trim() : 'Fresh flow alerts. More in PRO/ELITE.';
+  const body = base.length <= 250 ? base : `${base.slice(0, 247)}...`;
+  if (body.includes(SHORT_DISCLAIMER)) {
+    return body;
   }
-  const normalized = text.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= 250) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 247)}...`;
+  return `${body}\n\n${SHORT_DISCLAIMER}`;
 }

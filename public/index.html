@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Aurora-Signals | Model-Based Signals for Stocks & Crypto</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="nav">
+        <div class="logo">Aurora-Signals</div>
+        <ul>
+          <li><a href="#how-it-works">How it Works</a></li>
+          <li><a href="#signals">Signals</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="/blog">Docs & Blog</a></li>
+          <li><a data-config-link="discord" href="#">Discord</a></li>
+          <li><a data-config-link="telegram" href="#">Telegram</a></li>
+          <li><a data-config-link="x" href="#">X</a></li>
+          <li><a data-config-link="github" href="https://github.com/daveestaaqui/MahlerSignalsBot">GitHub</a></li>
+        </ul>
+      </nav>
+      <div class="hero-content">
+        <p class="eyebrow">Stocks • Ethereum • Solana</p>
+        <h1>Model-Based Signals for Stocks & Crypto</h1>
+        <p class="subheadline">
+          Automated analysis across every major stock plus all tracked tokens on Ethereum and Solana. Every
+          signal includes timeframe, expected move range, and risk guidance.
+        </p>
+        <div class="cta-group">
+          <a class="btn primary" href="#signals">View Signals</a>
+          <a class="btn secondary" href="#pricing">Get Started</a>
+        </div>
+        <p class="disclaimer">
+          Model-based market analysis only. Not financial, investment, or trading advice. No guarantee of future results.
+        </p>
+      </div>
+    </header>
+
+    <main>
+      <section id="how-it-works" class="section">
+        <h2>How it Works</h2>
+        <div class="steps">
+          <article>
+            <h3>1. Ingest realtime data</h3>
+            <p>Market data, order-flow, and volatility metrics for global equities, Ethereum, and Solana tokens.</p>
+          </article>
+          <article>
+            <h3>2. Run the Aurora model</h3>
+            <p>Signals are generated per asset with probabilistic move ranges and stop-loss context.</p>
+          </article>
+          <article>
+            <h3>3. Deliver human-readable alerts</h3>
+            <p>Formatted summaries for Telegram, Discord, email, or API usage.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="signals" class="section">
+        <h2>Latest Signal Examples</h2>
+        <div class="signals-grid">
+          <article>
+            <h3>BTC/USDT (crypto-eth)</h3>
+            <p>Bias: <strong>Bullish</strong> • Timeframe: <strong>1-3 days</strong></p>
+            <p>Model move estimate: <strong>+4% to +9%</strong></p>
+            <p>Risk guide: stop around -3%</p>
+            <p class="signal-note">Model-based estimate only. Use disciplined risk controls.</p>
+          </article>
+          <article>
+            <h3>ETH/USDT (crypto-eth)</h3>
+            <p>Bias: <strong>Neutral</strong> • Timeframe: <strong>1-2 weeks</strong></p>
+            <p>Model move estimate: <strong>-2% to +5%</strong></p>
+            <p>Risk guide: stop around -4%</p>
+            <p class="signal-note">Model-based analysis, not a trade recommendation.</p>
+          </article>
+          <article>
+            <h3>AAPL (stock)</h3>
+            <p>Bias: <strong>Bearish</strong> • Timeframe: <strong>1-3 months</strong></p>
+            <p>Model move estimate: <strong>-6% to -2%</strong></p>
+            <p>Risk guide: stop around +3%</p>
+            <p class="signal-note">Model-based analysis only. No guarantee of future results.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="pricing" class="section pricing">
+        <h2>Pricing</h2>
+        <div class="pricing-grid">
+          <article>
+            <h3>Free</h3>
+            <ul>
+              <li>Limited daily signals</li>
+              <li>Access to /blog</li>
+            </ul>
+            <button class="btn secondary" disabled>Current plan</button>
+          </article>
+          <article>
+            <h3>Pro</h3>
+            <ul>
+              <li>All stock + crypto signals</li>
+              <li>Daily email + Telegram</li>
+              <li>API access</li>
+            </ul>
+            <a class="btn primary" data-config-link="pricingPro" href="#">Subscribe</a>
+          </article>
+          <article>
+            <h3>Enterprise</h3>
+            <ul>
+              <li>Custom universes</li>
+              <li>Dedicated webhooks</li>
+              <li>SLA + support</li>
+            </ul>
+            <a class="btn primary" data-config-link="pricingEnterprise" href="#">Contact sales</a>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-links">
+        <a href="/legal">Legal</a>
+        <a href="/blog">Blog</a>
+        <a data-config-link="discord" href="#">Discord</a>
+        <a data-config-link="telegram" href="#">Telegram</a>
+        <a data-config-link="x" href="#">X</a>
+        <a data-config-link="github" href="https://github.com/daveestaaqui/MahlerSignalsBot">GitHub</a>
+      </div>
+      <p class="disclaimer">
+        Model-based market analysis only. Not financial, investment, or trading advice. No guarantee of future results.
+      </p>
+    </footer>
+
+    <script>
+      fetch('/config')
+        .then((res) => res.json())
+        .then((cfg) => {
+          const map = {
+            discordUrl: 'discord',
+            telegramUrl: 'telegram',
+            xUrl: 'x',
+            githubUrl: 'github',
+            pricingProUrl: 'pricingPro',
+            pricingEnterpriseUrl: 'pricingEnterprise',
+          };
+          Object.entries(map).forEach(([key, dataAttr]) => {
+            const value = cfg[key];
+            if (!value) return;
+            document.querySelectorAll(`[data-config-link="${dataAttr}"]`).forEach((el) => {
+              el.setAttribute('href', value);
+            });
+          });
+        })
+        .catch(() => {
+          /* ignore offline config errors */
+        });
+    </script>
+  </body>
+</html>
