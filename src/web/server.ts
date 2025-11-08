@@ -20,3 +20,7 @@ app.use("/legal", legalRouter);
 app.use("/blog", blogRouter);
 
 export default app;
+
+// --- ensure blog route mounted ---
+import blogRouter from './routes/blog';
+app.use('/blog', blogRouter);
