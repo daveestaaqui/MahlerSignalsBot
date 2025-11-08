@@ -2,7 +2,7 @@ import { Router } from "express";
 import fs from "fs";
 import path from "path";
 const router = Router();
-const blogDir = path.join(process.cwd(), "docs/blog");
+const blogDir = path.join(process.cwd(), "docs","blog");
 
 router.get("/", (_req, res) => {
   const posts = fs.readdirSync(blogDir).filter(f => f.endsWith(".md")).map(f => f.replace(".md",""));
