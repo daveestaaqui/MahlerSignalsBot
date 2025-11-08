@@ -1,4 +1,4 @@
-import { CADENCE } from './cadence.js';
+import { CADENCE } from './cadence';
 
 export type Tier = 'free'|'pro'|'elite';
 export const TIER_GATES = {

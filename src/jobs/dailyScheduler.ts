@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { runOnce } from './runCycle.js';
+import { runOnce } from './runCycle';
 
 export function scheduleDailyPipelines(){
   // 13:00 UTC = 09:00 Eastern (ignoring DST adjustments handled via timezone option)

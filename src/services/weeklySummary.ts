@@ -1,4 +1,4 @@
-import db from '../lib/db.js';
+import db from '../lib/db';
 
 const LOOKBACK_SECONDS = 5 * 24 * 3600;
 

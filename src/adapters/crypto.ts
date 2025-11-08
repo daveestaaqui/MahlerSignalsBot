@@ -1,4 +1,4 @@
-import { TokenBucket, withRetry } from '../lib/limits.js';
+import { TokenBucket, withRetry } from '../lib/limits';
 
 export type CryptoCandle = { t:number; o:number; h:number; l:number; c:number; v:number };
 export type WhaleEvent = { hash:string; amount:number; from?:string; to?:string; direction:'inflow'|'outflow'; ts:number };

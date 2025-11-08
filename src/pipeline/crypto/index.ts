@@ -1,9 +1,9 @@
-import { getCryptoDaily, getWhaleEvents } from '../../adapters/crypto.js';
-import { sma, rvol } from '../../lib/indicators.js';
-import { score } from '../../signals/scoring.js';
-import { stockUniq, type SignalRecord } from '../../signals/rules.js';
-import { TIER_GATES } from '../../config/tiers.js';
-import { POSTING_RULES } from '../../config/posting.js';
+import { getCryptoDaily, getWhaleEvents } from '../../adapters/crypto';
+import { sma, rvol } from '../../lib/indicators';
+import { score } from '../../signals/scoring';
+import { stockUniq, type SignalRecord } from '../../signals/rules';
+import { TIER_GATES } from '../../config/tiers';
+import { POSTING_RULES } from '../../config/posting';
 const MIN_TOTAL = Math.max(POSTING_RULES.MIN_SCORE_PRO, 0.65);
 function clamp(n:number){ return Math.max(0, Math.min(1,n)); }
 export async function runCryptoOnce(symbols:readonly string[]): Promise<SignalRecord[]> {

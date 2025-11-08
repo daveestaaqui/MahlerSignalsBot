@@ -1,10 +1,10 @@
 import cron from 'node-cron';
-import { CADENCE } from '../config/cadence.js';
-import { runDailyOnce } from './runDaily.js';
-import { flushPublishQueue } from './publishWorker.js';
-import { dispatchWeeklyDigest } from '../services/weeklyDispatch.js';
-import { autoPromoteSignals } from '../services/marketing.js';
-import { dispatchToDiscord } from '../posters/discord.js';
+import { CADENCE } from '../config/cadence';
+import { runDailyOnce } from './runDaily';
+import { flushPublishQueue } from './publishWorker';
+import { dispatchWeeklyDigest } from '../services/weeklyDispatch';
+import { autoPromoteSignals } from '../services/marketing';
+import { dispatchToDiscord } from '../posters/discord';
 
 export function startSchedulers() {
   const tz = CADENCE.TIMEZONE || 'America/New_York';

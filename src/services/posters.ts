@@ -1,10 +1,10 @@
 import TelegramBot from 'node-telegram-bot-api';
 
-import type { FormattedMessage } from './formatters.js';
-import { POSTING_ENV } from '../config/posting.js';
-import { composePromo } from './templates.js';
-import { promoteAll } from './promo.js';
-import { dispatchToDiscord } from '../posters/discord.js';
+import type { FormattedMessage } from './formatters';
+import { POSTING_ENV } from '../config/posting';
+import { composePromo } from './templates';
+import { promoteAll } from './promo';
+import { dispatchToDiscord } from '../posters/discord';
 
 export type Tier = 'FREE' | 'PRO' | 'ELITE';
 export type Provider = 'telegram' | 'discord';

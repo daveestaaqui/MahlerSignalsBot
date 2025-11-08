@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import crypto from "crypto";
-import { handleMembershipWebhook } from "../../services/membership.js";
-import { log } from "../../lib/log.js";
+import { handleMembershipWebhook } from "../../services/membership";
+import { log } from "../../lib/log";
 
 type VerificationResult = {
   valid: boolean;

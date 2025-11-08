@@ -1,5 +1,5 @@
-import db from '../lib/db.js';
-import { broadcast, type BroadcastSummary, type ProviderError } from '../services/posters.js';
+import db from '../lib/db';
+import { broadcast, type BroadcastSummary, type ProviderError } from '../services/posters';
 
 type Tier = 'free'|'pro'|'elite';
 

@@ -1,5 +1,5 @@
-import db from './db.js';
-import { todayIso } from '../config/cadence.js';
+import db from './db';
+import { todayIso } from '../config/cadence';
 
 export type LedgerAsset = 'stock' | 'crypto' | 'weekly';
 

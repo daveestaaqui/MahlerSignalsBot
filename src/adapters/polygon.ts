@@ -1,4 +1,4 @@
-import { TokenBucket, withRetry } from '../lib/limits.js';
+import { TokenBucket, withRetry } from '../lib/limits';
 
 export type Candle = { t:number; o:number; h:number; l:number; c:number; v:number };
 

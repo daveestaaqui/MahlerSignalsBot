@@ -1,4 +1,4 @@
-import db from './db.js';
+import db from './db';
 
 const selectLock = db.prepare('SELECT expires_at FROM locks WHERE name = ?');
 const upsertLock = db.prepare('INSERT INTO locks(name, expires_at) VALUES(?, ?) ON CONFLICT(name) DO UPDATE SET expires_at = excluded.expires_at');

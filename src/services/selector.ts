@@ -1,6 +1,6 @@
-import db from '../lib/db.js';
-import { POSTING_RULES } from '../config/posting.js';
-import type { SignalRecord } from '../signals/rules.js';
+import db from '../lib/db';
+import { POSTING_RULES } from '../config/posting';
+import type { SignalRecord } from '../signals/rules';
 
 type AssetClass = 'stock' | 'crypto';
 

@@ -1,7 +1,7 @@
-import { buildWeeklyDigest } from './weeklyDigest.js';
-import { broadcast } from './posters.js';
-import { incrementLedger } from '../lib/publishLedger.js';
-import { todayIso } from '../config/cadence.js';
+import { buildWeeklyDigest } from './weeklyDigest';
+import { broadcast } from './posters';
+import { incrementLedger } from '../lib/publishLedger';
+import { todayIso } from '../config/cadence';
 
 type Flags = {
   dryRun: boolean;

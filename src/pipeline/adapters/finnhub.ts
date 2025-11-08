@@ -1,4 +1,4 @@
-import { withRetry } from '../../lib/limits.js';
+import { withRetry } from '../../lib/limits';
 
 const BASE = 'https://finnhub.io/api/v1';
 const PROVIDER_TIMEOUT_MS = Number(process.env.HTTP_PROVIDER_TIMEOUT_MS ?? '4500');
