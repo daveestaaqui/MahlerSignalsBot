@@ -1,0 +1,3 @@
+dyld[53384]: Library not loaded: /opt/homebrew/opt/icu4c/lib/libicui18n.74.dylib
+  Referenced from: <E75B5D55-A56F-38D1-828D-ACC88DC8B337> /opt/homebrew/Cellar/node/22.2.0/bin/node
+  Reason: tried: '/opt/homebrew/opt/icu4c/lib/libicui18n.74.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/opt/homebrew/opt/icu4c/lib/libicui18n.74.dylib' (no such file), '/opt/homebrew/opt/icu4c/lib/libicui18n.74.dylib' (no such file), '/opt/homebrew/Cellar/icu4c@77/77.1/lib/libicui18n.74.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/opt/homebrew/Cellar/icu4c@77/77.1/lib/libicui18n.74.dylib' (no such file), '/opt/homebrew/Cellar/icu4c@77/77.1/lib/libicui18n.74.dylib' (no such file)

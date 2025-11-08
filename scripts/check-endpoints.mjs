@@ -3,7 +3,7 @@ import https from "node:https";
 import http from "node:http";
 import { URL } from "node:url";
 
-const base = process.env.BASE || "https://aurora-signals.onrender.com";
+const base = process.env.BASE || 'http://127.0.0.1:3000';
 const adminToken = process.env.ADMIN_TOKEN || "";
 
 const publicPaths = ["/", "/status", "/healthz", "/metrics", "/legal"];
