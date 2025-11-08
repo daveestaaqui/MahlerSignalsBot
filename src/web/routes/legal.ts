@@ -4,7 +4,7 @@ import { join } from "path";
 
 const router = Router();
 
-router.get("/legal", (_req, res) => {
+router.get("/", (_req, res) => {
   try {
     const mdPath = join(__dirname, "../../..", "docs", "legal.md");
     const content = readFileSync(mdPath, "utf-8");
