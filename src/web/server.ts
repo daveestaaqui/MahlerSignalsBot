@@ -19,7 +19,8 @@ app.use("/metrics", metricsRouter);
 app.use("/legal", legalRouter);
 app.use("/blog", blogRouter);
 
-export default app;
+// start server
+const port = Number(process.env.PORT || 3000);
+app.listen(port);
 
-// --- ensure blog route mounted ---
-app.use('/blog', blogRouter);
+export default app;
