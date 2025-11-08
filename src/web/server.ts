@@ -38,3 +38,5 @@ const port = Number(process.env.PORT || 3000);
 app.listen(port);
 
 export default app;
+import blogRouter from "./routes/blog";
+app.use("/blog", blogRouter);
