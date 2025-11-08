@@ -4,9 +4,11 @@ import metricsRouter from "./routes/metrics";
 import blogRouter from "./routes/blog";
 import legalRouter from "./routes/legal";
 import { requireBearer } from "./middleware/auth";
+import { requestLogger } from "../lib/logger";
 
 const app = express();
 app.use(express.json());
+app.use(requestLogger);
 
 // core endpoints
 app.get("/", (_req, res) => res.status(200).end("Aurora-Signals OK"));

@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { Router } from "express";
 import { buildDailySummary, buildNowSummary } from "../../services/analysis";
 import { postDiscord, postTelegram } from "../../services/directPosters";
-import { logger } from "../../lib/logger";
+import { logInfo, logWarn, logError } from "../../lib/logger";
 
 const router = Router();
 
@@ -93,7 +93,7 @@ async function runAdminAction(
   try {
     await work();
   } catch (error) {
-    logger.warn(`admin ${action} failed`, { error: describeError(error) });
+    logWarn(`admin ${action} failed`, { error: describeError(error) });
   } finally {
     res.status(204).end();
   }
@@ -129,7 +129,7 @@ async function dispatchSummary(
     options || {};
   const label = options?.label ?? "now";
 
-  logger.info("admin dispatch", {
+  logInfo("admin dispatch", {
     dryRun,
     skipTelegram,
     skipDiscord,
@@ -137,7 +137,7 @@ async function dispatchSummary(
   });
 
   if (dryRun) {
-    logger.info("admin dispatch (dry-run)", { summary, label });
+    logInfo("admin dispatch (dry-run)", { summary, label });
     return;
   }
 
@@ -145,9 +145,9 @@ async function dispatchSummary(
 
   if (!skipTelegram) {
     if (!config.telegramToken) {
-      logger.warn("telegram missing bot token", { label });
+      logWarn("telegram missing bot token", { label });
     } else if (config.telegramChats.length === 0) {
-      logger.warn("telegram missing chat ids", { label });
+      logWarn("telegram missing chat ids", { label });
     } else {
       for (const chat of config.telegramChats) {
         const result = await postTelegram(
@@ -163,7 +163,7 @@ async function dispatchSummary(
 
   if (!skipDiscord) {
     if (!config.discordWebhook) {
-      logger.warn("discord missing webhook", { label });
+      logWarn("discord missing webhook", { label });
     } else {
       const result = await postDiscord(config.discordWebhook, summary);
       results.push(result);
@@ -175,7 +175,7 @@ async function dispatchSummary(
     .filter((item) => !item.ok)
     .map((item) => ({ channel: item.channel, error: item.error }));
 
-  logger.info("admin dispatch complete", {
+  logInfo("admin dispatch complete", {
     label,
     successes,
     failures,
