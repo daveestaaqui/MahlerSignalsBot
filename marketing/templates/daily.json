@@ -1,0 +1,7 @@
+{
+  "title": "🚨 Signal of the Day: {{symbol}}",
+  "body": "Today's analysis highlights {{symbol}}. Signal: {{signal_description}}. Key metrics: price={{price}}, change={{change_percent}}%, volume={{volume}}.",
+  "url": "https://aurora-signals.onrender.com",
+  "hashtags": ["#CryptoSignals", "#Stocks", "#AuroraSignals"],
+  "disclaimer": "This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice."
+}
