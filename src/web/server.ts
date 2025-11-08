@@ -3,7 +3,7 @@ import adminRouter from "./routes/admin";
 import metricsRouter from "./routes/metrics";
 import blogRouter from "./routes/blog";
 import legalRouter from "./routes/legal";
-import { requireBearer } from "../lib/auth";
+import { requireBearer } from "./middleware/auth";
 
 const app = express();
 app.use(express.json());
@@ -20,6 +20,3 @@ app.use("/legal", legalRouter);
 app.use("/blog", blogRouter);
 
 export default app;
-
-// --- ensure blog route mounted ---
-app.use('/blog', blogRouter);
