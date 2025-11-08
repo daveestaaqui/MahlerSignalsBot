@@ -1,9 +1,3 @@
-import express from "express";
-import adminRouter from "./routes/admin";
-import metricsRouter from "./routes/metrics";
-import stripeHandler from "./routes/stripe";
-import legalRouter from "./routes/legal";
-import blogRouter from "./routes/blog";
 import { requireBearer } from "./middleware/auth";
 
 const app = express();
@@ -38,5 +32,4 @@ const port = Number(process.env.PORT || 3000);
 app.listen(port);
 
 export default app;
-import blogRouter from "./routes/blog";
 app.use("/blog", blogRouter);
