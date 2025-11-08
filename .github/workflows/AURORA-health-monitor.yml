@@ -1,0 +1,16 @@
+name: AURORA Health Monitor
+on:
+  schedule: [{ cron: '0 * * * *' }]
+  workflow_dispatch:
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: https://aurora-signals.onrender.com
+    steps:
+      - name: Check /healthz
+        id: h
+        run: echo "code=$(curl -s -o /dev/null -w '%{http_code}' \"$BASE_URL/healthz\")" >> "$GITHUB_OUTPUT"
+      - name: Check /metrics
+        id: m
+        run: echo "code=$(curl -s -o /dev/null -w '%{http_code}' \"$BASE_URL/metrics\")" >> "$GITHUB_OUTPUT"
