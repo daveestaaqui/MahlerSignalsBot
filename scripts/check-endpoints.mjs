@@ -3,81 +3,69 @@ import https from "node:https";
 import http from "node:http";
 import { URL } from "node:url";
 
-const base = process.env.BASE || 'http://127.0.0.1:3000';
+const base = process.env.BASE_URL || "http://127.0.0.1:3000";
 const adminToken = process.env.ADMIN_TOKEN || "";
 
-const publicPaths = ["/", "/status", "/healthz", "/metrics", "/legal", "/blog", "/blog/hello-world"];
-const adminPaths = [
-  { path: "/admin/self-check", method: "GET", body: null },
-  { path: "/admin/post-daily", method: "POST", body: { dryRun: true } },
-  { path: "/admin/post-weekly", method: "POST", body: { dryRun: true } }
+const publicPaths = [
+  "/",
+  "/status",
+  "/healthz",
+  "/metrics",
+  "/legal",
+  "/blog",
+  "/blog/hello-world",
 ];
 
-function request(method, urlString, body, includeAuth) {
+const adminPaths = [
+  "/admin/self-test",
+  "/admin/post-now",
+  "/admin/post-daily",
+  "/admin/post-weekly",
+  "/admin/test-telegram",
+  "/admin/test-discord",
+];
+
+function request(method, url, body, includeAuth) {
   return new Promise((resolve, reject) => {
-    const url = new URL(urlString);
-    const isHttps = url.protocol === "https:";
-    const payload = body ? JSON.stringify(body) : null;
+    const u = new URL(url);
+    const isHttps = u.protocol === "https:";
+    const lib = isHttps ? https : http;
+
     const options = {
-      hostname: url.hostname,
-      port: url.port || (isHttps ? 443 : 80),
-      path: url.pathname + url.search,
       method,
+      hostname: u.hostname,
+      port: u.port || (isHttps ? 443 : 80),
+      path: u.pathname + u.search,
       headers: {
         "Content-Type": "application/json",
-        ...(payload ? { "Content-Length": Buffer.byteLength(payload) } : {})
-      }
+      },
     };
+
     if (includeAuth && adminToken) {
-      options.headers["Authorization"] = `Bearer ${adminToken}`;
+      options.headers.Authorization = `Bearer ${adminToken}`;
     }
-    const mod = isHttps ? https : http;
-    const req = mod.request(options, res => {
+
+    const req = lib.request(options, (res) => {
       let data = "";
-      res.on("data", chunk => (data += chunk));
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
       res.on("end", () => {
-        resolve({ status: res.statusCode || 0, body: data.slice(0, 512) });
+        resolve({ status: res.statusCode || 0, body: data });
       });
     });
-    req.on("error", reject);
-    if (payload) req.write(payload);
+
+    req.on("error", (err) => {
+      reject(err);
+    });
+
+    if (body) {
+      req.write(JSON.stringify(body));
+    }
+
     req.end();
   });
 }
-
-async function main() {
-  console.log("Base:", base);
-
-  console.log("\nPublic endpoints:");
-  for (const path of publicPaths) {
-    try {
-      const { status } = await request("GET", base + path, null, false);
-      console.log(`- ${path} -> ${status}`);
-    } catch (err) {
-      console.log(`- ${path} -> ERROR (${err?.message || err})`);
-    }
-  }
-
-  await checkSignalsEndpoint();
-
-  console.log("\nAdmin endpoints:");
-  if (!adminToken) {
-    console.log("ADMIN_TOKEN not set; expecting 401/403 responses.");
-  }
-  for (const { path, method, body } of adminPaths) {
-    try {
-      const { status } = await request(method, base + path, body, !!adminToken);
-      console.log(`- ${method} ${path} -> ${status}`);
-    } catch (err) {
-      console.log(`- ${method} ${path} -> ERROR (${err?.message || err})`);
-    }
-  }
-}
-
-main().catch(err => {
-  console.error("Error in smoke test:", err);
-  process.exit(1);
-});
 
 async function checkSignalsEndpoint() {
   const path = "/signals/today";
@@ -87,10 +75,50 @@ async function checkSignalsEndpoint() {
       console.log(`- ${path} -> ${status}`);
       return;
     }
-    const payload = JSON.parse(body);
-    const count = Array.isArray(payload?.signals) ? payload.signals.length : 0;
+    let count = 0;
+    try {
+      const payload = JSON.parse(body);
+      count = Array.isArray(payload && payload.signals)
+        ? payload.signals.length
+        : 0;
+    } catch {
+      count = 0;
+    }
     console.log(`- ${path} -> ${status} (${count} signals)`);
   } catch (err) {
-    console.log(`- ${path} -> ERROR (${err?.message || err})`);
+    const msg = err && err.message ? err.message : String(err);
+    console.log(`- ${path} -> ERROR (${msg})`);
   }
 }
+
+async function main() {
+  console.log(`Base URL: ${base}`);
+  console.log("Public endpoints:");
+  for (const p of publicPaths) {
+    try {
+      const { status } = await request("GET", base + p, null, false);
+      console.log(`- ${p} -> ${status}`);
+    } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      console.log(`- ${p} -> ERROR (${msg})`);
+    }
+  }
+
+  await checkSignalsEndpoint();
+
+  console.log("\nAdmin endpoints:");
+  for (const p of adminPaths) {
+    try {
+      const { status } = await request("GET", base + p, null, true);
+      console.log(`- ${p} -> ${status}`);
+    } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      console.log(`- ${p} -> ERROR (${msg})`);
+    }
+  }
+}
+
+main().catch((err) => {
+  console.error("Error in smoke test:", err);
+  process.exit(1);
+});

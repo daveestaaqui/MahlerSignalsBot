@@ -2,187 +2,439 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Aurora-Signals — AI-assisted signal briefings for stocks and crypto.</title>
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Aurora-Signals — Automated Market Signals</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <header class="hero">
-      <p class="eyebrow">Aurora-Signals</p>
-      <h1>AI-assisted signal briefings for stocks and crypto.</h1>
-      <p class="lead">
-        Consolidate technical and fundamental context into one briefing so teams can align on entries,
-        targets, and risk without wading through raw feeds.
-      </p>
-      <div class="hero-cta">
-        <a class="btn" href="/signals/today">Get Today's Signals</a>
-        <a class="link" href="/blog/hello-world">See the latest update</a>
+    <header class="site-header">
+      <div class="container header-grid">
+        <div class="logo">Aurora-Signals</div>
+        <nav class="nav">
+          <a href="#signals">Signals</a>
+          <a href="#how-it-works">How it works</a>
+          <a href="/blog">Market Notes</a>
+          <a href="/legal">Legal &amp; Disclosures</a>
+          <a class="btn btn-outline nav-cta" href="/checkout">Subscribe</a>
+        </nav>
       </div>
     </header>
 
-    <main class="content">
-      <section id="how-it-works">
-        <h2>How it works</h2>
-        <div class="cards three">
-          <article>
-            <h3>1. Aggregate data</h3>
+    <main>
+      <section class="hero">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <h1>Aurora-Signals — Automated Crypto &amp; Stock Signal Feed</h1>
             <p>
-              Market, on-chain, and liquidity data feed the Aurora scoring engine to detect trend,
-              volatility, and catalyst shifts.
+              Daily and weekly illustrative scenarios across US equities plus major Ethereum and Solana assets,
+              framed with directional context, estimated move ranges, and explicit risk language.
             </p>
-          </article>
-          <article>
-            <h3>2. Brief clearly</h3>
-            <p>
-              Each signal ships with entry ranges, stop-loss guidance, target gain ranges, risk labels,
-              confidence scores, and a multi-sentence rationale.
-            </p>
-          </article>
-          <article>
-            <h3>3. Deliver everywhere</h3>
-            <p>
-              Use JSON at <code>/signals/today</code>, post to Discord or Telegram via admin tools, or
-              embed directly into internal dashboards.
-            </p>
-          </article>
+            <div class="hero-ctas">
+              <a class="btn btn-primary" href="#pricing">View plans</a>
+              <a class="btn btn-secondary" href="/blog">Read latest recap</a>
+            </div>
+            <p class="hero-footnote">All scenarios are illustrative and not guarantees. Always do your own research.</p>
+          </div>
+          <div class="hero-panel">
+            <div class="status-card">
+              <h2>System status</h2>
+              <p id="status-text">Checking status…</p>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section id="coverage">
-        <h2>Coverage</h2>
-        <div class="cards three">
-          <article>
-            <h3>US Stocks</h3>
-            <p>Large-cap names on NYSE and NASDAQ with attention to earnings, margin trends, and flow.</p>
-          </article>
-          <article>
-            <h3>Crypto on Ethereum</h3>
-            <p>ETH majors and L2 ecosystems with staking, TVL, and upgrade telemetry.</p>
-          </article>
-          <article>
-            <h3>Crypto on Solana</h3>
-            <p>SOL, DeFi, and validator growth metrics paired with order-flow and volatility signals.</p>
-          </article>
+      <section id="how-it-works" class="section">
+        <div class="container">
+          <h2>How Aurora-Signals works</h2>
+          <div class="grid-3">
+            <article class="feature">
+              <h3>Scan the universe</h3>
+              <p>Systematically screen US equities plus leading ETH and SOL assets for liquidity, momentum, and catalysts.</p>
+            </article>
+            <article class="feature">
+              <h3>Rank scenarios</h3>
+              <p>Each signal carries timeframe, directional bias, and an illustrative move range with an optional invalidation zone.</p>
+            </article>
+            <article class="feature">
+              <h3>Ship to your channels</h3>
+              <p>Push JSON from <code>/signals/today</code> into Discord, Telegram, or marketing recaps using your own automations.</p>
+            </article>
+          </div>
         </div>
       </section>
 
-      <section id="pricing">
-        <h2>Pricing</h2>
-        <div class="cards one">
-          <article>
-            <h3>Pro via Stripe (coming soon)</h3>
-            <p>
-              Self-serve checkout with automated briefings, channel routing, and compliance exports is
-              rolling out shortly. Join the waitlist to be notified first.
-            </p>
-          </article>
+      <section id="why-aurora" class="section section-alt">
+        <div class="container">
+          <h2>Why it’s different</h2>
+          <div class="grid-3">
+            <article class="feature">
+              <h3>Clear language</h3>
+              <p>Briefings use plain English with timeframe, illustrative targets, and invalidation notes.</p>
+            </article>
+            <article class="feature">
+              <h3>Rationale first</h3>
+              <p>Each scenario explains the technical structure and key fundamental or macro drivers.</p>
+            </article>
+            <article class="feature">
+              <h3>Risk-aware</h3>
+              <p>Downside, volatility, and stop ideas are included so nothing is overstated or guaranteed.</p>
+            </article>
+          </div>
         </div>
       </section>
 
-      <section id="sample">
-        <h2>Sample signals</h2>
-        <p class="muted">
-          Live data from <code>/signals/today</code>. Target gain ranges are illustrative and not
-          guaranteed.
-        </p>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Symbol</th>
-                <th>Name</th>
-                <th>Timeframe</th>
-                <th>Risk</th>
-                <th>Confidence</th>
-                <th>Rationale</th>
-              </tr>
-            </thead>
-            <tbody id="signal-rows">
-              <tr>
-                <td colspan="6" id="signals-status">Loading signals...</td>
-              </tr>
-            </tbody>
-          </table>
+      <section id="pricing" class="section">
+        <div class="container">
+          <h2>Pricing</h2>
+          <div class="pricing-grid">
+            <article class="pricing-card">
+              <h3>Watcher</h3>
+              <p class="price">$0</p>
+              <ul>
+                <li>Web dashboard access</li>
+                <li>Sample signals & manual refresh</li>
+                <li>Blog + legal resources</li>
+              </ul>
+              <a class="btn btn-outline" href="#pricing">Get started</a>
+            </article>
+            <article class="pricing-card pricing-card--highlight">
+              <h3>Daily Signals</h3>
+              <p class="price">$X/mo</p>
+              <ul>
+                <li>Daily equities + crypto batch</li>
+                <li>Discord / Telegram / X formats</li>
+                <li>Email support</li>
+              </ul>
+              <a class="btn btn-primary" href="#pricing" data-stripe-cta="true">Connect Stripe</a>
+            </article>
+            <article class="pricing-card">
+              <h3>Pro Desk</h3>
+              <p class="price">Contact</p>
+              <ul>
+                <li>Custom universes & filters</li>
+                <li>Team integrations & webhooks</li>
+                <li>Priority analyst support</li>
+              </ul>
+              <a class="btn btn-outline" href="mailto:contact@example.com">Talk to us</a>
+            </article>
+          </div>
+          <p class="pricing-note">All pricing is illustrative. Real billing and Stripe checkout run with your own keys and compliance.</p>
+        </div>
+      </section>
+
+      <section id="signals" class="section section-alt">
+        <div class="container">
+          <h2>Today’s illustrative signals</h2>
+          <p class="signals-note">
+            These scenarios are generated by the Aurora-Signals engine and are not guarantees or personalized advice.
+          </p>
+          <div class="signals-layout">
+            <div class="signals-list" id="signals-list">
+              <p>Loading signals…</p>
+            </div>
+            <div class="signals-table-wrapper">
+              <table class="signals-table">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Asset</th>
+                    <th>Side</th>
+                    <th>Timeframe</th>
+                    <th>Estimated move</th>
+                    <th>Stop zone</th>
+                  </tr>
+                </thead>
+                <tbody id="signals-rows">
+                  <tr>
+                    <td colspan="6">Loading sample signals…</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="signals-status" id="signals-status">Loading sample signals…</p>
+            </div>
+          </div>
+          <p class="disclaimer-inline" id="signals-disclaimer">
+            This system provides automated market insights for informational purposes only and does not constitute financial, investment, or trading advice. No returns are guaranteed.
+          </p>
         </div>
       </section>
     </main>
 
-    <footer class="footer">
-      <div class="footer-links">
-        <a href="/legal">Legal</a>
-        <a href="/blog">Blog</a>
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <p class="footer-brand">Aurora-Signals</p>
+        <p class="footer-disclaimer">
+          This system provides automated market insights for informational purposes only and does not constitute financial, investment, or trading advice. No returns are guaranteed.
+        </p>
+        <p class="footer-links">
+          <a href="/legal">Legal</a> · <a href="/blog">Blog</a>
+        </p>
       </div>
-      <p>
-        This system provides automated market analysis and education only and does not provide
-        personalized financial, investment, or trading advice. Past performance is not indicative of
-        future results.
-      </p>
     </footer>
 
     <script>
-      async function loadSampleSignals() {
-        const rowsEl = document.getElementById("signal-rows");
-        const statusCell = document.getElementById("signals-status");
-        if (!rowsEl) {
-          return;
+      const DISCLAIMER_TEXT =
+        "This system provides automated market insights for informational purposes only and does not constitute financial, investment, or trading advice. No returns are guaranteed.";
+
+      document.addEventListener("DOMContentLoaded", () => {
+        loadStatus();
+        loadPublicLinks();
+        loadSignals();
+      });
+
+      async function loadStatus() {
+        const statusEl = document.getElementById("status-text");
+        if (!statusEl) return;
+        try {
+          const response = await fetch("/status");
+          if (!response.ok) throw new Error("status_failed");
+          const payload = await response.json();
+          const ts = payload?.ts
+            ? new Date(payload.ts).toLocaleString()
+            : new Date().toLocaleString();
+          statusEl.textContent = `Online · last heartbeat: ${ts}`;
+        } catch {
+          statusEl.textContent = "Status unavailable";
         }
+      }
+
+      async function loadPublicLinks() {
+        const stripeButtons = document.querySelectorAll("[data-stripe-cta]");
+        if (!stripeButtons.length) return;
+        try {
+          const response = await fetch("/config/public");
+          if (!response.ok) throw new Error("config_failed");
+          const payload = await response.json();
+          const stripeUrl = payload?.links?.stripeCheckoutUrl;
+          if (stripeUrl) {
+            stripeButtons.forEach((btn) => btn.setAttribute("href", stripeUrl));
+          }
+        } catch {
+          stripeButtons.forEach((btn) => btn.setAttribute("href", "#pricing"));
+        }
+      }
+
+      async function loadSignals() {
+        const rowsEl = document.getElementById("signals-rows");
+        const listEl = document.getElementById("signals-list");
+        const disclaimerEl = document.getElementById("signals-disclaimer");
+        const statusEl = document.getElementById("signals-status");
+        if (!rowsEl || !listEl || !disclaimerEl || !statusEl) return;
+
+        rowsEl.innerHTML = "";
+        listEl.innerHTML = "";
+        statusEl.textContent = "Loading signals…";
+
         try {
           const response = await fetch("/signals/today");
-          if (!response.ok) {
-            throw new Error("request_failed");
-          }
+          if (!response.ok) throw new Error("signals_failed");
           const payload = await response.json();
           const entries = Array.isArray(payload?.signals) ? payload.signals : [];
-          rowsEl.innerHTML = "";
+
+          disclaimerEl.textContent = payload?.disclaimer || DISCLAIMER_TEXT;
+
           if (!entries.length) {
-            const row = document.createElement("tr");
-            const cell = document.createElement("td");
-            cell.colSpan = 6;
-            cell.textContent = "No signals available right now.";
-            row.appendChild(cell);
-            rowsEl.appendChild(row);
+            statusEl.textContent = "No signals available right now.";
+            appendEmptyRow(rowsEl);
+            listEl.textContent = "No signals available right now.";
             return;
           }
+
+          const asOfText = payload?.asOf ? new Date(payload.asOf).toLocaleString() : "";
+          const universe = payload?.universeNote || "Universe note unavailable";
+          const statusParts = [];
+          if (asOfText) statusParts.push(`Updated ${asOfText}`);
+          statusParts.push(`${entries.length} illustrative scenarios`);
+          statusParts.push(universe);
+          statusEl.textContent = statusParts.join(" · ");
+
           entries.forEach((signal) => {
-            const row = document.createElement("tr");
-            const cells = [
-              signal.symbol,
-              signal.name,
-              signal.timeframe,
-              signal.risk,
-              `${signal.confidence}%`,
-              truncate(signal.rationale, 160),
-            ];
-            cells.forEach((value) => {
-              const cell = document.createElement("td");
-              cell.textContent = value ?? "";
-              row.appendChild(cell);
-            });
-            rowsEl.appendChild(row);
+            rowsEl.appendChild(buildTableRow(signal));
+          });
+
+          entries.slice(0, 4).forEach((signal) => {
+            listEl.appendChild(buildSignalCard(signal));
           });
         } catch (error) {
           console.error("Failed to load signals", error);
-          rowsEl.innerHTML = "";
-          const row = document.createElement("tr");
-          const cell = document.createElement("td");
-          cell.colSpan = 6;
-          cell.textContent = "Unable to load signals right now.";
-          row.appendChild(cell);
-          rowsEl.appendChild(row);
-          if (statusCell) {
-            statusCell.textContent = "Unable to load signals right now.";
-          }
+          statusEl.textContent = "Signals unavailable.";
+          appendEmptyRow(rowsEl);
+          listEl.textContent =
+            "Signals are temporarily unavailable. Please check back soon.";
         }
       }
 
-      function truncate(text, max) {
-        if (typeof text !== "string") {
+      function buildSignalCard(signal) {
+        const card = document.createElement("article");
+        card.className = "signal-card";
+
+        const title = document.createElement("h3");
+        const symbol = signal?.symbol || "—";
+        const name = signal?.name || "Unnamed asset";
+        title.textContent = `${symbol} — ${name}`;
+
+        const meta = document.createElement("p");
+        meta.className = "muted";
+        const assetLabel = formatAsset(signal?.assetClass, signal?.venue);
+        const directionLabel = formatDirection(signal?.direction);
+        const timeframeLabel = signal?.timeframeLabel || "Timeframe pending";
+        meta.textContent = `${assetLabel} • ${directionLabel} • ${timeframeLabel}`;
+
+        const move = document.createElement("p");
+        move.textContent = formatMoveRange(signal?.moveRange);
+
+        const elements = [title, meta, move];
+
+        const stopText = formatStopZone(signal?.stopLossZone);
+        if (stopText) {
+          const stop = document.createElement("p");
+          stop.textContent = `Stop-loss / invalidation: ${stopText}`;
+          elements.push(stop);
+        }
+
+        if (signal?.technicalRationale) {
+          const tech = document.createElement("p");
+          tech.textContent = `Technical rationale: ${signal.technicalRationale}`;
+          elements.push(tech);
+        }
+
+        if (signal?.fundamentalRationale) {
+          const fundamental = document.createElement("p");
+          fundamental.textContent = `Fundamental / macro rationale: ${signal.fundamentalRationale}`;
+          elements.push(fundamental);
+        }
+
+        const riskList = buildRiskList(signal?.riskNotes);
+        if (riskList) {
+          elements.push(riskList);
+        }
+
+        elements.forEach((node) => card.appendChild(node));
+        return card;
+      }
+
+      function buildTableRow(signal) {
+        const row = document.createElement("tr");
+        const cells = [
+          signal?.symbol || "—",
+          formatAsset(signal?.assetClass, signal?.venue),
+          formatDirection(signal?.direction),
+          signal?.timeframeLabel || "—",
+          formatMoveRange(signal?.moveRange),
+          formatStopZone(signal?.stopLossZone) || "—",
+        ];
+        cells.forEach((value) => {
+          const cell = document.createElement("td");
+          cell.textContent = value || "—";
+          row.appendChild(cell);
+        });
+        return row;
+      }
+
+      function buildRiskList(riskNotes) {
+        if (!Array.isArray(riskNotes)) {
+          return null;
+        }
+        const cleaned = riskNotes
+          .map((note) => (typeof note === "string" ? note.trim() : ""))
+          .filter(Boolean);
+        if (!cleaned.length) {
+          return null;
+        }
+
+        const fragment = document.createDocumentFragment();
+        const label = document.createElement("p");
+        label.className = "muted";
+        label.textContent = "Risk notes:";
+        fragment.appendChild(label);
+
+        const list = document.createElement("ul");
+        list.className = "risk-list";
+        cleaned.forEach((note) => {
+          const li = document.createElement("li");
+          li.textContent = note;
+          list.appendChild(li);
+        });
+        fragment.appendChild(list);
+
+        const container = document.createElement("div");
+        container.appendChild(fragment);
+        return container;
+      }
+
+      function appendEmptyRow(tableBody) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 6;
+        cell.textContent = "No signals available right now.";
+        row.appendChild(cell);
+        tableBody.appendChild(row);
+      }
+
+      function formatAsset(assetClass, venue) {
+        const labels = {
+          "stock": "US equity",
+          "crypto-eth": "Crypto (Ethereum)",
+          "crypto-sol": "Crypto (Solana)",
+        };
+        const label = labels[assetClass] || "Asset";
+        return venue ? `${label} · ${venue}` : label;
+      }
+
+      function formatDirection(direction) {
+        const labels = {
+          "long-bias": "Long bias",
+          "short-bias": "Short bias",
+          "range": "Range setup",
+          "neutral-watch": "Watchlist",
+        };
+        return labels[direction] || "Scenario";
+      }
+
+      function formatMoveRange(moveRange) {
+        if (!moveRange || typeof moveRange !== "object") {
+          return "Illustrative scenario: move range not available under current conditions.";
+        }
+        const pct = describePercentRange(moveRange.minPct, moveRange.maxPct) || "move range not available";
+        const timeframe = typeof moveRange.timeframeLabel === "string" ? moveRange.timeframeLabel.trim() : "";
+        const direction = typeof moveRange.directionLabel === "string" ? moveRange.directionLabel.trim() : "";
+        const directionSegment = direction ? `${direction} — ` : "";
+        const timeframeSegment = timeframe ? ` ${timeframe}` : "";
+        return `Illustrative scenario: ${directionSegment}${pct}${timeframeSegment} if current conditions persist.`;
+      }
+
+      function describePercentRange(minPct, maxPct) {
+        const min = typeof minPct === "number" ? formatPercent(minPct) || "" : "";
+        const max = typeof maxPct === "number" ? formatPercent(maxPct) || "" : "";
+        if (min && max) {
+          return `${min}–${max}`;
+        }
+        return min || max;
+      }
+
+      function formatPercent(value) {
+        const formatted = Number.isFinite(value) ? Number(value).toFixed(0) : null;
+        if (formatted === null) return null;
+        const numeric = Number(formatted);
+        const sign = numeric > 0 ? "+" : "";
+        return `${sign}${numeric}%`;
+      }
+
+      function formatStopZone(zone) {
+        if (!zone || typeof zone !== "object") {
           return "";
         }
-        return text.length > max ? `${text.slice(0, max - 3)}...` : text;
+        const parts = [zone.label, zone.levelHint]
+          .map((part) => (typeof part === "string" ? part.trim() : ""))
+          .filter(Boolean);
+        const commentary = typeof zone.commentary === "string" ? zone.commentary.trim() : "";
+        const joined = parts.join(" ");
+        if (joined && commentary) {
+          return `${joined} (${commentary})`;
+        }
+        return joined || commentary;
       }
-
-      document.addEventListener("DOMContentLoaded", loadSampleSignals);
     </script>
   </body>
 </html>

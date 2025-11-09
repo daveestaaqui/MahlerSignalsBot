@@ -6,6 +6,7 @@ import blogRouter from "./routes/blog";
 import legalRouter from "./routes/legal";
 import signalsRouter from "./routes/signals";
 import stripeRouter from "./routes/stripe";
+import configRouter from "./routes/config";
 import { requireBearer } from "../lib/auth";
 
 const app = express();
@@ -22,6 +23,7 @@ app.get("/healthz", (_req, res) => res.status(200).end("ok"));
 
 app.use("/", legalRouter);
 app.use("/", blogRouter);
+app.use("/", configRouter);
 app.use("/", signalsRouter);
 app.use("/", stripeRouter);
 app.use("/admin", requireBearer, adminRouter);

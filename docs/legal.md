@@ -1,7 +1,7 @@
 # Legal Notice
 
 ## Summary Disclaimer
-This system provides automated market analysis and education only and does not provide personalized financial, investment, or trading advice. Past performance is not indicative of future results.
+This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.
 
 ## Informational Purpose Only
 Aurora-Signals is an automated analytics system that aggregates and analyzes cryptocurrency and equity market data. The information provided through this service is for **informational purposes only**. It is not intended to be, and should not be construed as, financial, investment, or trading advice. Users should conduct their own research and consult a qualified financial advisor before making investment decisions.
@@ -19,4 +19,4 @@ To the maximum extent permitted by law, Aurora-Signals, its maintainers, and con
 We reserve the right to modify this legal notice at any time. Changes will become effective upon publication at `/legal`. Continued use of the service after any such changes shall constitute your consent to such changes.
 
 ---
-This system provides automated market analysis and education only and does not provide personalized financial, investment, or trading advice. Past performance is not indicative of future results.
+This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.
