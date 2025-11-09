@@ -6,7 +6,7 @@ import { URL } from "node:url";
 const base = process.env.BASE || 'http://127.0.0.1:3000';
 const adminToken = process.env.ADMIN_TOKEN || "";
 
-const publicPaths = ["/", "/status", "/healthz", "/metrics", "/legal"];
+const publicPaths = ["/", "/status", "/healthz", "/metrics", "/legal", "/blog", "/blog/hello-world"];
 const adminPaths = [
   { path: "/admin/self-check", method: "GET", body: null },
   { path: "/admin/post-daily", method: "POST", body: { dryRun: true } },
@@ -58,6 +58,8 @@ async function main() {
     }
   }
 
+  await checkSignalsEndpoint();
+
   console.log("\nAdmin endpoints:");
   if (!adminToken) {
     console.log("ADMIN_TOKEN not set; expecting 401/403 responses.");
@@ -76,3 +78,19 @@ main().catch(err => {
   console.error("Error in smoke test:", err);
   process.exit(1);
 });
+
+async function checkSignalsEndpoint() {
+  const path = "/signals/today";
+  try {
+    const { status, body } = await request("GET", base + path, null, false);
+    if (status !== 200) {
+      console.log(`- ${path} -> ${status}`);
+      return;
+    }
+    const payload = JSON.parse(body);
+    const count = Array.isArray(payload?.signals) ? payload.signals.length : 0;
+    console.log(`- ${path} -> ${status} (${count} signals)`);
+  } catch (err) {
+    console.log(`- ${path} -> ERROR (${err?.message || err})`);
+  }
+}

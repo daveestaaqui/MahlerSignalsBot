@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Aurora-Signals — AI-assisted signal briefings for stocks and crypto.</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <p class="eyebrow">Aurora-Signals</p>
+      <h1>AI-assisted signal briefings for stocks and crypto.</h1>
+      <p class="lead">
+        Consolidate technical and fundamental context into one briefing so teams can align on entries,
+        targets, and risk without wading through raw feeds.
+      </p>
+      <div class="hero-cta">
+        <a class="btn" href="/signals/today">Get Today's Signals</a>
+        <a class="link" href="/blog/hello-world">See the latest update</a>
+      </div>
+    </header>
+
+    <main class="content">
+      <section id="how-it-works">
+        <h2>How it works</h2>
+        <div class="cards three">
+          <article>
+            <h3>1. Aggregate data</h3>
+            <p>
+              Market, on-chain, and liquidity data feed the Aurora scoring engine to detect trend,
+              volatility, and catalyst shifts.
+            </p>
+          </article>
+          <article>
+            <h3>2. Brief clearly</h3>
+            <p>
+              Each signal ships with entry ranges, stop-loss guidance, target gain ranges, risk labels,
+              confidence scores, and a multi-sentence rationale.
+            </p>
+          </article>
+          <article>
+            <h3>3. Deliver everywhere</h3>
+            <p>
+              Use JSON at <code>/signals/today</code>, post to Discord or Telegram via admin tools, or
+              embed directly into internal dashboards.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="coverage">
+        <h2>Coverage</h2>
+        <div class="cards three">
+          <article>
+            <h3>US Stocks</h3>
+            <p>Large-cap names on NYSE and NASDAQ with attention to earnings, margin trends, and flow.</p>
+          </article>
+          <article>
+            <h3>Crypto on Ethereum</h3>
+            <p>ETH majors and L2 ecosystems with staking, TVL, and upgrade telemetry.</p>
+          </article>
+          <article>
+            <h3>Crypto on Solana</h3>
+            <p>SOL, DeFi, and validator growth metrics paired with order-flow and volatility signals.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="pricing">
+        <h2>Pricing</h2>
+        <div class="cards one">
+          <article>
+            <h3>Pro via Stripe (coming soon)</h3>
+            <p>
+              Self-serve checkout with automated briefings, channel routing, and compliance exports is
+              rolling out shortly. Join the waitlist to be notified first.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="sample">
+        <h2>Sample signals</h2>
+        <p class="muted">
+          Live data from <code>/signals/today</code>. Target gain ranges are illustrative and not
+          guaranteed.
+        </p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Name</th>
+                <th>Timeframe</th>
+                <th>Risk</th>
+                <th>Confidence</th>
+                <th>Rationale</th>
+              </tr>
+            </thead>
+            <tbody id="signal-rows">
+              <tr>
+                <td colspan="6" id="signals-status">Loading signals...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-links">
+        <a href="/legal">Legal</a>
+        <a href="/blog">Blog</a>
+      </div>
+      <p>
+        This system provides automated market analysis and education only and does not provide
+        personalized financial, investment, or trading advice. Past performance is not indicative of
+        future results.
+      </p>
+    </footer>
+
+    <script>
+      async function loadSampleSignals() {
+        const rowsEl = document.getElementById("signal-rows");
+        const statusCell = document.getElementById("signals-status");
+        if (!rowsEl) {
+          return;
+        }
+        try {
+          const response = await fetch("/signals/today");
+          if (!response.ok) {
+            throw new Error("request_failed");
+          }
+          const payload = await response.json();
+          const entries = Array.isArray(payload?.signals) ? payload.signals : [];
+          rowsEl.innerHTML = "";
+          if (!entries.length) {
+            const row = document.createElement("tr");
+            const cell = document.createElement("td");
+            cell.colSpan = 6;
+            cell.textContent = "No signals available right now.";
+            row.appendChild(cell);
+            rowsEl.appendChild(row);
+            return;
+          }
+          entries.forEach((signal) => {
+            const row = document.createElement("tr");
+            const cells = [
+              signal.symbol,
+              signal.name,
+              signal.timeframe,
+              signal.risk,
+              `${signal.confidence}%`,
+              truncate(signal.rationale, 160),
+            ];
+            cells.forEach((value) => {
+              const cell = document.createElement("td");
+              cell.textContent = value ?? "";
+              row.appendChild(cell);
+            });
+            rowsEl.appendChild(row);
+          });
+        } catch (error) {
+          console.error("Failed to load signals", error);
+          rowsEl.innerHTML = "";
+          const row = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 6;
+          cell.textContent = "Unable to load signals right now.";
+          row.appendChild(cell);
+          rowsEl.appendChild(row);
+          if (statusCell) {
+            statusCell.textContent = "Unable to load signals right now.";
+          }
+        }
+      }
+
+      function truncate(text, max) {
+        if (typeof text !== "string") {
+          return "";
+        }
+        return text.length > max ? `${text.slice(0, max - 3)}...` : text;
+      }
+
+      document.addEventListener("DOMContentLoaded", loadSampleSignals);
+    </script>
+  </body>
+</html>
