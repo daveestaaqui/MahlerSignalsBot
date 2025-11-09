@@ -114,6 +114,18 @@ a {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.muted {
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.what-list {
+  list-style: disc;
+  padding-left: 1.5rem;
+  color: #475569;
+  max-width: 720px;
+}
+
 .feature {
   background: #fff;
   border-radius: 18px;

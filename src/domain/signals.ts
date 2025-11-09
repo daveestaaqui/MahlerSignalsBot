@@ -1,278 +1,194 @@
-export const AURORA_DISCLAIMER =
-  "This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.";
+export const SIGNAL_DISCLAIMER =
+  "This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.";
 
-export type AssetClass = "stock" | "crypto-eth" | "crypto-sol";
-export type Direction = "long-bias" | "short-bias" | "range" | "neutral-watch";
+export type AssetClass = "stock" | "crypto";
+export type Chain = "ethereum" | "solana";
 
-export interface MoveRange {
-  directionLabel: string;
-  minPct?: number;
-  maxPct?: number;
-  timeframeLabel: string;
+export interface SignalRationale {
+  technical: string;
+  fundamental: string;
 }
 
-export interface StopLossZone {
-  label: string;
-  levelHint?: string;
-  commentary?: string;
-}
-
-export interface AuroraSignal {
+export interface SignalPayload {
   id: string;
   symbol: string;
-  name: string;
   assetClass: AssetClass;
-  venue?: string;
-  direction: Direction;
-  timeframeLabel: string;
-  moveRange?: MoveRange;
-  stopLossZone?: StopLossZone;
-  technicalRationale?: string;
-  fundamentalRationale?: string;
-  riskNotes?: string[];
-  tags?: string[];
-  disclaimer?: string;
-}
-
-export interface TodaySignalsResponse {
-  asOf: string;
-  universeNote: string;
-  signals: AuroraSignal[];
+  chain?: Chain;
+  timeframe: string;
+  expectedMove: string;
+  stopLossHint?: string;
+  rationale: SignalRationale;
+  riskNote: string;
   disclaimer: string;
 }
 
-const SAMPLE_SIGNALS: Omit<AuroraSignal, "id">[] = [
+export interface SignalResponse {
+  ok: true;
+  ts: number;
+  signals: SignalPayload[];
+}
+
+const SAMPLE_SIGNALS: Omit<SignalPayload, "id">[] = [
   {
-    symbol: "NVDA",
-    name: "NVIDIA Corp.",
+    symbol: "AAPL",
     assetClass: "stock",
-    venue: "NASDAQ",
-    direction: "long-bias",
-    timeframeLabel: "2–5 trading days",
-    moveRange: {
-      directionLabel: "Upside scenario",
-      minPct: 3,
-      maxPct: 6,
-      timeframeLabel: "over the next 2–5 trading days",
+    timeframe: "next 1–3 days",
+    expectedMove:
+      "Potential upside in the 3–6% range over the next 1–3 days if buyers continue to defend the rising 21-day average; scenarios are not guaranteed.",
+    stopLossHint:
+      "Illustrative stop below $207, near the most recent swing low; position sizing remains the primary risk control.",
+    rationale: {
+      technical:
+        "Price is respecting a shallow pullback pattern with rising short-term moving averages and constructive up-day volume.",
+      fundamental:
+        "Services and wearables growth steady out hardware cycles, and margin commentary last quarter remained supportive.",
     },
-    stopLossZone: {
-      label: "Invalidation below",
-      levelHint: "$118 area",
-      commentary: "fails if price closes back inside the prior gap",
-    },
-    technicalRationale:
-      "Price is consolidating just above a breakout gap with rising 21-day EMA support and subdued intraday volatility.",
-    fundamentalRationale:
-      "Data-center demand and AI accelerator commentary remain constructive, keeping consensus estimates elevated.",
-    riskNotes: [
-      "High sensitivity to macro tech flows.",
-      "Gap risk around earnings or regulatory news.",
-    ],
-    tags: ["momentum", "mega-cap"],
+    riskNote:
+      "Macro risk-off headlines or supply-chain surprises can quickly invalidate the scenario; manage exposure tightly.",
+    disclaimer: SIGNAL_DISCLAIMER,
   },
   {
     symbol: "MSFT",
-    name: "Microsoft Corp.",
     assetClass: "stock",
-    venue: "NASDAQ",
-    direction: "long-bias",
-    timeframeLabel: "1–4 trading days",
-    moveRange: {
-      directionLabel: "Upside scenario",
-      minPct: 2,
-      maxPct: 4,
-      timeframeLabel: "over the next 1–4 trading days",
+    timeframe: "next 3–5 days",
+    expectedMove:
+      "Potential upside of roughly 4–7% over the next few sessions if the base above $420 holds; outcomes remain uncertain.",
+    stopLossHint:
+      "Scenario watchers often reassess on a daily close back below $415, which would signal failed support.",
+    rationale: {
+      technical:
+        "Shares continue to build a tight flag above a prior breakout shelf with relative strength versus the S&P 500.",
+      fundamental:
+        "Cloud and AI workload demand keeps consensus revenue revisions trending higher, lending support to sentiment.",
     },
-    stopLossZone: {
-      label: "Risk control near",
-      levelHint: "$412",
-      commentary: "below short-term support",
-    },
-    technicalRationale:
-      "Shares hold above a breakout shelf with relative strength versus the S&P 500 at multi-week highs.",
-    fundamentalRationale:
-      "Cloud and AI workloads continue to support double-digit top-line growth while margins remain firm.",
-    riskNotes: [
-      "Scenario may fail if enterprise demand weakens or macro data disappoints.",
-    ],
-    tags: ["quality", "large-cap"],
+    riskNote:
+      "Any slowdown in enterprise spending or sudden rate shocks may pressure large-cap tech broadly.",
+    disclaimer: SIGNAL_DISCLAIMER,
   },
   {
-    symbol: "TSLA",
-    name: "Tesla Inc.",
+    symbol: "NVDA",
     assetClass: "stock",
-    venue: "NASDAQ",
-    direction: "range",
-    timeframeLabel: "3–7 trading days",
-    moveRange: {
-      directionLabel: "Range scenario",
-      minPct: -4,
-      maxPct: 7,
-      timeframeLabel: "while it oscillates around $210 support",
+    timeframe: "next 1–2 weeks",
+    expectedMove:
+      "Potential upside in the 8–15% range over the next 1–2 weeks if data-center demand headlines stay constructive.",
+    stopLossHint:
+      "Illustrative stop below the $118 gap fill, which would indicate the momentum structure is failing.",
+    rationale: {
+      technical:
+        "Higher lows continue to hold above the rising 21-day EMA, while volume expands on up moves.",
+      fundamental:
+        "AI accelerator backlogs, strong data-center visibility, and raised guidance underpin the bullish narrative.",
     },
-    stopLossZone: {
-      label: "Invalidation below",
-      levelHint: "$205",
-      commentary: "range breaks if daily close is below this zone",
+    riskNote:
+      "High beta name with gap risk around earnings or policy headlines; plan for volatility and slippage.",
+    disclaimer: SIGNAL_DISCLAIMER,
+  },
+  {
+    symbol: "BTC/USDT",
+    assetClass: "crypto",
+    chain: "ethereum",
+    timeframe: "next 3–7 days",
+    expectedMove:
+      "Potential move of +6–10% in the next week if BTC continues to hold its higher-low structure; crypto swings remain uncertain.",
+    stopLossHint:
+      "Watch for a daily close below the 50-day MA / recent $64k pivot as an illustrative invalidation level.",
+    rationale: {
+      technical:
+        "BTC is printing a series of higher lows with declining realized volatility, a setup that can precede trend continuation.",
+      fundamental:
+        "ETF inflows remain positive and on-chain settlements continue to climb, though macro risk can override quickly.",
     },
-    technicalRationale:
-      "Price is respecting a horizontal range with buyers stepping in near the 21-day moving average.",
-    fundamentalRationale:
-      "Services and energy segments help smooth hardware volatility, but margins remain sensitive to pricing.",
-    riskNotes: [
-      "Range setups can fail quickly if momentum resumes in either direction.",
-    ],
+    riskNote:
+      "Crypto assets exhibit gap risk and trade 24/7; ensure any scenario uses disciplined sizing.",
+    disclaimer: SIGNAL_DISCLAIMER,
   },
   {
     symbol: "ETH/USDT",
-    name: "Ethereum",
-    assetClass: "crypto-eth",
-    venue: "Ethereum",
-    direction: "long-bias",
-    timeframeLabel: "1–4 days",
-    moveRange: {
-      directionLabel: "Upside scenario",
-      minPct: 5,
-      maxPct: 8,
-      timeframeLabel: "over the next 1–4 days",
+    assetClass: "crypto",
+    chain: "ethereum",
+    timeframe: "next 2–5 days",
+    expectedMove:
+      "Potential upside of 5–9% over the next few days if the rising channel remains intact; moves are never guaranteed.",
+    stopLossHint:
+      "Illustrative stop just below $3.4k to acknowledge the most recent higher low; adjust for volatility tolerance.",
+    rationale: {
+      technical:
+        "ETH keeps respecting a rising 4-hour channel with pullbacks bought near VWAP and momentum oscillators mid-range.",
+      fundamental:
+        "Layer-2 activity, staking inflows, and institutional interest underpin demand, but regulatory headlines can shift tone quickly.",
     },
-    stopLossZone: {
-      label: "De-risk below",
-      levelHint: "$3.4k",
-      commentary: "if price loses recent higher low",
-    },
-    technicalRationale:
-      "ETH continues to print higher highs on the 4h chart with intraday pullbacks bought near VWAP.",
-    fundamentalRationale:
-      "Layer-2 activity, staking inflows, and ETF chatter have supported demand in recent weeks.",
-    riskNotes: [
-      "Regulatory news or macro volatility can derail the setup quickly.",
-      "Crypto assets carry materially higher gap risk than equities.",
-    ],
-    tags: ["layer-1", "staking"],
+    riskNote:
+      "ETH can move sharply on macro headlines; traders should allow for whipsaws and liquidity skews.",
+    disclaimer: SIGNAL_DISCLAIMER,
   },
   {
-    symbol: "ARB/USDT",
-    name: "Arbitrum",
-    assetClass: "crypto-eth",
-    venue: "Ethereum",
-    direction: "long-bias",
-    timeframeLabel: "2–6 days",
-    moveRange: {
-      directionLabel: "Upside scenario",
-      minPct: 6,
-      maxPct: 10,
-      timeframeLabel: "if the breakout flag resolves higher over 2–6 days",
+    symbol: "SOL/USDC",
+    assetClass: "crypto",
+    chain: "solana",
+    timeframe: "next 5–10 days",
+    expectedMove:
+      "Potential upside scenario of 7–12% over the next 5–10 days if the compression range resolves higher; results vary.",
+    stopLossHint:
+      "Consider trimming if price closes decisively below $146, which would signal the wedge is breaking down.",
+    rationale: {
+      technical:
+        "SOL has been coiling with falling realized volatility, a structure that often precedes range expansion.",
+      fundamental:
+        "On-chain fees, DEX volumes, and new launches remain constructive, supporting the network adoption case.",
     },
-    stopLossZone: {
-      label: "Back off below",
-      levelHint: "$1.05",
-      commentary: "invalidates the higher-low structure",
-    },
-    technicalRationale:
-      "ARB is coiling just under resistance with declining realized volatility, a pattern that can precede range expansion.",
-    fundamentalRationale:
-      "Ecosystem incentives and rollup adoption metrics show steady growth, keeping TVL trends constructive.",
-    riskNotes: [
-      "Token unlock headlines or risk-off crypto flows can negate the setup.",
-    ],
-    tags: ["layer-2", "momentum"],
-  },
-  {
-    symbol: "SOL/USDT",
-    name: "Solana",
-    assetClass: "crypto-sol",
-    venue: "Solana",
-    direction: "long-bias",
-    timeframeLabel: "5–10 days",
-    moveRange: {
-      directionLabel: "Upside scenario",
-      minPct: 8,
-      maxPct: 12,
-      timeframeLabel: "within 5–10 days",
-    },
-    stopLossZone: {
-      label: "Watch below",
-      levelHint: "$146",
-      commentary: "breaks the consolidating wedge",
-    },
-    technicalRationale:
-      "SOL has been compressing in a tight range with falling realized volatility, often preceding expansion moves.",
-    fundamentalRationale:
-      "Fee revenue and DEX activity are trending higher while new launches attract liquidity.",
-    riskNotes: [
-      "Breakdown risk increases if broader crypto sentiment turns risk-off.",
-    ],
-  },
-  {
-    symbol: "JUP/USDC",
-    name: "Jupiter",
-    assetClass: "crypto-sol",
-    venue: "Solana",
-    direction: "neutral-watch",
-    timeframeLabel: "1–3 weeks",
-    moveRange: {
-      directionLabel: "Watchlist scenario",
-      minPct: -6,
-      maxPct: 9,
-      timeframeLabel: "as it bases for a potential secondary move",
-    },
-    stopLossZone: {
-      label: "Invalidation on",
-      levelHint: "loss of $0.85",
-      commentary: "confirms breakdown from accumulation range",
-    },
-    technicalRationale:
-      "JUP is digesting its prior rally with lower volume pullbacks and support holding near the 50% retracement.",
-    fundamentalRationale:
-      "Aggregator volumes remain elevated and DAO incentive discussions could add catalysts, but timelines are uncertain.",
-    riskNotes: [
-      "Token remains young; liquidity pockets can thin out quickly.",
-    ],
-    tags: ["watchlist", "high-beta"],
+    riskNote:
+      "Breakdowns accelerate quickly in high-beta tokens; liquidity can thin out during risk-off sessions.",
+    disclaimer: SIGNAL_DISCLAIMER,
   },
   {
     symbol: "MARA",
-    name: "Marathon Digital",
     assetClass: "stock",
-    venue: "NASDAQ",
-    direction: "short-bias",
-    timeframeLabel: "1–3 trading days",
-    moveRange: {
-      directionLabel: "Downside scenario",
-      minPct: -5,
-      maxPct: -9,
-      timeframeLabel: "over the next few sessions",
+    timeframe: "next 1–3 days",
+    expectedMove:
+      "Potential downside of roughly 5–9% if BTC stalls near resistance and miners cool off; squeezes remain possible.",
+    stopLossHint:
+      "Illustrative cap near $23, above the recent swing high, to respect squeeze risk if momentum reignites.",
+    rationale: {
+      technical:
+        "After a parabolic move, MARA is failing to reclaim the 10-day moving average and is printing lower highs with heavy down-day volume.",
+      fundamental:
+        "Margins remain sensitive to energy inputs and BTC beta; leverage metrics run higher than diversified peers.",
     },
-    stopLossZone: {
-      label: "Cap risk above",
-      levelHint: "$23",
-      commentary: "recent swing high",
+    riskNote:
+      "Short setups carry gap and borrow risk; scenario is invalidated quickly on renewed BTC upside.",
+    disclaimer: SIGNAL_DISCLAIMER,
+  },
+  {
+    symbol: "SOL/USDT-PERP",
+    assetClass: "crypto",
+    chain: "solana",
+    timeframe: "next 1–2 weeks",
+    expectedMove:
+      "Potential move of ±10% as the pair retests range extremes; this is a mean-reversion watch more than a high conviction trade.",
+    stopLossHint:
+      "Hypothetical stop near the upper edge of the consolidation range to limit losses if momentum accelerates.",
+    rationale: {
+      technical:
+        "Perp funding has normalized while price oscillates between well-defined support and resistance, hinting at range trading conditions.",
+      fundamental:
+        "No strong fundamental view, scenario is primarily technical and liquidity-driven.",
     },
-    technicalRationale:
-      "After a parabolic run, price is failing to reclaim the 10-day average and printing lower highs with heavy down-volume.",
-    fundamentalRationale:
-      "Margins remain sensitive to energy costs and BTC swings; leverage metrics higher than diversified peers.",
-    riskNotes: [
-      "Any renewed BTC breakout can squeeze the short quickly.",
-      "Borrow availability may tighten if volatility spikes.",
-    ],
-    tags: ["miners", "high-volatility"],
+    riskNote:
+      "Perpetual swaps can move faster than spot; funding flips and liquidity pockets introduce additional risk.",
+    disclaimer: SIGNAL_DISCLAIMER,
   },
 ];
 
-export function buildIllustrativeTodaySignals(now: Date = new Date()): TodaySignalsResponse {
-  const asOf = now.toISOString();
-  const signals = SAMPLE_SIGNALS.map((signal, idx) => ({
+export function buildTodaySignals(now: Date = new Date()): SignalResponse {
+  const ts = now.getTime();
+  const signals = SAMPLE_SIGNALS.map((signal, index) => ({
     ...signal,
-    id: `${signal.symbol}-${idx}`,
-    disclaimer: signal.disclaimer ?? AURORA_DISCLAIMER,
+    id: `${signal.symbol}-${index}`,
   }));
 
   return {
-    asOf,
-    universeNote: "US equities plus Ethereum & Solana majors scanned for liquidity and momentum cues",
+    ok: true,
+    ts,
     signals,
-    disclaimer: AURORA_DISCLAIMER,
   };
 }

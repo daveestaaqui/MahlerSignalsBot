@@ -2,32 +2,9 @@ import type { Request, Response } from "express";
 import { Router } from "express";
 import { buildDailySummary, buildNowSummary } from "../../services/analysis";
 import { postDiscord, postTelegram } from "../../services/directPosters";
+import { logError, logInfo, logWarn } from "../../lib/logger";
 
 const router = Router();
-
-const logger = {
-  info: (message: string, context?: unknown) => {
-    if (context !== undefined) {
-      console.info(message, context);
-    } else {
-      console.info(message);
-    }
-  },
-  warn: (message: string, context?: unknown) => {
-    if (context !== undefined) {
-      console.warn(message, context);
-    } else {
-      console.warn(message);
-    }
-  },
-  error: (message: string, context?: unknown) => {
-    if (context !== undefined) {
-      console.error(message, context);
-    } else {
-      console.error(message);
-    }
-  }
-};
 
 type PosterConfig = {
   telegramToken?: string;
@@ -115,10 +92,13 @@ async function runAdminAction(
 ): Promise<void> {
   try {
     await work();
+    res.json({ ok: true });
   } catch (error) {
-    logger.warn(`admin ${action} failed`, { error: describeError(error) });
-  } finally {
-    res.status(204).end();
+    logError("admin.action_failed", {
+      action,
+      error: describeError(error),
+    });
+    res.status(500).json({ ok: false, error: "internal_error" });
   }
 }
 
@@ -152,7 +132,7 @@ async function dispatchSummary(
     options || {};
   const label = options?.label ?? "now";
 
-  logger.info("admin dispatch", {
+  logInfo("admin.dispatch", {
     dryRun,
     skipTelegram,
     skipDiscord,
@@ -160,7 +140,7 @@ async function dispatchSummary(
   });
 
   if (dryRun) {
-    logger.info("admin dispatch (dry-run)", { summary, label });
+    logInfo("admin.dispatch_dry_run", { summary, label });
     return;
   }
 
@@ -168,9 +148,9 @@ async function dispatchSummary(
 
   if (!skipTelegram) {
     if (!config.telegramToken) {
-      logger.warn("telegram missing bot token", { label });
+      logWarn("admin.telegram_missing_token", { label });
     } else if (config.telegramChats.length === 0) {
-      logger.warn("telegram missing chat ids", { label });
+      logWarn("admin.telegram_missing_chat_id", { label });
     } else {
       for (const chat of config.telegramChats) {
         const result = await postTelegram(
@@ -186,7 +166,7 @@ async function dispatchSummary(
 
   if (!skipDiscord) {
     if (!config.discordWebhook) {
-      logger.warn("discord missing webhook", { label });
+      logWarn("admin.discord_missing_webhook", { label });
     } else {
       const result = await postDiscord(config.discordWebhook, summary);
       results.push(result);
@@ -198,7 +178,7 @@ async function dispatchSummary(
     .filter((item) => !item.ok)
     .map((item) => ({ channel: item.channel, error: item.error }));
 
-  logger.info("admin dispatch complete", {
+  logInfo("admin.dispatch_complete", {
     label,
     successes,
     failures,

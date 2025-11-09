@@ -75,20 +75,30 @@ async function checkSignalsEndpoint() {
       console.log(`- ${path} -> ${status}`);
       return;
     }
-    let count = 0;
-    try {
-      const payload = JSON.parse(body);
-      count = Array.isArray(payload && payload.signals)
-        ? payload.signals.length
-        : 0;
-    } catch {
-      count = 0;
-    }
-    console.log(`- ${path} -> ${status} (${count} signals)`);
+    const payload = JSON.parse(body);
+    const signals = Array.isArray(payload?.signals) ? payload.signals : [];
+    const isValid =
+      signals.length >= 3 &&
+      signals.every(
+        (signal) =>
+          isNonEmpty(signal.symbol) &&
+          isNonEmpty(signal.timeframe) &&
+          isNonEmpty(signal.expectedMove) &&
+          isNonEmpty(signal?.rationale?.technical) &&
+          isNonEmpty(signal.riskNote)
+      );
+    const result = isValid
+      ? `(${signals.length} signals validated)`
+      : `(${signals.length} signals, validation failed)`;
+    console.log(`- ${path} -> ${status} ${result}`);
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
     console.log(`- ${path} -> ERROR (${msg})`);
   }
+}
+
+function isNonEmpty(value) {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 async function main() {
