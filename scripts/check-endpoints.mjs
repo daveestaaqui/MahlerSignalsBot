@@ -76,16 +76,23 @@ async function checkSignalsEndpoint() {
       return;
     }
     const payload = JSON.parse(body);
-    const signals = Array.isArray(payload?.signals) ? payload.signals : [];
+    const signals = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.signals)
+      ? payload.signals
+      : [];
     const isValid =
       signals.length >= 3 &&
       signals.every(
         (signal) =>
           isNonEmpty(signal.symbol) &&
           isNonEmpty(signal.timeframe) &&
-          isNonEmpty(signal.expectedMove) &&
-          isNonEmpty(signal?.rationale?.technical) &&
-          isNonEmpty(signal.riskNote)
+          hasExpectedMove(signal) &&
+          Array.isArray(signal?.rationales) &&
+          signal.rationales.length >= 2 &&
+          signal.rationales.every(isNonEmpty) &&
+          hasDisclaimer(signal) &&
+          hasDataSources(signal),
       );
     const result = isValid
       ? `(${signals.length} signals validated)`
@@ -99,6 +106,27 @@ async function checkSignalsEndpoint() {
 
 function isNonEmpty(value) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasExpectedMove(signal) {
+  const move = signal?.expectedMove;
+  if (!move || typeof move !== "object") return false;
+  const range = move.rangePct;
+  if (!range) return false;
+  return (
+    typeof range.min === "number" &&
+    typeof range.max === "number" &&
+    Number.isFinite(range.min) &&
+    Number.isFinite(range.max)
+  );
+}
+
+function hasDisclaimer(signal) {
+  return isNonEmpty(signal?.disclaimer);
+}
+
+function hasDataSources(signal) {
+  return Array.isArray(signal?.dataSources) && signal.dataSources.length > 0;
 }
 
 async function main() {

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { RequestWithId, logError, logInfo } from "../../lib/logger";
-import { ABOUT_AURORA, SHORT_DISCLAIMER } from "../../lib/legal";
+import { ABOUT_BLURB, SHORT_DISCLAIMER } from "../../lib/legal";
 
 const router = Router();
 
@@ -30,7 +30,7 @@ function decorateLegal(markdown: string): string {
   return `${trimmed}
 
 ---
-${ABOUT_AURORA}
+${ABOUT_BLURB}
 
 ${SHORT_DISCLAIMER}
 `;

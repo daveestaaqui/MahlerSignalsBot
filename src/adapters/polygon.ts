@@ -1,3 +1,4 @@
+import { fetch } from 'undici';
 import { TokenBucket, withRetry } from '../lib/limits';
 
 export type Candle = { t:number; o:number; h:number; l:number; c:number; v:number };
@@ -20,12 +21,13 @@ export async function getStockDaily(symbol: string): Promise<Candle[]> {
 
   try {
     await bucket.take(1);
-    const json = await withRetry(async ()=>{
+    const json: unknown = await withRetry(async ()=>{
       const res = await fetch(url, { headers:{'User-Agent':'AuroraSignalX/1.0'} });
       if(!res.ok) throw new Error(`polygon ${res.status}`);
       return res.json();
     });
-    const results = json?.results;
+    const record = (typeof json === 'object' && json !== null) ? json as Record<string, unknown> : {};
+    const results = record.results;
     if(!Array.isArray(results)) return [];
     return results.map((r:any)=>({
       t: Number(r.t || 0),

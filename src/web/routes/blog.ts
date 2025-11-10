@@ -2,7 +2,7 @@ import { Router } from "express";
 import fs from "fs";
 import path from "path";
 import { RequestWithId, logError, logInfo, logWarn } from "../../lib/logger";
-import { ABOUT_AURORA, SHORT_DISCLAIMER } from "../../lib/legal";
+import { ABOUT_BLURB, SHORT_DISCLAIMER } from "../../lib/legal";
 
 const router = Router();
 const blogDir = path.join(process.cwd(), "docs/blog");
@@ -63,7 +63,7 @@ function decoratePost(markdown: string): string {
   return `${trimmed}
 
 ---
-${ABOUT_AURORA}
+${ABOUT_BLURB}
 
 ${SHORT_DISCLAIMER}
 `;

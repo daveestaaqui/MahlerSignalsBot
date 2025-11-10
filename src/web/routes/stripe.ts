@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { Router, raw, type Request, type Response } from "express";
 import { RequestWithId, logError, logInfo, logWarn } from "../../lib/logger";
 
-type Plan = "pro" | "elite";
+type Plan = "free" | "pro" | "elite";
 
 const stripeRouter = Router();
 const stripeWebhookRouter = Router();
@@ -11,6 +11,11 @@ stripeRouter.post("/checkout", async (req: RequestWithId, res: Response) => {
   const plan = normalizePlan(req);
   if (!plan) {
     return res.status(400).json({ ok: false, error: "unsupported_plan" });
+  }
+
+  if (plan === "free") {
+    logInfo("stripe.checkout.free_tier", { requestId: req.requestId });
+    return res.json({ ok: true, message: "Free tier does not require checkout", url: null });
   }
 
   const config = resolveStripeConfig(plan);
@@ -22,7 +27,7 @@ stripeRouter.post("/checkout", async (req: RequestWithId, res: Response) => {
     });
     return res.status(500).json({
       ok: false,
-      error: "stripe_env_missing",
+      error: "Stripe not configured",
       missing: config.missing,
     });
   }
@@ -34,10 +39,7 @@ stripeRouter.post("/checkout", async (req: RequestWithId, res: Response) => {
       requestId: req.requestId,
     });
 
-    if (wantsJson(req)) {
-      return res.json({ ok: true, url: session.url });
-    }
-    return res.redirect(303, session.url);
+    return res.json({ ok: true, url: session.url });
   } catch (error) {
     logError("stripe.checkout.failed", {
       error: describeError(error),
@@ -82,12 +84,18 @@ stripeWebhookRouter.post(
     });
 
     if (isSubscriptionEvent(event.type)) {
+      const payload = {
+        customer: event.data?.object?.customer ?? "unknown_customer",
+        plan: event.data?.object?.plan?.id ?? "unknown_plan",
+        status: event.data?.object?.status ?? "unknown_status",
+      };
       logInfo("stripe.subscription.event", {
-        type: event.type,
-        customer: event.data?.object?.customer,
-        status: event.data?.object?.status,
-        plan: event.data?.object?.plan?.id,
         requestId: req.requestId,
+        event: {
+          id: event.id,
+          type: event.type,
+          ...payload,
+        },
       });
     }
 
@@ -124,17 +132,28 @@ type StripeEvent = {
 };
 
 function normalizePlan(req: Request): Plan | null {
-  const rawPlan =
-    typeof req.body?.plan === "string"
-      ? req.body.plan
-      : typeof req.query.plan === "string"
-      ? req.query.plan
-      : "pro";
-  const normalized = String(rawPlan).trim().toLowerCase();
-  return normalized === "elite" ? "elite" : normalized === "pro" ? "pro" : null;
+  const rawPlan = readPlanParam(req);
+  const normalized = String(rawPlan || "pro").trim().toLowerCase();
+  if (normalized === "free") return "free";
+  if (normalized === "elite") return "elite";
+  if (normalized === "pro") return "pro";
+  return null;
 }
 
-function resolveStripeConfig(plan: Plan): StripeConfig {
+function readPlanParam(req: Request): string | null {
+  const keys = ["tier", "plan"];
+  for (const key of keys) {
+    const bodyValue = req.body && typeof (req.body as Record<string, unknown>)[key] === "string"
+      ? String((req.body as Record<string, unknown>)[key])
+      : null;
+    if (bodyValue) return bodyValue;
+    const queryValue = typeof req.query[key] === "string" ? String(req.query[key]) : null;
+    if (queryValue) return queryValue;
+  }
+  return null;
+}
+
+function resolveStripeConfig(plan: Exclude<Plan, "free">): StripeConfig {
   const missing: string[] = [];
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const successUrl = process.env.STRIPE_SUCCESS_URL;
@@ -153,14 +172,14 @@ function resolveStripeConfig(plan: Plan): StripeConfig {
 
   return {
     ok: true,
-    secretKey,
-    successUrl,
-    cancelUrl,
-    priceId,
+    secretKey: secretKey!,
+    successUrl: successUrl!,
+    cancelUrl: cancelUrl!,
+    priceId: priceId!,
   };
 }
 
-async function createCheckoutSession(plan: Plan, config: Extract<StripeConfig, { ok: true }>) {
+async function createCheckoutSession(plan: Exclude<Plan, "free">, config: Extract<StripeConfig, { ok: true }>) {
   const params = new URLSearchParams();
   params.append("mode", "subscription");
   params.append("line_items[0][price]", config.priceId);
@@ -185,15 +204,6 @@ async function createCheckoutSession(plan: Plan, config: Extract<StripeConfig, {
   }
 
   return response.json() as Promise<{ url: string }>;
-}
-
-function wantsJson(req: Request): boolean {
-  const accept = req.headers["accept"] || "";
-  if (typeof accept === "string" && accept.includes("application/json")) {
-    return true;
-  }
-  const requestedWith = req.headers["x-requested-with"];
-  return typeof requestedWith === "string" && requestedWith.toLowerCase() === "xmlhttprequest";
 }
 
 function verifyStripeSignature(payload: Buffer, header: string, secret: string): StripeEvent {

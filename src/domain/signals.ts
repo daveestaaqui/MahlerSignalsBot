@@ -1,316 +1,465 @@
-import { getDB } from "../lib/db";
+import { fetch } from "undici";
 import { SHORT_DISCLAIMER } from "../lib/legal";
 import { logWarn } from "../lib/logger";
 
-type AssetType = "stock" | "crypto";
-type Tier = "free" | "pro" | "elite";
+export type AssetClass = "equity" | "crypto";
+export type Chain = "eth" | "solana" | "offchain";
+export type DirectionBias = "bullish" | "bearish" | "neutral";
 
-type SignalRow = {
-  id: number;
-  symbol: string;
-  asset_type: AssetType;
-  tier_min: Tier;
-  score: number;
-  reason: string;
-  features?: string | Record<string, unknown> | null;
-  created_at: number;
-};
-
-type SignalFeatures = {
-  price?: number;
-  pct_change_1d?: number;
-  pct_from_20d?: number;
-  pct_from_50d?: number;
-  pct_from_200d?: number;
-  rvol?: number;
-  whales?: number;
-  whaleScore?: number;
-  sentimentScore?: number;
-  optionsScore?: number;
-  fundamentalScore?: number;
-  flowUsd?: number;
-  pct_from_50?: number;
-  pct_from_200?: number;
-  gapUp?: boolean;
-  gapDown?: boolean;
-};
-
-export type Chain = "ethereum" | "solana" | "bitcoin" | "celestia";
-export type AssetClass = "equity" | "l1" | "l2" | "defi" | "crypto";
-
-export interface SignalView {
+export type SignalView = {
   id: string;
   symbol: string;
   assetClass: AssetClass;
-  chain?: Chain;
-  timeframe: string;
-  expectedMove: string;
-  expectedMoveRange: { min: number; max: number; unit: "%" };
-  stopLoss: string;
-  rationale: string[];
-  riskNote: string;
+  chain: Chain;
+  timeframe: "intraday" | "1–3 days" | "1–7 days" | "swing (1–4 weeks)";
+  expectedMove: {
+    horizon: string;
+    rangePct: { min: number; max: number };
+    directionBias: DirectionBias;
+  };
+  suggestedStopLossPct?: number;
+  rationales: string[];
+  dataSources: string[];
   disclaimer: string;
-  entryPrice?: number;
-  tier: Tier;
+  asOf: string;
+};
+
+type SignalCandidate = {
+  view: SignalView;
   score: number;
-  generatedAt: string;
-}
+};
 
-const SELECT_RECENT_SIGNALS = `
-  SELECT id, symbol, asset_type, tier_min, score, reason, features, created_at
-  FROM signals
-  WHERE created_at >= ?
-  ORDER BY score DESC, created_at DESC
-  LIMIT ?
-`;
+type PolygonAgg = {
+  c?: number;
+  v?: number;
+  t?: number;
+};
 
-const FRESH_WINDOW_SECONDS = 36 * 3600;
-const DEFAULT_LIMIT = 12;
+type PolygonAggResponse = {
+  results?: PolygonAgg[];
+};
 
-export function buildTodaySignals(now: Date = new Date()): SignalView[] {
-  const since = Math.floor(now.getTime() / 1000) - FRESH_WINDOW_SECONDS;
-  const rows = readRecentSignals(since, DEFAULT_LIMIT * 3);
-  if (!rows.length) {
-    logWarn("signals.today.empty", { since });
+type CryptoDirectoryEntry = {
+  id: string;
+  symbol: string;
+  chain: Chain;
+};
+
+type CoinGeckoMarket = {
+  id: string;
+  symbol: string;
+  current_price?: number;
+  market_cap?: number;
+  total_volume?: number;
+  price_change_percentage_24h?: number;
+  price_change_percentage_7d_in_currency?: number;
+  price_change_percentage_1h_in_currency?: number;
+};
+
+const EQUITY_API_BASE = process.env.EQUITY_API_BASE_URL || "https://api.polygon.io";
+const CRYPTO_API_BASE =
+  process.env.CRYPTO_API_BASE_URL || "https://api.coingecko.com/api/v3";
+const EQUITY_WATCHLIST = parseEquityWatchlist(process.env.EQUITY_WATCHLIST);
+const CRYPTO_WATCHLIST = parseCryptoWatchlist(process.env.CRYPTO_WATCHLIST);
+const MAX_SIGNALS = 10;
+
+export async function buildTodaySignals(now: Date = new Date()): Promise<SignalView[]> {
+  const settled = await Promise.allSettled([
+    fetchEquitySignals(now),
+    fetchCryptoSignals(now),
+  ]);
+
+  const candidates: SignalCandidate[] = [];
+  for (const result of settled) {
+    if (result.status === "fulfilled") {
+      candidates.push(...result.value);
+    } else {
+      logWarn("signals.build.reject", { error: describeError(result.reason) });
+    }
+  }
+
+  if (!candidates.length) {
+    logWarn("signals.build.empty", {});
     return [];
   }
 
-  const seenSymbols = new Set<string>();
-  const views: SignalView[] = [];
-
-  for (const row of rows) {
-    if (seenSymbols.has(row.symbol)) continue;
-    const view = toSignalView(row);
-    if (!view) continue;
-    views.push(view);
-    seenSymbols.add(row.symbol);
-    if (views.length >= DEFAULT_LIMIT) break;
-  }
-
-  return views.sort((a, b) => b.score - a.score);
+  return candidates
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_SIGNALS)
+    .map((candidate) => candidate.view);
 }
 
-function readRecentSignals(since: number, limit: number): SignalRow[] {
-  try {
-    const db = getDB();
-    const stmt = db.prepare(SELECT_RECENT_SIGNALS);
-    return stmt.all(since, limit) as SignalRow[];
-  } catch (error) {
-    logWarn("signals.today.db_failed", { error: describeError(error) });
+async function fetchEquitySignals(now: Date): Promise<SignalCandidate[]> {
+  const apiKey = process.env.EQUITY_API_KEY;
+  if (!apiKey) {
+    logWarn("signals.equity.missing_key", {});
     return [];
   }
+
+  const since = formatDate(daysAgo(now, 60));
+  const until = formatDate(now);
+  const promises = EQUITY_WATCHLIST.map((symbol) =>
+    fetchPolygonSeries(symbol, since, until, apiKey)
+      .then((series) => (series ? buildEquityCandidate(symbol, series, now) : null))
+      .catch((error) => {
+        logWarn("signals.equity.fetch_failed", {
+          symbol,
+          error: describeError(error),
+        });
+        return null;
+      }),
+  );
+
+  const settled = await Promise.all(promises);
+  return settled.filter((candidate): candidate is SignalCandidate => Boolean(candidate));
 }
 
-function toSignalView(row: SignalRow): SignalView | null {
-  const features = parseFeatures(row.features);
-  if (!features) return null;
-
-  const entryPrice = numberOrUndefined(features.price);
-  if (!entryPrice || entryPrice <= 0) {
+async function fetchPolygonSeries(
+  symbol: string,
+  since: string,
+  until: string,
+  apiKey: string,
+): Promise<PolygonAgg[] | null> {
+  const url = `${EQUITY_API_BASE}/v2/aggs/ticker/${encodeURIComponent(
+    symbol,
+  )}/range/1/day/${since}/${until}?adjusted=true&limit=120&apiKey=${apiKey}`;
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`polygon_${response.status}`);
+  }
+  const data = (await response.json()) as PolygonAggResponse;
+  if (!Array.isArray(data.results) || !data.results.length) {
     return null;
   }
+  return data.results;
+}
 
-  const momentum =
-    numberOrUndefined(features.pct_change_1d) ??
-    numberOrUndefined(features.pct_from_20d) ??
-    0;
+function buildEquityCandidate(
+  symbol: string,
+  series: PolygonAgg[],
+  asOf: Date,
+): SignalCandidate | null {
+  const sorted = series
+    .filter((row) => typeof row.c === "number" && typeof row.t === "number")
+    .sort((a, b) => (Number(a.t) || 0) - (Number(b.t) || 0));
+  if (sorted.length < 5) return null;
 
-  const timeframe = timeframeFor(row.asset_type, numberOrUndefined(features.rvol));
-  const range = computeExpectedMove(row.asset_type, row.score, momentum);
-  const expectedMove = `Model suggests a potential upside of ~${range.min.toFixed(
-    1,
-  )}–${range.max.toFixed(1)}% over the ${timeframe}, but this is not guaranteed.`;
+  const closes = sorted.map((row) => Number(row.c));
+  const volumes = sorted.map((row) => Number(row.v || 0));
+  const latest = sorted[sorted.length - 1]!;
+  const prev = sorted[sorted.length - 2] ?? latest;
+  const price = Number(latest.c ?? 0);
+  const prevClose = Number(prev.c ?? price);
+  if (!Number.isFinite(price) || price <= 0) return null;
 
-  const meta = resolveAssetMeta(row.symbol, row.asset_type);
-  const rationale = buildRationales(row.asset_type, row.symbol, features, row.score);
-  if (!rationale.length) {
-    rationale.push("Model detected reliable structure and liquidity, but treat this as informational only.");
+  const change1d = safePercent(price, prevClose);
+  const pctFrom20 = percentFromAverage(closes, 20, price);
+  const pctFrom50 = percentFromAverage(closes, 50, price);
+
+  const recentVolumes = volumes.slice(-30).filter((value) => Number.isFinite(value));
+  const avgVolume = average(recentVolumes);
+  const rvol = avgVolume ? Number((latest.v || 0) / avgVolume) : undefined;
+
+  const direction = determineDirection(change1d, pctFrom20);
+  const timeframe = rvol && rvol > 1.6 ? "1–3 days" : "1–7 days";
+  const expectedMove = buildExpectedMove("equity", direction, change1d, pctFrom20, rvol, timeframe);
+  const suggestedStopLossPct = computeStopLoss("equity", rvol);
+  const rationales = buildEquityRationales({
+    symbol,
+    price,
+    change1d,
+    pctFrom20,
+    pctFrom50,
+    rvol,
+  });
+
+  const score =
+    Math.abs(change1d) * 70 +
+    Math.abs(pctFrom20 ?? 0) * 60 +
+    (rvol ? Math.max(rvol - 1, 0) * 15 : 0);
+
+  const view: SignalView = {
+    id: `equity-${symbol}-${asOf.getTime()}`,
+    symbol,
+    assetClass: "equity",
+    chain: "offchain",
+    timeframe,
+    expectedMove,
+    suggestedStopLossPct,
+    rationales,
+    dataSources: ["Polygon"],
+    disclaimer: SHORT_DISCLAIMER,
+    asOf: asOf.toISOString(),
+  };
+
+  return { view, score };
+}
+
+async function fetchCryptoSignals(now: Date): Promise<SignalCandidate[]> {
+  if (!CRYPTO_WATCHLIST.length) return [];
+  const ids = CRYPTO_WATCHLIST.map((entry) => entry.id).join(",");
+  const url = `${CRYPTO_API_BASE}/coins/markets?vs_currency=usd&ids=${encodeURIComponent(
+    ids,
+  )}&sparkline=false&price_change_percentage=1h,24h,7d`;
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (process.env.CRYPTO_API_KEY) {
+    headers["x-cg-pro-api-key"] = process.env.CRYPTO_API_KEY;
   }
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new Error(`coingecko_${response.status}`);
+  }
+  const payload = (await response.json()) as CoinGeckoMarket[];
+  if (!Array.isArray(payload) || !payload.length) return [];
 
-  return {
-    id: String(row.id),
-    symbol: row.symbol,
-    assetClass: meta.assetClass,
+  const marketCapTotal = payload.reduce(
+    (sum, row) => sum + Math.max(Number(row.market_cap || 0), 0),
+    0,
+  );
+
+  const candidates: SignalCandidate[] = [];
+  for (const row of payload) {
+    const meta = findCryptoMeta(row.id);
+    if (!meta) continue;
+    const candidate = buildCryptoCandidate(row, meta, marketCapTotal, now);
+    if (candidate) {
+      candidates.push(candidate);
+    }
+  }
+  return candidates;
+}
+
+function buildCryptoCandidate(
+  market: CoinGeckoMarket,
+  meta: CryptoDirectoryEntry,
+  totalMarketCap: number,
+  asOf: Date,
+): SignalCandidate | null {
+  const price = Number(market.current_price ?? 0);
+  if (!Number.isFinite(price) || price <= 0) return null;
+
+  const change24 = Number(market.price_change_percentage_24h ?? 0);
+  const change7d = Number(market.price_change_percentage_7d_in_currency ?? 0);
+  const change1h = Number(market.price_change_percentage_1h_in_currency ?? 0);
+  const marketCap = Number(market.market_cap ?? 0);
+  const volume = Number(market.total_volume ?? 0);
+  const dominance = totalMarketCap > 0 ? marketCap / totalMarketCap : 0;
+  const volumeRatio = marketCap > 0 ? volume / marketCap : 0;
+
+  const direction = determineDirection(change24 / 100, change7d / 100);
+  const timeframe =
+    Math.abs(change24) > 6 || volumeRatio > 0.35
+      ? "intraday"
+      : Math.abs(change24) > 3 || volumeRatio > 0.2
+      ? "1–3 days"
+      : "1–7 days";
+  const expectedMove = buildExpectedMove(
+    "crypto",
+    direction,
+    change24 / 100,
+    change7d / 100,
+    volumeRatio,
+    timeframe,
+  );
+  const suggestedStopLossPct = computeStopLoss("crypto", volumeRatio);
+  const rationales = buildCryptoRationales({
+    symbol: meta.symbol,
+    change24,
+    change7d,
+    change1h,
+    volume,
+    dominance,
+    volumeRatio,
+  });
+
+  const score =
+    Math.abs(change24) * 3 +
+    Math.abs(change7d) * 1.5 +
+    Math.max(volumeRatio, 0) * 80 +
+    dominance * 100;
+
+  const view: SignalView = {
+    id: `crypto-${meta.symbol}-${asOf.getTime()}`,
+    symbol: meta.symbol,
+    assetClass: "crypto",
     chain: meta.chain,
     timeframe,
     expectedMove,
-    expectedMoveRange: range,
-    stopLoss: stopLossText(entryPrice, row.asset_type, numberOrUndefined(features.rvol)),
-    rationale,
-    riskNote: riskNoteFor(row.asset_type, meta.chain),
+    suggestedStopLossPct,
+    rationales,
+    dataSources: ["CoinGecko"],
     disclaimer: SHORT_DISCLAIMER,
-    entryPrice,
-    tier: row.tier_min,
-    score: Number(row.score ?? 0),
-    generatedAt: new Date(row.created_at * 1000).toISOString(),
+    asOf: asOf.toISOString(),
+  };
+
+  return { view, score };
+}
+
+function buildExpectedMove(
+  asset: AssetClass,
+  direction: DirectionBias,
+  changeComponent: number,
+  trendComponent: number | undefined,
+  volatilityComponent: number | undefined,
+  horizon: SignalView["timeframe"],
+): SignalView["expectedMove"] {
+  const magnitudeBase = asset === "equity" ? 4 : 8;
+  const changePct = Math.abs(changeComponent || 0) * 100;
+  const trendPct = Math.abs(trendComponent || 0) * 100;
+  const volBoost =
+    asset === "equity"
+      ? Math.max((volatilityComponent ?? 1) - 1, 0) * 4
+      : Math.max(volatilityComponent ?? 0, 0) * 10;
+  const envelope = clampNumber(
+    magnitudeBase + changePct * 0.25 + trendPct * 0.15 + volBoost,
+    asset === "equity" ? 4 : 6,
+    asset === "equity" ? 18 : 32,
+  );
+
+  const downsideMultiplier = direction === "bullish" ? 0.6 : direction === "bearish" ? 1.1 : 0.8;
+  const upsideMultiplier = direction === "bearish" ? 0.55 : direction === "bullish" ? 1.1 : 0.8;
+
+  return {
+    horizon,
+    rangePct: {
+      min: Number((-envelope * downsideMultiplier).toFixed(1)),
+      max: Number((envelope * upsideMultiplier).toFixed(1)),
+    },
+    directionBias: direction,
   };
 }
 
-function parseFeatures(raw: SignalRow["features"]): SignalFeatures | null {
-  if (!raw) return null;
-  if (typeof raw === "object") {
-    return raw as SignalFeatures;
-  }
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw) as SignalFeatures;
-    } catch {
-      return null;
-    }
-  }
-  return null;
+function computeStopLoss(asset: AssetClass, volatility?: number): number {
+  const base = asset === "equity" ? 0.035 : 0.08;
+  const volFactor = asset === "equity" ? (volatility ?? 1) : Math.max(volatility ?? 0.2, 0.2);
+  const maxClamp = asset === "equity" ? 0.09 : 0.18;
+  return Number(clampNumber(base * (1 + volFactor * 0.6), base * 0.6, maxClamp).toFixed(3));
 }
 
-function timeframeFor(assetType: AssetType, rvol?: number): string {
-  const volume = rvol ?? 1;
-  if (assetType === "stock") {
-    if (volume >= 1.6) return "next 3–5 trading days";
-    if (volume >= 1.2) return "next 1–2 weeks";
-    return "next 1–4 weeks";
-  }
-  if (volume >= 1.8) return "next 12–36 hours";
-  if (volume >= 1.3) return "next 2–4 days";
-  return "next 3–6 days";
-}
-
-function computeExpectedMove(assetType: AssetType, score: number, momentum: number): {
-  min: number;
-  max: number;
-  unit: "%";
-} {
-  const momentumPct = (momentum ?? 0) * 100;
-  const base = assetType === "stock" ? { min: 2.5, span: 4.5 } : { min: 4, span: 7 };
-  const scoreBoost = clamp((score - 0.8) * (assetType === "stock" ? 3.2 : 4.5), 0, assetType === "stock" ? 8 : 10);
-  const momentumBoost = clamp(Math.abs(momentumPct) / 4, 0, assetType === "stock" ? 5 : 7);
-  const min = clamp(base.min + scoreBoost * 0.6 + momentumBoost * 0.3, base.min, assetType === "stock" ? 14 : 22);
-  const max = clamp(min + base.span + scoreBoost * 0.4 + momentumBoost * 0.4, min + 1.5, assetType === "stock" ? 20 : 30);
-  return { min: Number(min.toFixed(1)), max: Number(max.toFixed(1)), unit: "%" };
-}
-
-function stopLossText(entryPrice: number, assetType: AssetType, rvol = 1): string {
-  const vol = Math.max(rvol, 1);
-  const base = assetType === "stock" ? 0.035 : 0.065;
-  const pct = clamp(base * vol, assetType === "stock" ? 0.025 : 0.05, assetType === "stock" ? 0.08 : 0.15);
-  const level = entryPrice * (1 - pct);
-  return `Suggested risk guard: exit if price falls below $${level.toFixed(2)} or more than ${formatPercent(pct)} from entry.`;
-}
-
-function buildRationales(assetType: AssetType, symbol: string, features: SignalFeatures, score: number): string[] {
+function buildEquityRationales(params: {
+  symbol: string;
+  price: number;
+  change1d: number;
+  pctFrom20?: number;
+  pctFrom50?: number;
+  rvol?: number;
+}): string[] {
+  const { symbol, change1d, pctFrom20, pctFrom50, rvol } = params;
   const lines: string[] = [];
-  const pct20 = numberOrUndefined(features.pct_from_20d);
-  const pct50 = numberOrUndefined(features.pct_from_50d ?? features.pct_from_50);
-  const pct200 = numberOrUndefined(features.pct_from_200d ?? features.pct_from_200);
-  const pctChange1d = numberOrUndefined(features.pct_change_1d);
-  const rvol = numberOrUndefined(features.rvol);
-  const whaleScore = numberOrUndefined(features.whaleScore);
-  const optionsScore = numberOrUndefined(features.optionsScore);
-  const fundamentalScore = numberOrUndefined(features.fundamentalScore);
-  const flowUsd = numberOrUndefined(features.flowUsd);
 
-  if (typeof pct20 === "number") {
-    if (pct20 >= 0) {
-      lines.push(`Holding ${formatPercent(pct20)} above the 20-day trend with constructive higher lows.`);
-    } else {
-      lines.push(`Mean-reversion setup with price ${formatPercent(Math.abs(pct20))} below the 20-day trend.`);
-    }
-  }
-
-  if (typeof pct50 === "number" && Math.abs(pct50) > 0.01) {
+  if (typeof pctFrom20 === "number") {
     lines.push(
-      `${Math.abs(pct50) < 0.08 ? "Respecting" : pct50 > 0 ? "Breaking above" : "Reclaiming"} the 50-day baseline (${formatPercent(
-        pct50,
-      )} vs 50d).`,
+      `Price is ${formatPercent(Math.abs(pctFrom20))} ${pctFrom20 >= 0 ? "above" : "below"} the 20-day average per Polygon daily bars.`,
     );
-  } else if (typeof pct200 === "number" && Math.abs(pct200) > 0.02) {
-    lines.push(`Longer-term trend ${pct200 > 0 ? "supporting" : "testing"} with price ${formatPercent(pct200)} vs 200d.`);
   }
 
-  if (typeof pctChange1d === "number" && Math.abs(pctChange1d) >= 0.005) {
-    lines.push(`Latest session move: ${formatPercent(pctChange1d)} with ${assetType === "stock" ? "institutional" : "on-chain"} interest starting to follow.`);
+  if (typeof pctFrom50 === "number" && Math.abs(pctFrom50) >= 0.01) {
+    lines.push(
+      `Distance to the 50-day baseline is ${formatPercent(Math.abs(pctFrom50))}, highlighting ${pctFrom50 >= 0 ? "positive" : "mean-reversion"} pressure.`,
+    );
   }
 
-  if (typeof rvol === "number" && rvol >= 1.1) {
-    lines.push(`Relative volume running at ${rvol.toFixed(1)}x the 20-day average, signaling real participation.`);
+  if (Math.abs(change1d) >= 0.002) {
+    lines.push(
+      `Last close moved ${formatPercent(Math.abs(change1d))} ${change1d >= 0 ? "higher" : "lower"} with verifiable Polygon volume.`,
+    );
   }
 
-  if (assetType === "crypto" && typeof whaleScore === "number" && whaleScore >= 0.2) {
-    lines.push(`Whale activity score ${whaleScore.toFixed(2)} with ${formatWhaleCount(features.whales)} large transfers flagged.`);
+  if (typeof rvol === "number" && Number.isFinite(rvol)) {
+    lines.push(
+      `Relative volume is ${rvol.toFixed(1)}x the trailing 30-day average, indicating ${rvol > 1 ? "active" : "cooling"} participation.`,
+    );
   }
 
-  if (assetType === "stock" && typeof optionsScore === "number" && optionsScore >= 0.15) {
-    lines.push(`Options flow skew elevated (${formatPercent(optionsScore)} of daily notional leaning bullish).`);
-  }
-
-  if (typeof flowUsd === "number" && flowUsd > 0) {
-    lines.push(`Roughly ${formatUsd(flowUsd)} in directional flow over the last 24h keeps liquidity engaged.`);
-  }
-
-  if (typeof fundamentalScore === "number" && fundamentalScore >= 0.4) {
-    lines.push(`Fundamental composite at ${formatPercent(fundamentalScore)} indicates improving backdrop (revenues/on-chain fees).`);
-  }
-
-  if (features.gapUp) {
-    lines.push("Recent gap-up held support, suggesting institutions defended the breakout level.");
-  } else if (features.gapDown) {
-    lines.push("Gap-down flush completed and is now building a base above prior congestion.");
-  }
-
-  if (lines.length < 2) {
-    lines.push(`Composite score ${score.toFixed(2)} cleared tier gates after volatility, but always size positions with care.`);
-  }
+  lines.push(
+    `Model-estimated move references ${symbol} OHLCV (Polygon) plus volatility-based stop sizing; treat outputs as informational only.`,
+  );
 
   return lines.slice(0, 5);
 }
 
-function riskNoteFor(assetType: AssetType, chain?: Chain): string {
-  if (assetType === "stock") {
-    return "Equities remain sensitive to macro data, earnings revisions, and policy headlines—treat this as informational only.";
+function buildCryptoRationales(params: {
+  symbol: string;
+  change24?: number;
+  change7d?: number;
+  change1h?: number;
+  volume?: number;
+  dominance?: number;
+  volumeRatio?: number;
+}): string[] {
+  const { symbol, change24, change7d, change1h, volume, dominance, volumeRatio } = params;
+  const lines: string[] = [];
+
+  if (typeof change24 === "number" && Number.isFinite(change24)) {
+    lines.push(
+      `${symbol} moved ${change24.toFixed(1)}% over the last 24h per CoinGecko spot markets.`,
+    );
   }
-  if (chain === "solana") {
-    return "Solana ecosystems move fast and can gap on liquidity shocks—plan entries/exits and expect 24/7 volatility.";
+
+  if (typeof change7d === "number" && Number.isFinite(change7d)) {
+    lines.push(
+      `Seven-day drift is ${change7d.toFixed(1)}%, framing the current signal.`,
+    );
   }
-  if (chain === "ethereum") {
-    return "Ethereum assets react quickly to on-chain flows and funding; assume elevated volatility and slippage.";
+
+  if (typeof change1h === "number" && Math.abs(change1h) >= 0.2) {
+    lines.push(`One-hour change registers ${change1h.toFixed(1)}%, flagging intraday momentum.`);
   }
-  return "Digital assets trade 24/7 with high volatility and regulatory risk; never size beyond predefined loss limits.";
+
+  if (typeof volume === "number" && volume > 0) {
+    lines.push(
+      `24h volume cleared ${formatUsd(volume)} (${((volumeRatio ?? 0) * 100).toFixed(1)}% of market cap), confirming liquidity.`,
+    );
+  }
+
+  if (typeof dominance === "number" && dominance > 0) {
+    lines.push(
+      `${(dominance * 100).toFixed(1)}% of tracked market cap sits in ${symbol}, aiding signal quality.`,
+    );
+  }
+
+  lines.push("Models blend CoinGecko spot feeds with dominance and volume ratios; forecasts stay probabilistic.");
+  return lines.slice(0, 5);
 }
 
-function resolveAssetMeta(symbol: string, assetType: AssetType): { assetClass: AssetClass; chain?: Chain } {
-  if (assetType === "stock") {
-    return { assetClass: "equity" };
-  }
-  const upper = symbol.toUpperCase();
-  const chainMap: Record<string, Chain> = {
-    ETH: "ethereum",
-    ARB: "ethereum",
-    OP: "ethereum",
-    JUP: "solana",
-    SOL: "solana",
-    BTC: "bitcoin",
-    TIA: "celestia",
-  };
-  const classMap: Record<string, AssetClass> = {
-    BTC: "l1",
-    ETH: "l1",
-    SOL: "l1",
-    TIA: "l1",
-    ARB: "l2",
-    OP: "l2",
-    JUP: "defi",
-  };
-  return {
-    assetClass: classMap[upper] ?? "crypto",
-    chain: chainMap[upper],
-  };
+function determineDirection(momentum?: number, trend?: number): DirectionBias {
+  const composite = (momentum ?? 0) + (trend ?? 0);
+  if (composite >= 0.01) return "bullish";
+  if (composite <= -0.01) return "bearish";
+  return "neutral";
 }
 
-function numberOrUndefined(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+function percentFromAverage(values: number[], window: number, price: number): number | undefined {
+  const avg = average(values.slice(-window));
+  if (!avg) return undefined;
+  return (price - avg) / avg;
 }
 
-function clamp(value: number, min: number, max: number): number {
+function safePercent(current: number, reference: number): number {
+  if (!reference || reference === 0) return 0;
+  return (current - reference) / reference;
+}
+
+function formatDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function daysAgo(date: Date, days: number): Date {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() - days);
+  return copy;
+}
+
+function average(values: number[]): number | undefined {
+  const filtered = values.filter((value) => Number.isFinite(value));
+  if (!filtered.length) return undefined;
+  const sum = filtered.reduce((acc, value) => acc + value, 0);
+  return sum / filtered.length;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
@@ -319,20 +468,69 @@ function formatPercent(value: number): string {
 }
 
 function formatUsd(value: number): string {
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
-  if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
   return `$${value.toFixed(0)}`;
-}
-
-function formatWhaleCount(count?: number): string {
-  if (!count || count <= 0) return "limited";
-  if (count === 1) return "1 whale-sized";
-  return `${count} whale-sized`;
 }
 
 function describeError(error: unknown): string {
   if (error instanceof Error) return error.message;
   return typeof error === "string" ? error : "unknown_error";
+}
+
+const DEFAULT_EQUITIES = ["SPY", "QQQ", "NVDA", "AAPL", "MSFT", "TSLA"];
+const DEFAULT_CRYPTO_IDS = ["bitcoin", "ethereum", "solana", "chainlink", "arbitrum", "optimism"];
+
+const CRYPTO_DIRECTORY: Record<string, CryptoDirectoryEntry> = {
+  bitcoin: { id: "bitcoin", symbol: "BTC", chain: "offchain" },
+  ethereum: { id: "ethereum", symbol: "ETH", chain: "eth" },
+  solana: { id: "solana", symbol: "SOL", chain: "solana" },
+  chainlink: { id: "chainlink", symbol: "LINK", chain: "eth" },
+  arbitrum: { id: "arbitrum", symbol: "ARB", chain: "eth" },
+  optimism: { id: "optimism", symbol: "OP", chain: "eth" },
+  avalanche: { id: "avalanche-2", symbol: "AVAX", chain: "offchain" },
+  binancecoin: { id: "binancecoin", symbol: "BNB", chain: "offchain" },
+  "matic-network": { id: "matic-network", symbol: "MATIC", chain: "eth" },
+};
+
+function parseEquityWatchlist(raw?: string): string[] {
+  const list = (raw || "")
+    .split(/[, ]/)
+    .map((item) => item.trim().toUpperCase())
+    .filter(Boolean);
+  const finalList = list.length ? list : DEFAULT_EQUITIES;
+  return Array.from(new Set(finalList));
+}
+
+function parseCryptoWatchlist(raw?: string): CryptoDirectoryEntry[] {
+  const requested = (raw || "")
+    .split(/[, ]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const ids = requested.length ? requested : DEFAULT_CRYPTO_IDS;
+  const entries = ids
+    .map((key) => findCryptoMeta(key) ?? createCustomCryptoEntry(key))
+    .filter((entry): entry is CryptoDirectoryEntry => Boolean(entry));
+  if (entries.length) {
+    return Array.from(new Map(entries.map((entry) => [entry.id, entry])).values());
+  }
+  return DEFAULT_CRYPTO_IDS.map((key) => CRYPTO_DIRECTORY[key]).filter(Boolean);
+}
+
+function findCryptoMeta(raw: string): CryptoDirectoryEntry | undefined {
+  const normalized = raw.toLowerCase();
+  if (CRYPTO_DIRECTORY[normalized]) return CRYPTO_DIRECTORY[normalized];
+  return Object.values(CRYPTO_DIRECTORY).find(
+    (entry) => entry.symbol.toLowerCase() === normalized || entry.id === normalized,
+  );
+}
+
+function createCustomCryptoEntry(raw: string): CryptoDirectoryEntry {
+  const normalized = raw.trim().toLowerCase();
+  return {
+    id: normalized,
+    symbol: raw.trim().toUpperCase(),
+    chain: "offchain",
+  };
 }

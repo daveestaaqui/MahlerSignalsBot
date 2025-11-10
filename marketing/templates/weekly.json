@@ -1,14 +1,13 @@
 {
-  "title": "Aurora-Signals • Weekly recap (Week {{week}})",
+  "title": "Aurora-Signals Weekly Recap — Week {{week}}",
+  "body": "Desk-ready recap: {{top_rationales}}. Crypto view: {{crypto_summary}}. Equity view: {{equity_summary}}. Upcoming catalysts: {{events}}. {{about}}",
+  "cta": "Read the long-form blog recap: https://aurora-signals.onrender.com/blog",
+  "disclaimer": "{{disclaimer}}",
   "sections": [
     { "header": "Top rationales", "content": "{{top_rationales}}" },
-    { "header": "Crypto Notes", "content": "{{crypto_summary}}" },
-    { "header": "Equity Notes", "content": "{{equity_summary}}" },
+    { "header": "Crypto view", "content": "{{crypto_summary}}" },
+    { "header": "Equity view", "content": "{{equity_summary}}" },
     { "header": "Catalysts", "content": "{{events}}" },
-    { "header": "Performance", "content": "{{performance_summary}}" },
-    { "header": "About", "content": "{{about}}" }
-  ],
-  "url": "https://aurora-signals.onrender.com/blog",
-  "hashtags": ["#MarketRecap", "#Crypto", "#Stocks", "#AuroraSignals"],
-  "disclaimer": "{{disclaimer}}"
+    { "header": "Performance", "content": "{{performance_summary}}" }
+  ]
 }
