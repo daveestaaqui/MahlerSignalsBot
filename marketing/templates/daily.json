@@ -1,7 +1,8 @@
 {
-  "title": "🚨 Signal of the Day: {{symbol}}",
-  "body": "Today's analysis highlights {{symbol}}. Signal: {{signal_description}}. Key metrics: price={{price}}, change={{change_percent}}%, volume={{volume}}.",
+  "title": "Aurora-Signals • Live focus: {{primary_symbol}}",
+  "body": "Model bias: {{primary_expected_move}}. Core rationale: {{primary_rationale}}. Other qualified setups: {{top_rationales}}.\n\n{{about}}",
+  "summary": "{{top_rationales}}",
   "url": "https://aurora-signals.onrender.com",
-  "hashtags": ["#CryptoSignals", "#Stocks", "#AuroraSignals"],
-  "disclaimer": "This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice."
+  "hashtags": ["#Stocks", "#Ethereum", "#Solana", "#AuroraSignals"],
+  "disclaimer": "{{disclaimer}}"
 }

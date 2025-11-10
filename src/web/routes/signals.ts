@@ -1,17 +1,13 @@
-import { Router } from "express";
-import { buildTodaySignals } from "../../domain/signals";
-import { RequestWithId, logInfo } from "../../lib/logger";
+import { Router, type Request, type Response } from "express";
+import { buildTodaySignals, type SignalView } from "../../domain/signals";
+import { logInfo } from "../../lib/logger";
 
 const router = Router();
 
-router.get("/today", (req: RequestWithId, res) => {
-  const payload = buildTodaySignals();
-  logInfo("signals.today", {
-    route: "/signals/today",
-    count: payload.signals.length,
-    requestId: req.requestId,
-  });
-  res.json(payload);
+router.get("/today", (_req: Request, res: Response) => {
+  const signals: SignalView[] = buildTodaySignals();
+  logInfo("GET /signals/today", { count: signals.length });
+  res.json(signals);
 });
 
 export default router;

@@ -1,6 +1,19 @@
 // Legal disclaimers and CTA footer constants
+import brandCopy from "../../branding/copy.json" assert { type: "json" };
 
-export const LEGAL_FOOTER = `Not financial advice. Markets are risky—do your own research.
-We may hold positions in assets mentioned. Past performance is not indicative of future results.`;
+type BrandCopy = {
+  disclaimerShort: string;
+  aboutAurora: string;
+};
 
-export const CTA_FOOTER = `Upgrade to PRO/ELITE for deeper signals + early alerts. Visit aurora-signals.onrender.com or reply '/pricing' to learn more.`;
+const copy = brandCopy as BrandCopy;
+
+export const SHORT_DISCLAIMER: string = copy.disclaimerShort;
+export const ABOUT_AURORA: string = copy.aboutAurora;
+
+export const LEGAL_FOOTER = `${SHORT_DISCLAIMER}
+
+${ABOUT_AURORA}`;
+
+export const CTA_FOOTER =
+  "Upgrade to PRO/ELITE for deeper signals plus earlier alerts at https://aurora-signals.onrender.com.";

@@ -1,12 +1,14 @@
 {
-  "title": "📊 Weekly Market Recap (Week {{week}})",
+  "title": "Aurora-Signals • Weekly recap (Week {{week}})",
   "sections": [
-    { "header": "Top Crypto Movers", "content": "{{top_crypto}}" },
-    { "header": "Top Stock Movers", "content": "{{top_stocks}}" },
-    { "header": "Notable Events", "content": "{{events}}" },
-    { "header": "Performance Summary", "content": "{{performance_summary}}" }
+    { "header": "Top rationales", "content": "{{top_rationales}}" },
+    { "header": "Crypto Notes", "content": "{{crypto_summary}}" },
+    { "header": "Equity Notes", "content": "{{equity_summary}}" },
+    { "header": "Catalysts", "content": "{{events}}" },
+    { "header": "Performance", "content": "{{performance_summary}}" },
+    { "header": "About", "content": "{{about}}" }
   ],
   "url": "https://aurora-signals.onrender.com/blog",
   "hashtags": ["#MarketRecap", "#Crypto", "#Stocks", "#AuroraSignals"],
-  "disclaimer": "This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice."
+  "disclaimer": "{{disclaimer}}"
 }

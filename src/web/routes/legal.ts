@@ -2,13 +2,15 @@ import { Router } from "express";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { RequestWithId, logError, logInfo } from "../../lib/logger";
+import { ABOUT_AURORA, SHORT_DISCLAIMER } from "../../lib/legal";
 
 const router = Router();
 
 router.get("/", (req: RequestWithId, res) => {
   try {
     const mdPath = join(process.cwd(), "docs", "legal.md");
-    const content = readFileSync(mdPath, "utf-8");
+    const raw = readFileSync(mdPath, "utf-8");
+    const content = decorateLegal(raw);
     logInfo("legal.read", { route: "/legal", requestId: req.requestId });
     res.type("text/markdown").send(content);
   } catch (error) {
@@ -22,3 +24,14 @@ router.get("/", (req: RequestWithId, res) => {
 });
 
 export default router;
+
+function decorateLegal(markdown: string): string {
+  const trimmed = markdown.trimEnd();
+  return `${trimmed}
+
+---
+${ABOUT_AURORA}
+
+${SHORT_DISCLAIMER}
+`;
+}

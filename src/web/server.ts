@@ -5,14 +5,16 @@ import metricsRouter from "./routes/metrics";
 import blogRouter from "./routes/blog";
 import legalRouter from "./routes/legal";
 import signalsRouter from "./routes/signals";
-import stripeRouter from "./routes/stripe";
+import stripeRouter, { stripeWebhookRouter } from "./routes/stripe";
 import configRouter from "./routes/config";
 import { requireBearer } from "../lib/auth";
 import { attachRequestId } from "../lib/logger";
 
 const app = express();
-app.use(express.json());
 app.use(attachRequestId);
+app.use("/stripe/webhook", stripeWebhookRouter);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 app.get("/", (_req, res) => {

@@ -49,3 +49,16 @@ export function attachRequestId(
   }
   next();
 }
+
+export function requestLogger(
+  req: RequestWithId,
+  _res: Response,
+  next: NextFunction
+): void {
+  logInfo("request", {
+    method: req.method,
+    url: req.originalUrl,
+    requestId: req.requestId,
+  });
+  next();
+}

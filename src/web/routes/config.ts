@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { logInfo, RequestWithId } from "../../lib/logger";
+import { SHORT_DISCLAIMER, ABOUT_AURORA } from "../../lib/legal";
 
 const router = Router();
 
@@ -13,6 +14,10 @@ router.get("/", (req: RequestWithId, res) => {
       blog: "/blog",
       signalsToday: "/signals/today",
       marketingSite: "/",
+    },
+    copy: {
+      disclaimerShort: SHORT_DISCLAIMER,
+      aboutAurora: ABOUT_AURORA,
     },
   };
   logInfo("config.read", { route: "/config", requestId: req.requestId });

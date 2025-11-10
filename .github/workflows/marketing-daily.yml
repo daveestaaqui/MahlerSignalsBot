@@ -1,0 +1,89 @@
+name: marketing-daily
+
+on:
+  schedule:
+    - cron: "20 14 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  broadcast:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ secrets.BASE_URL || 'https://aurora-signals.onrender.com' }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch latest signals
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE_URL}" ]; then
+            echo "BASE_URL not configured" >&2
+            exit 1
+          fi
+          curl -fsS "${BASE_URL}/signals/today" > signals.json
+
+      - name: Compose daily marketing copy
+        id: compose
+        run: |
+          set -euo pipefail
+          node marketing/send.mjs daily signals=signals.json > marketing.json
+          title=$(jq -r '.title' marketing.json)
+          body=$(jq -r '.body' marketing.json)
+          disclaimer=$(jq -r '.disclaimer' marketing.json)
+          printf "%s\n\n%s\n\n%s\n" "$title" "$body" "$disclaimer" > marketing_message.txt
+          echo "message_path=$PWD/marketing_message.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Test connectivity (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          msg="Aurora-Signals marketing pipeline is live ✅"
+          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
+            curl -fsS --retry 3 \
+              -d "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${msg}" \
+              -d "disable_web_page_preview=true" \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" >/dev/null
+          else
+            echo "Telegram channel not configured"
+          fi
+          if [ -n "${DISCORD_WEBHOOK_URL}" ]; then
+            jq -n --arg content "$msg" '{content:$content}' \
+              | curl -fsS -H "Content-Type: application/json" -d @- "${DISCORD_WEBHOOK_URL}" >/dev/null
+          else
+            echo "Discord channel not configured"
+          fi
+
+      - name: Send Telegram
+        if: env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
+        run: |
+          set -euo pipefail
+          msg="$(cat "${{ steps.compose.outputs.message_path }}")"
+          curl -fsS --retry 3 \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${msg}" \
+            -d "disable_web_page_preview=true" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" >/dev/null
+
+      - name: Telegram channel not configured
+        if: env.TELEGRAM_BOT_TOKEN == '' || env.TELEGRAM_CHAT_ID == ''
+        run: echo "Telegram channel not configured"
+
+      - name: Send Discord
+        if: env.DISCORD_WEBHOOK_URL != ''
+        run: |
+          set -euo pipefail
+          msg="$(cat "${{ steps.compose.outputs.message_path }}")"
+          jq -n --arg content "$msg" '{content:$content}' \
+            | curl -fsS -H "Content-Type: application/json" -d @- "${DISCORD_WEBHOOK_URL}" >/dev/null
+
+      - name: Discord channel not configured
+        if: env.DISCORD_WEBHOOK_URL == ''
+        run: echo "Discord channel not configured"

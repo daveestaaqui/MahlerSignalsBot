@@ -2,6 +2,7 @@ import { Router } from "express";
 import fs from "fs";
 import path from "path";
 import { RequestWithId, logError, logInfo, logWarn } from "../../lib/logger";
+import { ABOUT_AURORA, SHORT_DISCLAIMER } from "../../lib/legal";
 
 const router = Router();
 const blogDir = path.join(process.cwd(), "docs/blog");
@@ -33,7 +34,8 @@ router.get("/:slug", (req: RequestWithId, res) => {
       logWarnNotFound(req, req.params.slug);
       return res.status(404).send("Post not found");
     }
-    const content = fs.readFileSync(filePath, "utf8");
+    const raw = fs.readFileSync(filePath, "utf8");
+    const content = decoratePost(raw);
     logInfo("blog.read", {
       route: `/blog/${req.params.slug}`,
       requestId: req.requestId,
@@ -54,6 +56,17 @@ function logWarnNotFound(req: RequestWithId, slug: string): void {
     route: `/blog/${slug}`,
     requestId: req.requestId,
   });
+}
+
+function decoratePost(markdown: string): string {
+  const trimmed = markdown.trimEnd();
+  return `${trimmed}
+
+---
+${ABOUT_AURORA}
+
+${SHORT_DISCLAIMER}
+`;
 }
 
 export default router;

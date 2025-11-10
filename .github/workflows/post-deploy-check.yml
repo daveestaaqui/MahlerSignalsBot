@@ -1,12 +1,10 @@
-name: AURORA Health Monitor
+name: post-deploy-check
 
 on:
-  schedule:
-    - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
-  self-heal:
+  verify:
     runs-on: ubuntu-latest
     env:
       BASE_URL: ${{ secrets.BASE_URL || 'https://aurora-signals.onrender.com' }}
@@ -14,7 +12,7 @@ jobs:
       RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
       ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
     steps:
-      - name: Check health and self-heal
+      - name: Validate deployment and auto-heal
         run: |
           set -euo pipefail
 
@@ -52,27 +50,24 @@ jobs:
               | curl -fsS -H "Content-Type: application/json" -d @- "${ALERT_WEBHOOK_URL}" >/dev/null
           }
 
-          if check "initial"; then
-            echo "Service healthy."
+          if check "post-deploy"; then
+            echo "Deployment healthy."
             exit 0
           fi
 
-          echo "Health check failed. Requesting redeploy via Render API…"
+          echo "Post-deploy check failed. Attempting redeploy."
           if ! trigger_redeploy; then
-            echo "Unable to trigger redeploy automatically" >&2
-            send_alert "redeploy_failed" "Aurora-Signals redeploy not attempted due to missing credentials at $(date --iso-8601=seconds)" || true
+            send_alert "redeploy_failed" "Post-deploy check failed and redeploy could not be triggered at $(date --iso-8601=seconds)" || true
             exit 1
           fi
 
-          echo "Redeploy triggered. Waiting for new instance…"
           sleep 60
-
           if check "post-redeploy"; then
             echo "✅ Self-healed after redeploy."
-            send_alert "self-healed" "Aurora-Signals self-healed after Render redeploy at $(date --iso-8601=seconds)" || true
+            send_alert "self-healed" "Post-deploy check passed after redeploy at $(date --iso-8601=seconds)" || true
             exit 0
           fi
 
-          echo "Redeploy did not restore service." >&2
-          send_alert "still-failing" "Aurora-Signals redeploy failed to restore health at $(date --iso-8601=seconds)" || true
+          echo "Redeploy did not restore health." >&2
+          send_alert "still-failing" "Post-deploy redeploy failed at $(date --iso-8601=seconds)" || true
           exit 1

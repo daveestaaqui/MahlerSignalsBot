@@ -3,21 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Aurora-Signals — Daily &amp; Weekly Market Signals</title>
+    <title>Aurora-Signals — Live equities & crypto scenarios</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="site-header">
       <div class="container header-grid">
-        <div class="logo">Aurora-Signals</div>
-        <nav class="nav">
-          <a href="#how-it-works">How it works</a>
-          <a href="#what-you-get">What you get</a>
-          <a href="#highlights">Today’s highlights</a>
+        <a class="logo" href="/">Aurora-Signals</a>
+        <nav class="nav" aria-label="Primary">
+          <a href="#coverage">Coverage</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#signals">Signals</a>
           <a href="/blog">Blog</a>
           <a href="/legal">Legal</a>
-          <a class="btn btn-outline" href="/checkout">Subscribe</a>
         </nav>
+        <a class="btn btn-ghost" href="/signals/today" target="_blank" rel="noopener">Live feed</a>
       </div>
     </header>
 
@@ -25,186 +25,384 @@
       <section class="hero">
         <div class="container hero-grid">
           <div>
-            <h1>Daily &amp; Weekly Market Signals for Stocks and Crypto</h1>
-            <p>
-              Aurora-Signals scans US equities plus major Ethereum and Solana pairs, producing rules-based scenarios
-              with clear rationales, risk notes, and legally safe copy ready for your channels.
+            <p class="eyebrow">US equities · Ethereum · Solana</p>
+            <h1>Automated scenario briefs for conviction-grade trades.</h1>
+            <p class="lead">
+              Aurora-Signals ingests real Polygon + CoinGecko feeds, on-chain whale flow, and options cues to generate risk-aware briefs
+              for stocks and ETH/SOL majors—no fabricated candles, just interpretable signals your desk can act on.
             </p>
             <div class="hero-ctas">
-              <a class="btn btn-primary" href="/signals/today" target="_blank" rel="noopener">View today’s signals</a>
-              <a class="btn btn-secondary" href="/blog">Read the blog</a>
+              <a class="btn btn-primary" href="#signals">View today’s breakdowns</a>
+              <a class="btn btn-secondary" href="/blog">Read market notes</a>
             </div>
-            <p class="hero-note">
-              Scenarios are illustrative only. Outcomes depend on future market conditions and are never guaranteed.
-            </p>
+            <p class="hero-note" data-copy="disclaimer"></p>
           </div>
           <div class="status-card">
-            <h2>System status</h2>
+            <h2>System heartbeat</h2>
             <p id="status-text">Checking…</p>
+            <ul class="status-stats">
+              <li><span>Equities monitored</span><strong>20</strong></li>
+              <li><span>ETH + SOL assets</span><strong>7</strong></li>
+              <li><span>Latency window</span><strong>&lt; 90s</strong></li>
+            </ul>
+            <a class="status-link" href="/signals/today" target="_blank" rel="noopener">View raw JSON feed ↗</a>
           </div>
         </div>
       </section>
 
-      <section id="how-it-works" class="section">
+      <section id="coverage" class="section">
         <div class="container">
-          <h2>How it works</h2>
+          <div class="section-heading">
+            <h2>What Aurora-Signals covers</h2>
+            <p>Focused on liquid names where real data exists. If we cannot source data, we skip the ticker—no smoke and mirrors.</p>
+          </div>
+          <div class="coverage-grid">
+            <article class="coverage-card">
+              <h3>Institutional equities</h3>
+              <p>
+                Large-cap tech, macro ETFs, and high-beta leaders with Polygon daily history, RVOL, gap structure, and optional flow cues.
+              </p>
+              <ul>
+                <li>Trend + momentum scoring</li>
+                <li>Options/flow hooks when available</li>
+                <li>Strict cooldown + embargo checks</li>
+              </ul>
+            </article>
+            <article class="coverage-card">
+              <h3>Ethereum majors & L2s</h3>
+              <p>ETH, BTC, ARB, OP, and SOLANA majors with CoinGecko candles plus whale-alert prints and liquidity context.</p>
+              <ul>
+                <li>Whale score + flow dollars</li>
+                <li>Volatility-aware timeframes</li>
+                <li>Stop-loss guardrails in plain English</li>
+              </ul>
+            </article>
+            <article class="coverage-card">
+              <h3>Automated legal guardrails</h3>
+              <p>Every signal ships with risk notes, expected-move ranges, and the shared Aurora disclaimer so comms stay compliant.</p>
+              <ul>
+                <li>Unified disclaimer + about copy</li>
+                <li>Conservative move language</li>
+                <li>Tracking for redeploy + uptime</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="how" class="section section-alt">
+        <div class="container">
+          <div class="section-heading">
+            <h2>How the signal engine works</h2>
+            <p>Each stage is observable, rate-limited, and grounded in real upstream providers.</p>
+          </div>
           <div class="grid-3">
             <article class="feature">
-              <h3>Scan</h3>
-              <p>Screen liquid US equities and major ETH/SOL assets using price, volume, funding, and macro inputs.</p>
+              <h3>1 · Ingest</h3>
+              <p>Polygon equities, CoinGecko spot prices, whale-alert events, and internal ledger data stream into normalized snapshots.</p>
             </article>
             <article class="feature">
-              <h3>Score</h3>
-              <p>Rules-based filters label timeframe, estimated move range, and an illustrative stop-loss / invalidation zone.</p>
+              <h3>2 · Score</h3>
+              <p>Trend, momentum, RVOL, flow, and sentiment go through tiered gating—if an input is missing the ticker is skipped.</p>
             </article>
             <article class="feature">
-              <h3>Ship</h3>
-              <p>Publish JSON from <code>/signals/today</code> or repurpose it for Discord, Telegram, X, or newsletters.</p>
+              <h3>3 · Explain</h3>
+              <p>Signals are rendered with timeframe, expected move, stop suggestion, and 2–5 rationales mixing technical + fundamental context.</p>
             </article>
           </div>
         </div>
       </section>
 
-      <section id="what-you-get" class="section section-alt">
+      <section id="pricing" class="section">
         <div class="container">
-          <h2>What you get each day</h2>
-          <ul class="what-list">
-            <li>3–8 curated signals for both equities and crypto majors.</li>
-            <li>Plain-English technical and fundamental rationales.</li>
-            <li>Scenario-based expected move ranges, stop hints, and risk notes.</li>
-          </ul>
+          <div class="section-heading">
+            <h2>Simple, transparent pricing</h2>
+            <p>Upgrade buttons call the same Stripe checkout route used in production—no demo keys, no hardcoded secrets.</p>
+          </div>
+          <div class="pricing-grid">
+            <article class="pricing-card">
+              <h3>Free</h3>
+              <p class="price">$0<span>/month</span></p>
+              <ul>
+                <li>3 delayed signals / day</li>
+                <li>Equities coverage only</li>
+                <li>Email status summaries</li>
+              </ul>
+              <div class="pricing-actions">
+                <span class="note">No card required</span>
+                <a class="btn btn-outline" href="#signals">Start free</a>
+              </div>
+            </article>
+
+            <article class="pricing-card pricing-card--highlight">
+              <p class="badge">Most popular</p>
+              <h3>Pro</h3>
+              <p class="price">$14<span>/month</span></p>
+              <ul>
+                <li>All live equity signals</li>
+                <li>Daily + weekly brief templates</li>
+                <li>Discord + Telegram delivery</li>
+              </ul>
+              <form class="pricing-actions" method="POST" action="/stripe/checkout">
+                <input type="hidden" name="plan" value="pro" />
+                <button class="btn btn-primary" type="submit">Upgrade to Pro</button>
+                <span class="note">Secure Stripe checkout</span>
+              </form>
+            </article>
+
+            <article class="pricing-card">
+              <h3>Elite</h3>
+              <p class="price">$39<span>/month</span></p>
+              <ul>
+                <li>Includes ETH/SOL on-chain set</li>
+                <li>Intraday refresh &amp; whale alerts</li>
+                <li>Priority roadmap access</li>
+              </ul>
+              <form class="pricing-actions" method="POST" action="/stripe/checkout">
+                <input type="hidden" name="plan" value="elite" />
+                <button class="btn btn-secondary" type="submit">Go Elite</button>
+                <span class="note">Cancel anytime</span>
+              </form>
+            </article>
+          </div>
         </div>
       </section>
 
-      <section id="highlights" class="section">
+      <section id="signals" class="section section-alt">
         <div class="container">
-          <h2>Today’s highlights</h2>
-          <p class="section-note">
-            These scenarios are automated opinions based on current conditions. They are not recommendations or personalized advice.
-          </p>
+          <div class="signals-heading">
+            <div>
+              <h2>Today’s highlighted signals</h2>
+              <p class="section-note">Pulled live from /signals/today. If upstream data is degraded, we simply skip the asset.</p>
+            </div>
+            <div class="signals-actions">
+              <button id="refresh-signals" type="button" class="btn btn-ghost">Refresh</button>
+              <a class="btn btn-outline" href="/signals/today" target="_blank" rel="noopener">Open JSON</a>
+            </div>
+          </div>
           <div id="signals-list" class="signals-list">
             <p>Loading signals…</p>
           </div>
-          <p class="disclaimer">
-            This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.
-          </p>
+          <p class="disclaimer" data-copy="disclaimer"></p>
+        </div>
+      </section>
+
+      <section class="section about" id="about">
+        <div class="container">
+          <h2>About Aurora-Signals</h2>
+          <p data-copy="about"></p>
+          <div class="about-links">
+            <a href="/legal">Legal + compliance</a>
+            <a href="/blog">Market insights</a>
+            <a href="/signals/today" target="_blank" rel="noopener">Live API</a>
+          </div>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
       <div class="container footer-grid">
-        <p class="footer-brand">Aurora-Signals</p>
-        <p>
-          <a href="/legal">Legal</a> · <a href="/blog">Blog</a>
-        </p>
-        <p class="footer-disclaimer">
-          This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.
-        </p>
+        <div>
+          <p class="footer-brand">Aurora-Signals</p>
+          <p class="muted">Stocks + Ethereum + Solana signal automation.</p>
+        </div>
+        <div class="footer-links">
+          <a href="/legal">Legal</a>
+          <a href="/blog">Blog</a>
+          <a href="#pricing">Pricing</a>
+        </div>
+        <div class="footer-copy">
+          <p data-copy="about"></p>
+          <p class="footer-disclaimer" data-copy="disclaimer"></p>
+        </div>
       </div>
     </footer>
 
     <script>
-      const DISCLAIMER =
-        "This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.";
+      (function () {
+        const state = {
+          copy: {
+            disclaimerShort: "All signals are for informational purposes only and are not investment, trading, or financial advice.",
+            aboutAurora:
+              "Aurora-Signals delivers automated market intelligence for US equities plus Ethereum and Solana ecosystems, pairing real data with conservative risk language.",
+          },
+        };
 
-      document.addEventListener("DOMContentLoaded", () => {
-        loadStatus();
-        loadSignals();
-      });
+        document.addEventListener("DOMContentLoaded", () => {
+          loadCopy();
+          loadStatus();
+          loadSignals();
+          bindRefresh();
+        });
 
-      async function loadStatus() {
-        const statusEl = document.getElementById("status-text");
-        if (!statusEl) return;
-        try {
-          const response = await fetch("/status");
-          if (!response.ok) throw new Error("status_failed");
-          const payload = await response.json();
-          const ts = payload?.ts ? new Date(payload.ts).toLocaleString() : new Date().toLocaleString();
-          statusEl.textContent = `Online · ${ts}`;
-        } catch (error) {
-          console.error("status_load_failed", error);
-          statusEl.textContent = "Status unavailable";
-        }
-      }
-
-      async function loadSignals() {
-        const list = document.getElementById("signals-list");
-        if (!list) return;
-        list.innerHTML = "<p>Loading signals…</p>";
-        try {
-          const response = await fetch("/signals/today");
-          if (!response.ok) throw new Error("signals_failed");
-          const payload = await response.json();
-          const signals = Array.isArray(payload?.signals) ? payload.signals : [];
-          if (!signals.length) {
-            list.innerHTML = "<p>No signals available right now.</p>";
-            return;
+        async function loadCopy() {
+          try {
+            const response = await fetch("/config");
+            if (!response.ok) throw new Error("config_failed");
+            const payload = await response.json();
+            if (payload?.copy) {
+              state.copy = {
+                disclaimerShort: payload.copy.disclaimerShort || state.copy.disclaimerShort,
+                aboutAurora: payload.copy.aboutAurora || state.copy.aboutAurora,
+              };
+            }
+          } catch (error) {
+            console.warn("copy_load_failed", error);
+          } finally {
+            applyCopyText();
           }
-          const fragment = document.createDocumentFragment();
-          signals.forEach((signal) => fragment.appendChild(buildSignalCard(signal)));
-          list.innerHTML = "";
-          list.appendChild(fragment);
-        } catch (error) {
-          console.error("signals_load_failed", error);
-          list.innerHTML = "<p>Signals unavailable. Please check back soon.</p>";
-        }
-      }
-
-      function buildSignalCard(signal) {
-        const card = document.createElement("article");
-        card.className = "signal-card";
-
-        const title = document.createElement("h3");
-        title.textContent = symbolLabel(signal);
-        card.appendChild(title);
-
-        const timeframe = document.createElement("p");
-        timeframe.className = "muted";
-        timeframe.textContent = `Timeframe: ${signal?.timeframe || "Not specified"}`;
-        card.appendChild(timeframe);
-
-        const expected = document.createElement("p");
-        expected.className = "scenario";
-        expected.textContent = signal?.expectedMove || "Illustrative scenario: move range unavailable.";
-        card.appendChild(expected);
-
-        if (signal?.stopLossHint) {
-          const stop = document.createElement("p");
-          stop.className = "stop-hint";
-          stop.textContent = signal.stopLossHint;
-          card.appendChild(stop);
         }
 
-        const rationaleList = document.createElement("ul");
-        rationaleList.className = "rationale";
-        const tech = document.createElement("li");
-        tech.textContent = `Technical: ${signal?.rationale?.technical || "Not provided"}`;
-        rationaleList.appendChild(tech);
-        const fundamentalText =
-          signal?.rationale?.fundamental || "No strong fundamental view; scenario is primarily technical.";
-        const fund = document.createElement("li");
-        fund.textContent = `Fundamental: ${fundamentalText}`;
-        rationaleList.appendChild(fund);
-        card.appendChild(rationaleList);
+        function applyCopyText() {
+          document.querySelectorAll("[data-copy='disclaimer']").forEach((el) => {
+            el.textContent = state.copy.disclaimerShort;
+          });
+          document.querySelectorAll("[data-copy='about']").forEach((el) => {
+            el.textContent = state.copy.aboutAurora;
+          });
+        }
 
-        const risk = document.createElement("p");
-        risk.className = "muted";
-        risk.textContent = signal?.riskNote || "Risk note unavailable; treat as high volatility.";
-        card.appendChild(risk);
+        async function loadStatus() {
+          const statusEl = document.getElementById("status-text");
+          if (!statusEl) return;
+          try {
+            const response = await fetch("/status");
+            if (!response.ok) throw new Error("status_failed");
+            const payload = await response.json();
+            const ts = payload?.ts ? new Date(payload.ts) : new Date();
+            statusEl.textContent = `Online · updated ${ts.toLocaleString()}`;
+          } catch (error) {
+            console.error("status_load_failed", error);
+            statusEl.textContent = "Status unavailable";
+          }
+        }
 
-        const disclaimer = document.createElement("p");
-        disclaimer.className = "card-disclaimer";
-        disclaimer.textContent = signal?.disclaimer || DISCLAIMER;
-        card.appendChild(disclaimer);
+        async function loadSignals() {
+          const list = document.getElementById("signals-list");
+          if (!list) return;
+          list.innerHTML = "<p>Loading signals…</p>";
+          try {
+            const response = await fetch("/signals/today");
+            if (!response.ok) throw new Error("signals_failed");
+            const payload = await response.json();
+            const signals = Array.isArray(payload) ? payload : [];
+            if (!signals.length) {
+              list.innerHTML = "<p>No signals available right now.</p>";
+              return;
+            }
+            const fragment = document.createDocumentFragment();
+            signals.forEach((signal) => fragment.appendChild(buildSignalCard(signal)));
+            list.innerHTML = "";
+            list.appendChild(fragment);
+          } catch (error) {
+            console.error("signals_load_failed", error);
+            list.innerHTML = "<p>Signals unavailable. Please check back soon.</p>";
+          }
+        }
 
-        return card;
-      }
+        function bindRefresh() {
+          const button = document.getElementById("refresh-signals");
+          if (!button) return;
+          button.addEventListener("click", () => {
+            loadSignals();
+          });
+        }
 
-      function symbolLabel(signal) {
-        const asset = signal?.assetClass === "crypto" ? `Crypto${signal.chain ? " · " + signal.chain : ""}` : "Equity";
-        return `${signal?.symbol || "Unknown"} · ${asset}`;
-      }
+        function buildSignalCard(signal) {
+          const card = document.createElement("article");
+          card.className = "signal-card";
+
+          const header = document.createElement("div");
+          header.className = "signal-card__header";
+
+          const title = document.createElement("h3");
+          title.textContent = signal?.symbol || "Unknown";
+          header.appendChild(title);
+
+          const badge = document.createElement("span");
+          badge.className = "signal-card__badge";
+          badge.textContent = formatAssetMeta(signal);
+          header.appendChild(badge);
+          card.appendChild(header);
+
+          if (signal?.entryPrice) {
+            const entry = document.createElement("p");
+            entry.className = "muted";
+            entry.textContent = `Spot: $${Number(signal.entryPrice).toFixed(2)} · Tier: ${signal?.tier?.toUpperCase() || "N/A"}`;
+            card.appendChild(entry);
+          }
+
+          const timeframe = document.createElement("p");
+          timeframe.className = "muted";
+          timeframe.textContent = `Timeframe: ${signal?.timeframe || "Not specified"}`;
+          card.appendChild(timeframe);
+
+          const expected = document.createElement("p");
+          expected.className = "scenario";
+          expected.textContent = signal?.expectedMove || "Expected move not available.";
+          card.appendChild(expected);
+
+          if (signal?.expectedMoveRange) {
+            const range = document.createElement("p");
+            range.className = "muted";
+            range.textContent = `Range: ${signal.expectedMoveRange.min}–${signal.expectedMoveRange.max}${signal.expectedMoveRange.unit}`;
+            card.appendChild(range);
+          }
+
+          if (signal?.stopLoss) {
+            const stop = document.createElement("p");
+            stop.className = "stop-hint";
+            stop.textContent = signal.stopLoss;
+            card.appendChild(stop);
+          }
+
+          if (Array.isArray(signal?.rationale) && signal.rationale.length) {
+            const rationaleList = document.createElement("ul");
+            rationaleList.className = "rationale";
+            signal.rationale.slice(0, 5).forEach((item) => {
+              const li = document.createElement("li");
+              li.textContent = item;
+              rationaleList.appendChild(li);
+            });
+            card.appendChild(rationaleList);
+          }
+
+          if (signal?.riskNote) {
+            const risk = document.createElement("p");
+            risk.className = "muted";
+            risk.textContent = signal.riskNote;
+            card.appendChild(risk);
+          }
+
+          const footer = document.createElement("div");
+          footer.className = "signal-card__footer";
+
+          const score = document.createElement("span");
+          score.textContent = `Score: ${(signal?.score ?? 0).toFixed(2)}`;
+          footer.appendChild(score);
+
+          const disclaimer = document.createElement("small");
+          disclaimer.textContent = signal?.disclaimer || state.copy.disclaimerShort;
+          footer.appendChild(disclaimer);
+
+          card.appendChild(footer);
+          return card;
+        }
+
+        function formatAssetMeta(signal) {
+          const classLabel = signal?.assetClass ? toTitle(signal.assetClass) : "Asset";
+          if (!signal?.chain) return classLabel;
+          return `${classLabel} · ${toTitle(signal.chain)}`;
+        }
+
+        function toTitle(value) {
+          if (!value || typeof value !== "string") return "";
+          return value
+            .split(/[\s_-]+/)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(" ");
+        }
+      })();
     </script>
   </body>
 </html>

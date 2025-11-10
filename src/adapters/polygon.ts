@@ -5,24 +5,10 @@ export type Candle = { t:number; o:number; h:number; l:number; c:number; v:numbe
 const POLYGON_KEY = process.env.POLYGON_KEY;
 const bucket = new TokenBucket(4, 4/60); // ~4 calls per minute
 
-function mockSeries(symbol:string): Candle[] {
-  const now = Date.now();
-  return Array.from({length:60}).map((_,i)=>{
-    const base = 100 + Math.sin(i/6) * 5 + (symbol.charCodeAt(0)%10);
-    return {
-      t: now - (60-i)*86400*1000,
-      o: base * (0.99 + Math.random()*0.02),
-      h: base * (1.01 + Math.random()*0.02),
-      l: base * (0.98 - Math.random()*0.02),
-      c: base * (0.99 + Math.random()*0.02),
-      v: 5_000_000 + Math.random()*1_000_000,
-    };
-  });
-}
-
 export async function getStockDaily(symbol: string): Promise<Candle[]> {
   if(!POLYGON_KEY || process.env.DRY_RUN === 'true') {
-    return mockSeries(symbol.toUpperCase());
+    console.warn('[polygon] missing api key or in dry-run mode, skipping fetch for', symbol);
+    return [];
   }
   const end = new Date();
   const start = new Date(end.getTime() - 90*86400*1000);
@@ -40,7 +26,7 @@ export async function getStockDaily(symbol: string): Promise<Candle[]> {
       return res.json();
     });
     const results = json?.results;
-    if(!Array.isArray(results)) return mockSeries(symbol.toUpperCase());
+    if(!Array.isArray(results)) return [];
     return results.map((r:any)=>({
       t: Number(r.t || 0),
       o: Number(r.o || 0),
@@ -48,10 +34,10 @@ export async function getStockDaily(symbol: string): Promise<Candle[]> {
       l: Number(r.l || 0),
       c: Number(r.c || 0),
       v: Number(r.v || 0),
-    })).filter(c=>c.t && c.c);
+    })).filter(c=>Number.isFinite(c.t) && Number.isFinite(c.c));
   } catch (err) {
-    console.warn('[polygon] falling back to synthetic series', symbol, err instanceof Error ? err.message : err);
-    return mockSeries(symbol.toUpperCase());
+    console.warn('[polygon] fetch failed', symbol, err instanceof Error ? err.message : err);
+    return [];
   }
 }
 
