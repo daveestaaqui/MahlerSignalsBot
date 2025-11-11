@@ -1,85 +1,53 @@
-const FALLBACK_DISCLAIMER =
+const SHORT_DISCLAIMER =
   "This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.";
-const FALLBACK_ABOUT =
-  "Aurora-Signals pairs real market + on-chain data with automated risk notes so desks can review high-signal setups quickly.";
 
 document.addEventListener("DOMContentLoaded", () => {
-  setCurrentYear();
-  hydrateCopy();
-  hydrateStatus();
+  hydrateSystemStatus();
   hydrateSignals();
-  wireRefreshButton();
+  hydrateBlog();
+  wireNavLinks();
   wirePricingButtons();
-  wireScrollLinks();
+  wireModal();
 });
 
-function setCurrentYear() {
-  const yearEl = document.getElementById("year");
-  if (yearEl) {
-    yearEl.textContent = String(new Date().getFullYear());
-  }
-}
-
-async function hydrateCopy() {
-  try {
-    const res = await fetch("/config");
-    if (!res.ok) throw new Error(`status_${res.status}`);
-    const payload = await res.json();
-    applyCopy(payload?.copy);
-  } catch (error) {
-    console.warn("copy.load.failed", error);
-    applyCopy({});
-  }
-}
-
-function applyCopy(copy) {
-  const disclaimer = (copy?.disclaimerShort || "").trim() || FALLBACK_DISCLAIMER;
-  const about = (copy?.aboutAurora || "").trim() || FALLBACK_ABOUT;
-  document.querySelectorAll('[data-copy="disclaimer"]').forEach((node) => {
-    node.textContent = disclaimer;
-  });
-  document.querySelectorAll('[data-copy="about"]').forEach((node) => {
-    node.textContent = about;
-  });
-}
-
-async function hydrateStatus() {
-  const target = document.getElementById("status-text");
-  if (!target) return;
+async function hydrateSystemStatus() {
+  const statusEl = document.getElementById("system-status");
+  if (!statusEl) return;
   try {
     const res = await fetch("/status");
-    if (!res.ok) throw new Error(`status_${res.status}`);
+    if (!res.ok) throw new Error("status_unavailable");
     const payload = await res.json();
     const ts = payload?.ts ? new Date(payload.ts) : new Date();
-    target.textContent = `Healthy • ${ts.toLocaleString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "UTC",
-    })} UTC`;
+    statusEl.innerHTML = `<span class="status-dot"></span> Online • ${ts.toISOString().split("T").join(" ").slice(0, 19)} UTC`;
   } catch (error) {
-    console.warn("status.load.failed", error);
-    target.textContent = "Status endpoint unavailable";
+    statusEl.textContent = "Status unavailable";
   }
 }
 
-function wireRefreshButton() {
-  const button = document.getElementById("refresh-signals");
-  if (!button) return;
-  button.addEventListener("click", () => {
-    hydrateSignals(true);
+function wireNavLinks() {
+  document.querySelectorAll(".primary-nav a, .hero-actions a, .nav-cta a").forEach((link) => {
+    const href = link.getAttribute("href");
+    if (!href || !href.startsWith("#")) return;
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      const target = document.querySelector(href);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
   });
 }
 
-async function hydrateSignals(triggeredByUser = false) {
-  const list = document.getElementById("signals-list");
+async function hydrateSignals() {
+  const container = document.getElementById("signals-list");
   const errorEl = document.getElementById("signals-error");
-  if (!list) return;
-  list.innerHTML = `<p class="empty">Fetching live data…</p>`;
+  if (!container) return;
+  container.innerHTML = `<p class="empty">Loading signals…</p>`;
   if (errorEl) errorEl.textContent = "";
 
   try {
     const res = await fetch("/signals/today");
-    if (!res.ok) throw new Error(`status_${res.status}`);
+    if (!res.ok) throw new Error("signals_fetch_failed");
     const payload = await res.json();
     const signals = Array.isArray(payload)
       ? payload
@@ -87,31 +55,22 @@ async function hydrateSignals(triggeredByUser = false) {
       ? payload.signals
       : [];
     if (!signals.length) {
-      list.innerHTML =
-        '<p class="empty">No scenarios to highlight right now; check back later.</p>';
+      container.innerHTML = '<p class="empty">No scenarios to highlight right now; check back later.</p>';
       return;
     }
-    renderSignals(list, signals);
+    renderSignals(container, signals.slice(0, 6));
   } catch (error) {
-    console.warn("signals.load.failed", error);
-    list.innerHTML =
+    container.innerHTML =
       '<p class="empty">Signals are temporarily unavailable. Please try again later.</p>';
     if (errorEl) {
-      errorEl.textContent = triggeredByUser
-        ? "Unable to refresh signals. Please retry in a few moments."
-        : "Signals are temporarily unavailable. Please try again later.";
+      errorEl.textContent = "Unable to load signals right now.";
     }
   }
 }
 
 function renderSignals(container, signals) {
   container.innerHTML = "";
-  if (!Array.isArray(signals) || !signals.length) {
-    container.innerHTML = '<p class="empty">No scenarios to highlight right now; check back later.</p>';
-    return;
-  }
-
-  signals.slice(0, 5).forEach((signal) => {
+  signals.forEach((signal) => {
     container.appendChild(buildSignalCard(signal));
   });
 }
@@ -123,161 +82,136 @@ function buildSignalCard(signal) {
   const header = document.createElement("div");
   header.className = "signal-card__header";
 
-  const headingGroup = document.createElement("div");
+  const heading = document.createElement("div");
   const title = document.createElement("h3");
-  title.textContent = signal.symbol || "Symbol";
+  title.textContent = signal?.symbol || "Symbol";
   const meta = document.createElement("p");
   meta.className = "signal-card__meta";
-  meta.textContent = [formatAssetLabel(signal.assetClass), formatChain(signal.chain)]
+  meta.textContent = [formatAssetLabel(signal?.assetClass), formatChainLabel(signal?.chain)]
     .filter(Boolean)
     .join(" • ");
-  headingGroup.append(title, meta);
+  heading.append(title, meta);
 
   const badge = document.createElement("span");
   badge.className = "badge";
-  badge.textContent = signal.timeframe || "1–7 days";
+  badge.textContent = signal?.timeframe || "Timeframe pending";
 
-  header.append(headingGroup, badge);
+  header.append(heading, badge);
   card.append(header);
 
   const scenario = document.createElement("p");
   scenario.className = "scenario";
-  scenario.textContent = formatExpectedMove(signal);
+  scenario.textContent = summarizeExpectedMove(signal);
   card.append(scenario);
 
-  if (typeof signal.stopLossHint === "string" && signal.stopLossHint.trim().length) {
-    const stop = document.createElement("p");
-    stop.className = "stop";
-    stop.textContent = signal.stopLossHint;
-    card.append(stop);
-  }
+  const stop = document.createElement("p");
+  stop.className = "stop";
+  stop.textContent = signal?.stopLossHint || "Stop hints depend on individual risk limits.";
+  card.append(stop);
 
-  const rationaleBullets = buildRationaleBullets(signal);
-  if (rationaleBullets.length) {
-    const rationaleList = document.createElement("ul");
-    rationaleList.className = "rationale";
-    rationaleBullets.forEach((reason) => {
-      const li = document.createElement("li");
-      li.textContent = reason;
-      rationaleList.append(li);
-    });
-    card.append(rationaleList);
-  }
+  const rationaleList = document.createElement("ul");
+  rationaleList.className = "rationale";
+  const rationales = collectRationales(signal);
+  rationales.forEach((text) => {
+    const li = document.createElement("li");
+    li.textContent = text;
+    rationaleList.append(li);
+  });
+  card.append(rationaleList);
 
   const risk = document.createElement("p");
   risk.className = "risk-note";
-  risk.textContent = signal.riskNote || "No additional risk note available.";
+  risk.textContent = signal?.riskNote || "Risk note unavailable; review market conditions before acting.";
   card.append(risk);
 
   const footer = document.createElement("div");
   footer.className = "signal-card__footer";
-
   const sources = document.createElement("p");
-  sources.textContent = `Data sources: ${formatDataSources(signal.dataSources)}`;
-  const asOf = document.createElement("p");
-  asOf.textContent = `As of ${formatAsOf(signal.asOf)}`;
-  const link = document.createElement("a");
-  link.className = "signal-link";
-  link.href = "/signals/today";
-  link.target = "_blank";
-  link.rel = "noopener";
-  link.textContent = "See full details";
-
-  footer.append(sources, asOf, link);
+  sources.textContent = `Data sources: ${formatSources(signal?.dataSources)}`;
+  const date = document.createElement("p");
+  date.textContent = `As of ${formatTimestamp(signal?.asOf)}`;
+  footer.append(sources, date);
   card.append(footer);
 
   const disclaimer = document.createElement("p");
   disclaimer.className = "signal-card__disclaimer";
-  disclaimer.textContent = (signal.disclaimer || FALLBACK_DISCLAIMER).trim();
+  disclaimer.textContent = signal?.disclaimer?.trim() || SHORT_DISCLAIMER;
   card.append(disclaimer);
 
   return card;
 }
 
-function formatExpectedMove(signal) {
-  const value = signal?.expectedMove;
-  if (typeof value === "string" && value.trim().length) {
-    return value;
+function collectRationales(signal) {
+  const bucket = [];
+  if (signal?.rationale?.technical) bucket.push(signal.rationale.technical);
+  if (signal?.rationale?.fundamental) bucket.push(signal.rationale.fundamental);
+  if (Array.isArray(signal?.rationales)) {
+    signal.rationales.slice(0, 3).forEach((item) => {
+      if (item) bucket.push(item);
+    });
   }
-  if (value && typeof value === "object") {
-    const range = value.rangePct;
-    const horizon = value.horizon || signal?.timeframe || "the stated horizon";
-    const bias = value.directionBias || "neutral";
-    const scenarioText =
-      typeof value.scenarioText === "string"
-        ? value.scenarioText
-        : typeof value.note === "string"
-        ? value.note
-        : null;
-    if (scenarioText && scenarioText.trim().length) {
-      return scenarioText;
-    }
+  return bucket.length
+    ? bucket.slice(0, 2).map((item) => formatText(item))
+    : ["Signals describe potential moves and carry no guarantees."];
+}
+
+function formatText(value) {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return value.toString();
+  return "";
+}
+
+function summarizeExpectedMove(signal) {
+  const move = signal?.expectedMove;
+  if (typeof move === "string" && move.trim()) {
+    return move.trim();
+  }
+  if (move && typeof move === "object") {
+    const horizon = move.horizon || signal?.timeframe || "the stated horizon";
+    const range = move.rangePct;
+    const bias = move.directionBias || "neutral";
     if (range && Number.isFinite(range.min) && Number.isFinite(range.max)) {
       const biasLabel =
         bias === "bullish" ? "constructive" : bias === "bearish" ? "defensive" : "balanced";
-      const minLabel = formatSignedPercent(range.min);
-      const maxLabel = formatSignedPercent(range.max);
-      return `${signal.symbol || "This asset"} could see a ${biasLabel} potential move of ${minLabel} to ${maxLabel} over ${horizon}, but outcomes depend on market conditions.`;
+      return `${signal?.symbol || "This asset"} could see a ${biasLabel} potential move of ${
+        formatPercent(range.min)
+      } to ${formatPercent(range.max)} over ${horizon}; outcomes depend on market conditions.`;
     }
+    if (move.note) return move.note;
   }
-  return `Model-estimated move data over ${signal?.timeframe || "the stated horizon"} is pending; please check back later.`;
+  return `Model-estimated move for ${signal?.symbol || "this asset"} is pending; scenarios are not guaranteed.`;
 }
 
-function buildRationaleBullets(signal) {
-  const bullets = [];
-  const fallback = Array.isArray(signal?.rationales) ? [...signal.rationales] : [];
-  const technical =
-    signal?.rationale?.technical ||
-    (fallback.length ? fallback.shift() : null) ||
-    (fallback.length ? fallback.shift() : null);
-  const fundamental =
-    signal?.rationale?.fundamental || (fallback.length ? fallback.shift() : null);
-
-  if (technical) bullets.push(technical);
-  if (fundamental) bullets.push(fundamental);
-
-  while (bullets.length < 2 && fallback.length) {
-    const next = fallback.shift();
-    if (next) bullets.push(next);
-  }
-
-  return bullets
-    .filter(Boolean)
-    .map((item) => (typeof item === "string" ? item : String(item)))
-    .slice(0, 2);
-}
-
-function formatChain(chain) {
-  if (!chain) return "";
-  if (chain === "ethereum") return "Ethereum";
-  if (chain === "solana") return "Solana";
-  return capitalize(chain);
+function formatPercent(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "0%";
+  return `${num >= 0 ? "+" : ""}${num.toFixed(1)}%`;
 }
 
 function formatAssetLabel(assetClass) {
-  if (!assetClass) return "Asset";
-  if (assetClass === "crypto") return "Crypto";
-  if (assetClass === "stock") return "Equity";
+  if (!assetClass) return "";
+  if (assetClass.toLowerCase() === "crypto") return "Crypto";
+  if (assetClass.toLowerCase() === "stock" || assetClass.toLowerCase() === "equity") return "Equity";
   return capitalize(assetClass);
 }
 
-function formatDataSources(sources) {
-  if (!Array.isArray(sources) || !sources.length) return "Aurora-Signals";
-  return sources.join(", ");
+function formatChainLabel(chain) {
+  if (!chain) return "";
+  if (chain.toLowerCase() === "ethereum") return "Ethereum";
+  if (chain.toLowerCase() === "solana") return "Solana";
+  return capitalize(chain);
 }
 
-function formatAsOf(value) {
+function formatSources(list) {
+  if (!Array.isArray(list) || !list.length) return "Aurora-Signals";
+  return list.join(", ");
+}
+
+function formatTimestamp(value) {
   if (!value) return "n/a";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "n/a";
   return date.toLocaleString(undefined, { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" });
-}
-
-function formatSignedPercent(value) {
-  if (!Number.isFinite(Number(value))) return "";
-  const normalized = Number(value);
-  const formatted = normalized.toFixed(1);
-  return normalized > 0 ? `+${formatted}%` : `${formatted}%`;
 }
 
 function capitalize(value) {
@@ -286,38 +220,30 @@ function capitalize(value) {
 }
 
 function wirePricingButtons() {
-  const buttons = document.querySelectorAll("[data-plan]");
-  if (!buttons.length) return;
-  buttons.forEach((button) => {
-    button.addEventListener("click", () => handleCheckout(button));
+  document.querySelectorAll("[data-plan]").forEach((button) => {
+    button.addEventListener("click", () => handlePlan(button));
   });
 }
 
-function wireScrollLinks() {
-  document.querySelectorAll("[data-scroll-target]").forEach((element) => {
-    const target = element.getAttribute("data-scroll-target");
-    if (!target) return;
-    element.addEventListener("click", (event) => {
-      event.preventDefault();
-      const node = document.querySelector(target);
-      if (node) {
-        node.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    });
-  });
-}
-
-async function handleCheckout(button) {
+function handlePlan(button) {
   const tier = button.dataset.plan;
   if (!tier) return;
-  const originalLabel = button.textContent;
-  button.disabled = true;
-  button.textContent = "Redirecting…";
-  const feedback = getPlanFeedbackEl(tier);
+  if (tier === "free") {
+    document.querySelector("#today-signals")?.scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+  initiateCheckout(tier, button);
+}
+
+async function initiateCheckout(tier, button) {
+  const feedback = document.querySelector(`[data-plan-error="${tier}"]`);
   if (feedback) {
     feedback.textContent = "";
     feedback.classList.remove("visible");
   }
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Opening Stripe…";
 
   try {
     const res = await fetch("/stripe/checkout", {
@@ -325,32 +251,102 @@ async function handleCheckout(button) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tier }),
     });
-    const payload = await res.json();
-    if (!res.ok || !payload?.ok || typeof payload?.url !== "string") {
-      const err = payload?.error || `stripe_checkout_${res.status}`;
-      throw new Error(err);
+    const data = await res.json();
+    if (!res.ok || !data?.ok || !data?.url) {
+      throw new Error(data?.error || "stripe_checkout_failed");
     }
-    window.location.href = payload.url;
+    window.location.href = data.url;
   } catch (error) {
-    console.error("stripe.checkout.failed", error);
     if (feedback) {
-      feedback.textContent = describeCheckoutError(error);
+      feedback.textContent = "Checkout is temporarily unavailable. Please try again shortly.";
       feedback.classList.add("visible");
     }
   } finally {
     button.disabled = false;
-    button.textContent = originalLabel;
+    button.textContent = original;
   }
 }
 
-function getPlanFeedbackEl(tier) {
-  if (!tier) return null;
-  return document.querySelector(`[data-plan-error="${tier}"]`);
+async function hydrateBlog() {
+  const list = document.getElementById("blog-list");
+  const error = document.getElementById("blog-error");
+  if (!list) return;
+  list.innerHTML = `<p class="empty">Loading blog posts…</p>`;
+  if (error) error.textContent = "";
+
+  try {
+    const res = await fetch("/blog");
+    if (!res.ok) throw new Error("blog_unavailable");
+    const payload = await res.json();
+    const posts = Array.isArray(payload?.posts) ? payload.posts : [];
+    if (!posts.length) {
+      list.innerHTML = "<p class='empty'>No blog posts yet.</p>";
+      return;
+    }
+    list.innerHTML = "";
+    posts.forEach((slug) => {
+      const card = document.createElement("article");
+      card.className = "blog-post";
+      const title = document.createElement("h3");
+      title.textContent = slug.replace(/-/g, " ");
+      const button = document.createElement("button");
+      button.className = "btn btn-outline";
+      button.textContent = "Read more";
+      button.addEventListener("click", () => openBlogPost(slug));
+      card.append(title, button);
+      list.append(card);
+    });
+  } catch (err) {
+    list.innerHTML = "<p class='empty'>Blog is loading slowly; please try again later.</p>";
+    if (error) error.textContent = "Unable to load blog posts.";
+  }
 }
 
-function describeCheckoutError(error) {
-  if (error instanceof Error && error.message) {
-    return `Checkout is unavailable (${error.message}). Please try again shortly.`;
+async function openBlogPost(slug) {
+  const backdrop = document.getElementById("modal-backdrop");
+  const modalContent = document.getElementById("modal-content");
+  if (!backdrop || !modalContent) return;
+  modalContent.innerHTML = "<p>Loading post…</p>";
+  backdrop.hidden = false;
+  try {
+    const res = await fetch(`/blog/${encodeURIComponent(slug)}`);
+    if (!res.ok) throw new Error("blog_post_unavailable");
+    const text = await res.text();
+    modalContent.innerHTML = renderMarkdown(text);
+  } catch (error) {
+    modalContent.innerHTML = "<p>Unable to load post. Please try again later.</p>";
   }
-  return "Checkout is unavailable right now. Please try again shortly.";
+}
+
+function renderMarkdown(markdown) {
+  const escaped = markdown.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return escaped
+    .split(/\r?\n\r?\n/)
+    .map((block) => {
+      if (block.startsWith("## ")) {
+        return `<h3>${block.slice(3)}</h3>`;
+      }
+      if (block.startsWith("# ")) {
+        return `<h2>${block.slice(2)}</h2>`;
+      }
+      if (block.startsWith("### ")) {
+        return `<h4>${block.slice(4)}</h4>`;
+      }
+      return `<p>${block.replace(/\n/g, "<br />")}</p>`;
+    })
+    .join("");
+}
+
+function wireModal() {
+  const backdrop = document.getElementById("modal-backdrop");
+  const close = document.getElementById("modal-close");
+  if (!backdrop || !close) return;
+  close.addEventListener("click", () => {
+    backdrop.hidden = true;
+  });
+  backdrop.addEventListener("click", (event) => {
+    if (event.target === backdrop) {
+      backdrop.hidden = true;
+    }
+  });
 }

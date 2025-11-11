@@ -13,6 +13,8 @@ jobs:
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+      X_ACCOUNT_ID: ${{ secrets.X_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -92,3 +94,13 @@ jobs:
       - name: Discord channel not configured
         if: env.DISCORD_WEBHOOK_URL == ''
         run: echo "Discord channel not configured"
+
+      - name: Post to X
+        if: env.X_BEARER_TOKEN != '' && env.X_ACCOUNT_ID != ''
+        run: |
+          set -euo pipefail
+          node marketing/post-x.mjs
+
+      - name: X not configured
+        if: env.X_BEARER_TOKEN == '' || env.X_ACCOUNT_ID == ''
+        run: echo "X channel not configured"
