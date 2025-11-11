@@ -346,4 +346,4 @@ pnpm start
 | `/admin/post-daily` | POST | Requires `ADMIN_TOKEN`, processes daily signals |
 | `/admin/post-weekly` | POST | Requires `ADMIN_TOKEN`, weekly recap |
 
-This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.
+This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.

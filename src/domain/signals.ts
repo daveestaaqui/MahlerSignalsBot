@@ -2,31 +2,37 @@ import { fetch } from "undici";
 import { SHORT_DISCLAIMER } from "../lib/legal";
 import { logWarn } from "../lib/logger";
 
-export type AssetClass = "equity" | "crypto";
-export type Chain = "eth" | "solana" | "offchain";
+export type AssetClass = "stock" | "crypto";
+export type Chain = "ethereum" | "solana";
 export type DirectionBias = "bullish" | "bearish" | "neutral";
 
-export type SignalView = {
+export interface SignalView {
   id: string;
   symbol: string;
   assetClass: AssetClass;
-  chain: Chain;
-  timeframe: "intraday" | "1–3 days" | "1–7 days" | "swing (1–4 weeks)";
-  expectedMove: {
-    horizon: string;
-    rangePct: { min: number; max: number };
-    directionBias: DirectionBias;
+  chain?: Chain;
+  timeframe: string;
+  expectedMove: string;
+  stopLossHint?: string;
+  rationale: {
+    technical: string;
+    fundamental?: string;
   };
-  suggestedStopLossPct?: number;
-  rationales: string[];
-  dataSources: string[];
+  riskNote: string;
   disclaimer: string;
+  dataSources?: string[];
   asOf: string;
-};
+}
 
 type SignalCandidate = {
   view: SignalView;
   score: number;
+};
+
+type MoveEnvelope = {
+  min: number;
+  max: number;
+  bias: DirectionBias;
 };
 
 type PolygonAgg = {
@@ -42,7 +48,7 @@ type PolygonAggResponse = {
 type CryptoDirectoryEntry = {
   id: string;
   symbol: string;
-  chain: Chain;
+  chain: "eth" | "solana" | "offchain";
 };
 
 type CoinGeckoMarket = {
@@ -54,6 +60,21 @@ type CoinGeckoMarket = {
   price_change_percentage_24h?: number;
   price_change_percentage_7d_in_currency?: number;
   price_change_percentage_1h_in_currency?: number;
+};
+
+const DEFAULT_EQUITIES = ["SPY", "QQQ", "NVDA", "AAPL", "MSFT", "TSLA"];
+const DEFAULT_CRYPTO_IDS = ["bitcoin", "ethereum", "solana", "chainlink", "arbitrum", "optimism"];
+
+const CRYPTO_DIRECTORY: Record<string, CryptoDirectoryEntry> = {
+  bitcoin: { id: "bitcoin", symbol: "BTC", chain: "offchain" },
+  ethereum: { id: "ethereum", symbol: "ETH", chain: "eth" },
+  solana: { id: "solana", symbol: "SOL", chain: "solana" },
+  chainlink: { id: "chainlink", symbol: "LINK", chain: "eth" },
+  arbitrum: { id: "arbitrum", symbol: "ARB", chain: "eth" },
+  optimism: { id: "optimism", symbol: "OP", chain: "eth" },
+  avalanche: { id: "avalanche-2", symbol: "AVAX", chain: "offchain" },
+  binancecoin: { id: "binancecoin", symbol: "BNB", chain: "offchain" },
+  "matic-network": { id: "matic-network", symbol: "MATIC", chain: "eth" },
 };
 
 const EQUITY_API_BASE = process.env.EQUITY_API_BASE_URL || "https://api.polygon.io";
@@ -87,6 +108,45 @@ export async function buildTodaySignals(now: Date = new Date()): Promise<SignalV
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_SIGNALS)
     .map((candidate) => candidate.view);
+}
+
+type BuildSignalViewParams = {
+  id: string;
+  symbol: string;
+  assetClass: AssetClass;
+  chain?: Chain;
+  timeframe: string;
+  move: MoveEnvelope;
+  stopLossPct?: number;
+  technical: string;
+  fundamental?: string;
+  riskNote: string;
+  dataSources?: string[];
+  asOf: Date;
+};
+
+export function buildSignalView(params: BuildSignalViewParams): SignalView {
+  const stopLossHint = typeof params.stopLossPct === "number"
+    ? `Stop losses could sit near ${formatPercent(params.stopLossPct)} from entry based on observed volatility; adjust for your own risk limits.`
+    : undefined;
+
+  return {
+    id: params.id,
+    symbol: params.symbol,
+    assetClass: params.assetClass,
+    chain: params.chain,
+    timeframe: params.timeframe,
+    expectedMove: formatExpectedMoveText(params.symbol, params.timeframe, params.move),
+    stopLossHint,
+    rationale: {
+      technical: params.technical,
+      ...(params.fundamental ? { fundamental: params.fundamental } : {}),
+    },
+    riskNote: params.riskNote,
+    disclaimer: SHORT_DISCLAIMER,
+    dataSources: params.dataSources,
+    asOf: params.asOf.toISOString(),
+  };
 }
 
 async function fetchEquitySignals(now: Date): Promise<SignalCandidate[]> {
@@ -164,8 +224,8 @@ function buildEquityCandidate(
 
   const direction = determineDirection(change1d, pctFrom20);
   const timeframe = rvol && rvol > 1.6 ? "1–3 days" : "1–7 days";
-  const expectedMove = buildExpectedMove("equity", direction, change1d, pctFrom20, rvol, timeframe);
-  const suggestedStopLossPct = computeStopLoss("equity", rvol);
+  const move = buildMoveEnvelope("stock", direction, change1d, pctFrom20, rvol, timeframe);
+  const stopLossPct = computeStopLoss("stock", rvol);
   const rationales = buildEquityRationales({
     symbol,
     price,
@@ -174,25 +234,32 @@ function buildEquityCandidate(
     pctFrom50,
     rvol,
   });
+  const technical = summarizeRationaleLines(rationales);
+  const fundamental = buildEquityFundamentalNote(symbol, avgVolume);
+  const riskNote = buildRiskNote({
+    assetClass: "stock",
+    timeframe,
+    volatilityMetric: rvol,
+  });
 
   const score =
     Math.abs(change1d) * 70 +
     Math.abs(pctFrom20 ?? 0) * 60 +
     (rvol ? Math.max(rvol - 1, 0) * 15 : 0);
 
-  const view: SignalView = {
-    id: `equity-${symbol}-${asOf.getTime()}`,
+  const view = buildSignalView({
+    id: `stock-${symbol}-${asOf.getTime()}`,
     symbol,
-    assetClass: "equity",
-    chain: "offchain",
+    assetClass: "stock",
     timeframe,
-    expectedMove,
-    suggestedStopLossPct,
-    rationales,
+    move,
+    stopLossPct,
+    technical,
+    fundamental,
+    riskNote,
     dataSources: ["Polygon"],
-    disclaimer: SHORT_DISCLAIMER,
-    asOf: asOf.toISOString(),
-  };
+    asOf,
+  });
 
   return { view, score };
 }
@@ -255,7 +322,7 @@ function buildCryptoCandidate(
       : Math.abs(change24) > 3 || volumeRatio > 0.2
       ? "1–3 days"
       : "1–7 days";
-  const expectedMove = buildExpectedMove(
+  const move = buildMoveEnvelope(
     "crypto",
     direction,
     change24 / 100,
@@ -263,7 +330,7 @@ function buildCryptoCandidate(
     volumeRatio,
     timeframe,
   );
-  const suggestedStopLossPct = computeStopLoss("crypto", volumeRatio);
+  const stopLossPct = computeStopLoss("crypto", volumeRatio);
   const rationales = buildCryptoRationales({
     symbol: meta.symbol,
     change24,
@@ -273,6 +340,14 @@ function buildCryptoCandidate(
     dominance,
     volumeRatio,
   });
+  const technical = summarizeRationaleLines(rationales);
+  const fundamental = buildCryptoFundamentalNote(meta.symbol, dominance);
+  const riskNote = buildRiskNote({
+    assetClass: "crypto",
+    timeframe,
+    volatilityMetric: volumeRatio,
+    dominance,
+  });
 
   const score =
     Math.abs(change24) * 3 +
@@ -280,61 +355,61 @@ function buildCryptoCandidate(
     Math.max(volumeRatio, 0) * 80 +
     dominance * 100;
 
-  const view: SignalView = {
+  const chain = meta.chain === "solana" ? "solana" : meta.chain === "eth" ? "ethereum" : undefined;
+
+  const view = buildSignalView({
     id: `crypto-${meta.symbol}-${asOf.getTime()}`,
     symbol: meta.symbol,
     assetClass: "crypto",
-    chain: meta.chain,
+    chain,
     timeframe,
-    expectedMove,
-    suggestedStopLossPct,
-    rationales,
+    move,
+    stopLossPct,
+    technical,
+    fundamental,
+    riskNote,
     dataSources: ["CoinGecko"],
-    disclaimer: SHORT_DISCLAIMER,
-    asOf: asOf.toISOString(),
-  };
+    asOf,
+  });
 
   return { view, score };
 }
 
-function buildExpectedMove(
+function buildMoveEnvelope(
   asset: AssetClass,
   direction: DirectionBias,
   changeComponent: number,
   trendComponent: number | undefined,
   volatilityComponent: number | undefined,
-  horizon: SignalView["timeframe"],
-): SignalView["expectedMove"] {
-  const magnitudeBase = asset === "equity" ? 4 : 8;
+  horizon: string,
+): MoveEnvelope {
+  const magnitudeBase = asset === "stock" ? 4 : 8;
   const changePct = Math.abs(changeComponent || 0) * 100;
   const trendPct = Math.abs(trendComponent || 0) * 100;
   const volBoost =
-    asset === "equity"
+    asset === "stock"
       ? Math.max((volatilityComponent ?? 1) - 1, 0) * 4
       : Math.max(volatilityComponent ?? 0, 0) * 10;
   const envelope = clampNumber(
     magnitudeBase + changePct * 0.25 + trendPct * 0.15 + volBoost,
-    asset === "equity" ? 4 : 6,
-    asset === "equity" ? 18 : 32,
+    asset === "stock" ? 4 : 6,
+    asset === "stock" ? 18 : 32,
   );
 
   const downsideMultiplier = direction === "bullish" ? 0.6 : direction === "bearish" ? 1.1 : 0.8;
   const upsideMultiplier = direction === "bearish" ? 0.55 : direction === "bullish" ? 1.1 : 0.8;
 
   return {
-    horizon,
-    rangePct: {
-      min: Number((-envelope * downsideMultiplier).toFixed(1)),
-      max: Number((envelope * upsideMultiplier).toFixed(1)),
-    },
-    directionBias: direction,
+    min: Number((-envelope * downsideMultiplier).toFixed(1)),
+    max: Number((envelope * upsideMultiplier).toFixed(1)),
+    bias: direction,
   };
 }
 
 function computeStopLoss(asset: AssetClass, volatility?: number): number {
-  const base = asset === "equity" ? 0.035 : 0.08;
-  const volFactor = asset === "equity" ? (volatility ?? 1) : Math.max(volatility ?? 0.2, 0.2);
-  const maxClamp = asset === "equity" ? 0.09 : 0.18;
+  const base = asset === "stock" ? 0.035 : 0.08;
+  const volFactor = asset === "stock" ? (volatility ?? 1) : Math.max(volatility ?? 0.2, 0.2);
+  const maxClamp = asset === "stock" ? 0.09 : 0.18;
   return Number(clampNumber(base * (1 + volFactor * 0.6), base * 0.6, maxClamp).toFixed(3));
 }
 
@@ -399,9 +474,7 @@ function buildCryptoRationales(params: {
   }
 
   if (typeof change7d === "number" && Number.isFinite(change7d)) {
-    lines.push(
-      `Seven-day drift is ${change7d.toFixed(1)}%, framing the current signal.`,
-    );
+    lines.push(`Seven-day drift is ${change7d.toFixed(1)}%, framing the current signal.`);
   }
 
   if (typeof change1h === "number" && Math.abs(change1h) >= 0.2) {
@@ -420,8 +493,75 @@ function buildCryptoRationales(params: {
     );
   }
 
-  lines.push("Models blend CoinGecko spot feeds with dominance and volume ratios; forecasts stay probabilistic.");
+  lines.push(
+    "Models blend CoinGecko spot feeds with dominance and volume ratios; forecasts stay probabilistic.",
+  );
   return lines.slice(0, 5);
+}
+
+function summarizeRationaleLines(lines: string[]): string {
+  if (!lines.length) {
+    return "Model found a tradable setup using current Polygon and CoinGecko inputs.";
+  }
+  if (lines.length === 1) return lines[0]!;
+  return `${lines[0]} ${lines[1]}`;
+}
+
+function buildEquityFundamentalNote(symbol: string, avgVolume?: number): string | undefined {
+  if (!avgVolume) {
+    return `${symbol} remains on the US mega-cap watchlist; confirm earnings and macro catalysts before acting.`;
+  }
+  return `${symbol} averages roughly ${formatUsd(avgVolume)} of daily volume, keeping liquidity solid, but earnings and macro releases can still reset the story quickly.`;
+}
+
+function buildCryptoFundamentalNote(symbol: string, dominance?: number): string | undefined {
+  if (!dominance || dominance <= 0) {
+    return `${symbol} sits inside the tracked large-cap crypto set; regulatory or funding shifts can swing conviction rapidly.`;
+  }
+  return `${symbol} accounts for ${(dominance * 100).toFixed(1)}% of tracked crypto market cap in our universe, yet on-chain and policy developments can shift that share abruptly.`;
+}
+
+function buildRiskNote(params: {
+  assetClass: AssetClass;
+  timeframe: string;
+  volatilityMetric?: number;
+  dominance?: number;
+}): string {
+  const segments: string[] = [];
+  if (params.assetClass === "stock") {
+    segments.push("Equity scenarios remain sensitive to earnings headlines and macro data releases.");
+    if (typeof params.volatilityMetric === "number" && Number.isFinite(params.volatilityMetric)) {
+      segments.push(
+        `Relative volume near ${params.volatilityMetric.toFixed(1)}x normal can expand slippage.`,
+      );
+    }
+  } else {
+    segments.push("Crypto liquidity depends on venue depth and funding; moves can overshoot quickly.");
+    if (typeof params.dominance === "number" && params.dominance > 0) {
+      segments.push(`${(params.dominance * 100).toFixed(1)}% dominance keeps flows concentrated.`);
+    }
+  }
+  segments.push(
+    `Treat the ${params.timeframe} scenario as probabilistic only and size positions with independent risk controls.`,
+  );
+  return segments.join(" ");
+}
+
+function formatExpectedMoveText(symbol: string, timeframe: string, move: MoveEnvelope): string {
+  const minLabel = formatSignedPercent(move.min);
+  const maxLabel = formatSignedPercent(move.max);
+  const biasText =
+    move.bias === "neutral"
+      ? "a balanced"
+      : move.bias === "bullish"
+      ? "a constructive"
+      : "a defensive";
+  return `${symbol} could see ${biasText} move in roughly ${minLabel} to ${maxLabel} over ${timeframe}, but actual outcomes may differ significantly.`;
+}
+
+function formatSignedPercent(value: number): string {
+  const fixed = Number(value).toFixed(1);
+  return value > 0 ? `+${fixed}%` : `${fixed}%`;
 }
 
 function determineDirection(momentum?: number, trend?: number): DirectionBias {
@@ -478,21 +618,6 @@ function describeError(error: unknown): string {
   if (error instanceof Error) return error.message;
   return typeof error === "string" ? error : "unknown_error";
 }
-
-const DEFAULT_EQUITIES = ["SPY", "QQQ", "NVDA", "AAPL", "MSFT", "TSLA"];
-const DEFAULT_CRYPTO_IDS = ["bitcoin", "ethereum", "solana", "chainlink", "arbitrum", "optimism"];
-
-const CRYPTO_DIRECTORY: Record<string, CryptoDirectoryEntry> = {
-  bitcoin: { id: "bitcoin", symbol: "BTC", chain: "offchain" },
-  ethereum: { id: "ethereum", symbol: "ETH", chain: "eth" },
-  solana: { id: "solana", symbol: "SOL", chain: "solana" },
-  chainlink: { id: "chainlink", symbol: "LINK", chain: "eth" },
-  arbitrum: { id: "arbitrum", symbol: "ARB", chain: "eth" },
-  optimism: { id: "optimism", symbol: "OP", chain: "eth" },
-  avalanche: { id: "avalanche-2", symbol: "AVAX", chain: "offchain" },
-  binancecoin: { id: "binancecoin", symbol: "BNB", chain: "offchain" },
-  "matic-network": { id: "matic-network", symbol: "MATIC", chain: "eth" },
-};
 
 function parseEquityWatchlist(raw?: string): string[] {
   const list = (raw || "")

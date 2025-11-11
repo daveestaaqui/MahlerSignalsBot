@@ -73,7 +73,7 @@ async function checkSignalsEndpoint() {
     const { status, body } = await request("GET", base + path, null, false);
     if (status !== 200) {
       console.log(`- ${path} -> ${status}`);
-      return;
+      return false;
     }
     const payload = JSON.parse(body);
     const signals = Array.isArray(payload)
@@ -88,9 +88,8 @@ async function checkSignalsEndpoint() {
           isNonEmpty(signal.symbol) &&
           isNonEmpty(signal.timeframe) &&
           hasExpectedMove(signal) &&
-          Array.isArray(signal?.rationales) &&
-          signal.rationales.length >= 2 &&
-          signal.rationales.every(isNonEmpty) &&
+          hasRationale(signal) &&
+          isNonEmpty(signal?.riskNote) &&
           hasDisclaimer(signal) &&
           hasDataSources(signal),
       );
@@ -98,9 +97,11 @@ async function checkSignalsEndpoint() {
       ? `(${signals.length} signals validated)`
       : `(${signals.length} signals, validation failed)`;
     console.log(`- ${path} -> ${status} ${result}`);
+    return isValid;
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
     console.log(`- ${path} -> ERROR (${msg})`);
+    return false;
   }
 }
 
@@ -109,16 +110,13 @@ function isNonEmpty(value) {
 }
 
 function hasExpectedMove(signal) {
-  const move = signal?.expectedMove;
-  if (!move || typeof move !== "object") return false;
-  const range = move.rangePct;
-  if (!range) return false;
-  return (
-    typeof range.min === "number" &&
-    typeof range.max === "number" &&
-    Number.isFinite(range.min) &&
-    Number.isFinite(range.max)
-  );
+  return isNonEmpty(signal?.expectedMove);
+}
+
+function hasRationale(signal) {
+  const block = signal?.rationale;
+  if (!block || typeof block !== "object") return false;
+  return isNonEmpty(block.technical) || isNonEmpty(block.fundamental);
 }
 
 function hasDisclaimer(signal) {
@@ -130,19 +128,29 @@ function hasDataSources(signal) {
 }
 
 async function main() {
+  let hasFailures = false;
   console.log(`Base URL: ${base}`);
   console.log("Public endpoints:");
   for (const p of publicPaths) {
     try {
       const { status } = await request("GET", base + p, null, false);
       console.log(`- ${p} -> ${status}`);
+      if (p === "/status" && status !== 200) {
+        hasFailures = true;
+      }
     } catch (err) {
       const msg = err && err.message ? err.message : String(err);
       console.log(`- ${p} -> ERROR (${msg})`);
+      if (p === "/status") {
+        hasFailures = true;
+      }
     }
   }
 
-  await checkSignalsEndpoint();
+  const signalsHealthy = await checkSignalsEndpoint();
+  if (!signalsHealthy) {
+    hasFailures = true;
+  }
 
   console.log("\nAdmin endpoints:");
   for (const p of adminPaths) {
@@ -153,6 +161,11 @@ async function main() {
       const msg = err && err.message ? err.message : String(err);
       console.log(`- ${p} -> ERROR (${msg})`);
     }
+  }
+
+  if (hasFailures) {
+    console.error("Critical endpoint checks failed.");
+    process.exit(1);
   }
 }
 

@@ -5,7 +5,7 @@ import process from 'node:process';
 import brandCopy from '../branding/copy.json' assert { type: 'json' };
 
 const FALLBACK_DISCLAIMER =
-  'This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.';
+  'This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.';
 const FALLBACK_ABOUT =
   'Aurora-Signals pairs real market + on-chain data with automated risk notes so desks can review high-signal setups quickly.';
 const usage = 'Usage: node marketing/send-template.mjs <daily|weekly> <context.json>';
@@ -57,8 +57,8 @@ function deriveSignalVars(signals) {
   const top = signals.slice(0, 3);
   const first = top[0] || {};
   const summary = summarizeSignals(top);
-  const equities = signals.filter((signal) => (signal?.assetClass || '').toLowerCase() === 'equity');
-  const crypto = signals.filter((signal) => (signal?.assetClass || '').toLowerCase() !== 'equity');
+  const equities = signals.filter((signal) => (signal?.assetClass || '').toLowerCase() === 'stock');
+  const crypto = signals.filter((signal) => (signal?.assetClass || '').toLowerCase() === 'crypto');
 
   return {
     primary_symbol: first.symbol || '',
@@ -85,16 +85,17 @@ function summarizeSignals(list) {
 }
 
 function extractLeadRationale(signal) {
-  if (Array.isArray(signal?.rationales) && signal.rationales.length) {
-    return String(signal.rationales[0]);
-  }
-  if (Array.isArray(signal?.rationale) && signal.rationale.length) {
-    return String(signal.rationale[0]);
+  if (signal?.rationale && typeof signal.rationale === 'object') {
+    if (signal.rationale.technical) return String(signal.rationale.technical);
+    if (signal.rationale.fundamental) return String(signal.rationale.fundamental);
   }
   return '';
 }
 
 function describeExpectedMove(signal) {
+  if (typeof signal?.expectedMove === 'string' && signal.expectedMove.trim().length) {
+    return signal.expectedMove;
+  }
   const block = signal?.expectedMove;
   if (block && typeof block === 'object' && block?.rangePct) {
     const min = toNumber(block.rangePct.min);

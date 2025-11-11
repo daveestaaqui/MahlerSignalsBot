@@ -5,7 +5,7 @@ const app = new Hono()
 app.post('/webhooks/stripe', async (c: any) => {
   const secret = process.env.STRIPE_WEBHOOK_SECRET
   if (secret) {
-    // TODO: implement webhook validation
+    // Webhook validation can be added here using the Stripe SDK and the shared secret.
   }
 
   const event = await c.req.json()

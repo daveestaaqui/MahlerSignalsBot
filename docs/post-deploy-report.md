@@ -6,7 +6,7 @@ This file summarizes local build/tests and known deployment state.
 - Tests: not yet summarized in this stub.
 - Endpoints: live checks skipped from this environment due to DNS/network limits.
 
-This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.
+This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.
 
 ## Run at 2025-11-08 11:58:10 UTC
 

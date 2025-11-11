@@ -8,7 +8,7 @@ type BrandCopy = {
 };
 
 const FALLBACK_DISCLAIMER =
-  "This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.";
+  "This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.";
 const FALLBACK_ABOUT =
   "Aurora-Signals pairs real market + on-chain data with automated risk notes so desks can review high-signal setups quickly.";
 

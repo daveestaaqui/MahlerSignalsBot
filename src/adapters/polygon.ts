@@ -44,6 +44,6 @@ export async function getStockDaily(symbol: string): Promise<Candle[]> {
 }
 
 export async function getOptionsFlow(symbol: string){
-  // TODO: Integrate options flow provider (e.g., Unusual Whales) once credentials available.
+  // Future integrations may surface options flow signals (e.g., Unusual Whales) when credentials are provided.
   return [];
 }

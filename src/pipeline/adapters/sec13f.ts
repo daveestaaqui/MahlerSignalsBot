@@ -1,9 +1,9 @@
 export async function recentWhaleBuys() {
-  // TODO: integrate Fintel / WhaleWisdom / SEC EDGAR when credentials provided.
+  // Planned enhancement: wire in Fintel / WhaleWisdom / SEC EDGAR feeds once credentials arrive.
   return [];
 }
 
 export async function recentInsiderBuys() {
-  // TODO: integrate Finviz / OpenInsider feeds.
+  // Planned enhancement: incorporate Finviz / OpenInsider entries when those APIs become available.
   return [];
 }

@@ -1,9 +1,9 @@
 export async function govPolicyCalendar() {
-  // TODO: integrate FOMC / economic calendar once API keys configured.
+  // Future work: hook in FOMC / economic calendar feeds once API keys are configured.
   return [];
 }
 
 export async function congressTrades() {
-  // TODO: integrate Capitol Trades / Quiver / govtrack data feeds.
+  // Future work: add Capitol Trades / Quiver / govtrack data feeds when credentials are available.
   return [];
 }

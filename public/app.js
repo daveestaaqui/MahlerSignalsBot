@@ -1,5 +1,5 @@
 const FALLBACK_DISCLAIMER =
-  "This system provides automated market analysis for informational purposes only and does not constitute financial, investment, or trading advice.";
+  "This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.";
 const FALLBACK_ABOUT =
   "Aurora-Signals pairs real market + on-chain data with automated risk notes so desks can review high-signal setups quickly.";
 
@@ -86,17 +86,20 @@ async function hydrateSignals(triggeredByUser = false) {
       : Array.isArray(payload?.signals)
       ? payload.signals
       : [];
+    if (!signals.length) {
+      list.innerHTML =
+        '<p class="empty">No scenarios to highlight right now; check back later.</p>';
+      return;
+    }
     renderSignals(list, signals);
   } catch (error) {
     console.warn("signals.load.failed", error);
-    if (list) {
-      list.innerHTML =
-        '<p class="empty">Signals are unavailable right now. Please try again shortly.</p>';
-    }
+    list.innerHTML =
+      '<p class="empty">Signals are temporarily unavailable. Please try again later.</p>';
     if (errorEl) {
       errorEl.textContent = triggeredByUser
         ? "Unable to refresh signals. Please retry in a few moments."
-        : "Live signals temporarily unavailable.";
+        : "Signals are temporarily unavailable. Please try again later.";
     }
   }
 }
@@ -104,7 +107,7 @@ async function hydrateSignals(triggeredByUser = false) {
 function renderSignals(container, signals) {
   container.innerHTML = "";
   if (!Array.isArray(signals) || !signals.length) {
-    container.innerHTML = '<p class="empty">No qualified signals were produced today.</p>';
+    container.innerHTML = '<p class="empty">No scenarios to highlight right now; check back later.</p>';
     return;
   }
 
@@ -125,10 +128,7 @@ function buildSignalCard(signal) {
   title.textContent = signal.symbol || "Symbol";
   const meta = document.createElement("p");
   meta.className = "signal-card__meta";
-  meta.textContent = [
-    capitalize(signal.assetClass || "Asset"),
-    formatChain(signal.chain),
-  ]
+  meta.textContent = [formatAssetLabel(signal.assetClass), formatChain(signal.chain)]
     .filter(Boolean)
     .join(" • ");
   headingGroup.append(title, meta);
@@ -145,22 +145,29 @@ function buildSignalCard(signal) {
   scenario.textContent = formatExpectedMove(signal);
   card.append(scenario);
 
-  if (typeof signal.suggestedStopLossPct === "number" && signal.suggestedStopLossPct > 0) {
+  if (typeof signal.stopLossHint === "string" && signal.stopLossHint.trim().length) {
     const stop = document.createElement("p");
     stop.className = "stop";
-    stop.textContent = `Suggested stop: ${(signal.suggestedStopLossPct * 100).toFixed(1)}%`;
+    stop.textContent = signal.stopLossHint;
     card.append(stop);
   }
 
-  const rationaleList = document.createElement("ul");
-  rationaleList.className = "rationale";
-  (signal.rationales || []).slice(0, 3).forEach((reason) => {
-    if (!reason) return;
-    const li = document.createElement("li");
-    li.textContent = reason;
-    rationaleList.append(li);
-  });
-  card.append(rationaleList);
+  const rationaleBullets = buildRationaleBullets(signal);
+  if (rationaleBullets.length) {
+    const rationaleList = document.createElement("ul");
+    rationaleList.className = "rationale";
+    rationaleBullets.forEach((reason) => {
+      const li = document.createElement("li");
+      li.textContent = reason;
+      rationaleList.append(li);
+    });
+    card.append(rationaleList);
+  }
+
+  const risk = document.createElement("p");
+  risk.className = "risk-note";
+  risk.textContent = signal.riskNote || "No additional risk note available.";
+  card.append(risk);
 
   const footer = document.createElement("div");
   footer.className = "signal-card__footer";
@@ -179,31 +186,79 @@ function buildSignalCard(signal) {
   footer.append(sources, asOf, link);
   card.append(footer);
 
+  const disclaimer = document.createElement("p");
+  disclaimer.className = "signal-card__disclaimer";
+  disclaimer.textContent = (signal.disclaimer || FALLBACK_DISCLAIMER).trim();
+  card.append(disclaimer);
+
   return card;
 }
 
 function formatExpectedMove(signal) {
-  const block = signal?.expectedMove;
-  const range = block?.rangePct;
-  if (!block || !range || typeof range.min !== "number" || typeof range.max !== "number") {
-    return "Model-estimated move unavailable.";
+  const value = signal?.expectedMove;
+  if (typeof value === "string" && value.trim().length) {
+    return value;
   }
-  const bias = capitalize(block.directionBias || "neutral");
-  return `Bias: ${bias} • Range ${formatRangeValue(range.min)}% to ${formatRangeValue(
-    range.max,
-  )}% over ${block.horizon || signal.timeframe || "the stated horizon"}`;
+  if (value && typeof value === "object") {
+    const range = value.rangePct;
+    const horizon = value.horizon || signal?.timeframe || "the stated horizon";
+    const bias = value.directionBias || "neutral";
+    const scenarioText =
+      typeof value.scenarioText === "string"
+        ? value.scenarioText
+        : typeof value.note === "string"
+        ? value.note
+        : null;
+    if (scenarioText && scenarioText.trim().length) {
+      return scenarioText;
+    }
+    if (range && Number.isFinite(range.min) && Number.isFinite(range.max)) {
+      const biasLabel =
+        bias === "bullish" ? "constructive" : bias === "bearish" ? "defensive" : "balanced";
+      const minLabel = formatSignedPercent(range.min);
+      const maxLabel = formatSignedPercent(range.max);
+      return `${signal.symbol || "This asset"} could see a ${biasLabel} potential move of ${minLabel} to ${maxLabel} over ${horizon}, but outcomes depend on market conditions.`;
+    }
+  }
+  return `Model-estimated move data over ${signal?.timeframe || "the stated horizon"} is pending; please check back later.`;
 }
 
-function formatRangeValue(value) {
-  const fixed = Number(value).toFixed(1);
-  return value > 0 ? `+${fixed}` : fixed;
+function buildRationaleBullets(signal) {
+  const bullets = [];
+  const fallback = Array.isArray(signal?.rationales) ? [...signal.rationales] : [];
+  const technical =
+    signal?.rationale?.technical ||
+    (fallback.length ? fallback.shift() : null) ||
+    (fallback.length ? fallback.shift() : null);
+  const fundamental =
+    signal?.rationale?.fundamental || (fallback.length ? fallback.shift() : null);
+
+  if (technical) bullets.push(technical);
+  if (fundamental) bullets.push(fundamental);
+
+  while (bullets.length < 2 && fallback.length) {
+    const next = fallback.shift();
+    if (next) bullets.push(next);
+  }
+
+  return bullets
+    .filter(Boolean)
+    .map((item) => (typeof item === "string" ? item : String(item)))
+    .slice(0, 2);
 }
 
 function formatChain(chain) {
   if (!chain) return "";
-  if (chain === "eth") return "Ethereum";
+  if (chain === "ethereum") return "Ethereum";
   if (chain === "solana") return "Solana";
-  return "Off-chain";
+  return capitalize(chain);
+}
+
+function formatAssetLabel(assetClass) {
+  if (!assetClass) return "Asset";
+  if (assetClass === "crypto") return "Crypto";
+  if (assetClass === "stock") return "Equity";
+  return capitalize(assetClass);
 }
 
 function formatDataSources(sources) {
@@ -218,6 +273,13 @@ function formatAsOf(value) {
   return date.toLocaleString(undefined, { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" });
 }
 
+function formatSignedPercent(value) {
+  if (!Number.isFinite(Number(value))) return "";
+  const normalized = Number(value);
+  const formatted = normalized.toFixed(1);
+  return normalized > 0 ? `+${formatted}%` : `${formatted}%`;
+}
+
 function capitalize(value) {
   if (!value || typeof value !== "string") return "";
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -226,9 +288,8 @@ function capitalize(value) {
 function wirePricingButtons() {
   const buttons = document.querySelectorAll("[data-plan]");
   if (!buttons.length) return;
-  const statusEl = document.getElementById("pricing-status");
   buttons.forEach((button) => {
-    button.addEventListener("click", () => handleCheckout(button, statusEl));
+    button.addEventListener("click", () => handleCheckout(button));
   });
 }
 
@@ -246,13 +307,17 @@ function wireScrollLinks() {
   });
 }
 
-async function handleCheckout(button, statusEl) {
+async function handleCheckout(button) {
   const tier = button.dataset.plan;
   if (!tier) return;
   const originalLabel = button.textContent;
   button.disabled = true;
   button.textContent = "Redirecting…";
-  if (statusEl) statusEl.textContent = "";
+  const feedback = getPlanFeedbackEl(tier);
+  if (feedback) {
+    feedback.textContent = "";
+    feedback.classList.remove("visible");
+  }
 
   try {
     const res = await fetch("/stripe/checkout", {
@@ -262,17 +327,30 @@ async function handleCheckout(button, statusEl) {
     });
     const payload = await res.json();
     if (!res.ok || !payload?.ok || typeof payload?.url !== "string") {
-      throw new Error(payload?.error || "Stripe checkout unavailable");
+      const err = payload?.error || `stripe_checkout_${res.status}`;
+      throw new Error(err);
     }
     window.location.href = payload.url;
   } catch (error) {
     console.error("stripe.checkout.failed", error);
-    if (statusEl) {
-      statusEl.textContent =
-        "Checkout unavailable right now. Please confirm Stripe keys or try later.";
+    if (feedback) {
+      feedback.textContent = describeCheckoutError(error);
+      feedback.classList.add("visible");
     }
   } finally {
     button.disabled = false;
     button.textContent = originalLabel;
   }
+}
+
+function getPlanFeedbackEl(tier) {
+  if (!tier) return null;
+  return document.querySelector(`[data-plan-error="${tier}"]`);
+}
+
+function describeCheckoutError(error) {
+  if (error instanceof Error && error.message) {
+    return `Checkout is unavailable (${error.message}). Please try again shortly.`;
+  }
+  return "Checkout is unavailable right now. Please try again shortly.";
 }

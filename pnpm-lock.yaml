@@ -32,6 +32,9 @@ importers:
       node-telegram-bot-api:
         specifier: ^0.64.0
         version: 0.64.0(request@2.88.2)
+      stripe:
+        specifier: ^16.6.0
+        version: 16.12.0
       undici:
         specifier: ^6
         version: 6.22.0
@@ -1625,6 +1628,10 @@ packages:
   strip-json-comments@2.0.1:
     resolution: {integrity: sha512-4gB8na07fecVVkOI6Rs4e7T6NOTki5EmL7TUduTs6bu3EdnSycntVJ4re8kgZA+wx9IueI2Y11bfbgwtzuE0KQ==}
     engines: {node: '>=0.10.0'}
+
+  stripe@16.12.0:
+    resolution: {integrity: sha512-H7eFVLDxeTNNSn4JTRfL2//LzCbDrMSZ+2q1c7CanVWgK2qIW5TwS+0V7N9KcKZZNpYh/uCqK0PyZh/2UsaAtQ==}
+    engines: {node: '>=12.*'}
 
   superagent@10.2.3:
     resolution: {integrity: sha512-y/hkYGeXAj7wUMjxRbB21g/l6aAEituGXM9Rwl4o20+SX3e8YOSV6BxFXl+dL3Uk0mjSL3kCbNkwURm8/gEDig==}
@@ -3554,6 +3561,11 @@ snapshots:
 
   strip-json-comments@2.0.1:
     optional: true
+
+  stripe@16.12.0:
+    dependencies:
+      '@types/node': 20.19.23
+      qs: 6.14.0
 
   superagent@10.2.3:
     dependencies:

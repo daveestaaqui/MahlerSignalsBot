@@ -34,6 +34,7 @@ app.use("/admin", requireBearer, adminRouter);
 app.use("/metrics", metricsRouter);
 
 const port = Number(process.env.PORT || 3000);
-app.listen(port);
+const host = process.env.HOST || "0.0.0.0";
+app.listen(port, host);
 
 export default app;

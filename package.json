@@ -21,7 +21,8 @@
     "node-cron": "^3",
     "node-telegram-bot-api": "^0.64.0",
     "undici": "^6",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "stripe": "^16.6.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

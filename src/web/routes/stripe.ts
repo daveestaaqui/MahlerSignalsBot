@@ -1,8 +1,9 @@
-import crypto from "crypto";
+import Stripe from "stripe";
 import { Router, raw, type Request, type Response } from "express";
 import { RequestWithId, logError, logInfo, logWarn } from "../../lib/logger";
 
 type Plan = "free" | "pro" | "elite";
+const STRIPE_API_VERSION: Stripe.LatestApiVersion = "2024-06-20";
 
 const stripeRouter = Router();
 const stripeWebhookRouter = Router();
@@ -39,6 +40,11 @@ stripeRouter.post("/checkout", async (req: RequestWithId, res: Response) => {
       requestId: req.requestId,
     });
 
+    if (!session.url) {
+      logError("stripe.checkout.missing_url", { plan, sessionId: session.id, requestId: req.requestId });
+      return res.status(502).json({ ok: false, error: "missing_checkout_url" });
+    }
+
     return res.json({ ok: true, url: session.url });
   } catch (error) {
     logError("stripe.checkout.failed", {
@@ -66,9 +72,9 @@ stripeWebhookRouter.post(
       return res.status(400).json({ ok: false, error: "missing_signature" });
     }
 
-    let event: StripeEvent | null = null;
+    let event: Stripe.Event;
     try {
-      event = verifyStripeSignature(req.body as Buffer, signature, webhookSecret);
+      event = Stripe.webhooks.constructEvent(req.body as Buffer, signature, webhookSecret);
     } catch (error) {
       logWarn("stripe.webhook.invalid_signature", {
         error: describeError(error),
@@ -77,27 +83,16 @@ stripeWebhookRouter.post(
       return res.status(400).json({ ok: false, error: "invalid_signature" });
     }
 
+    const object = event.data?.object;
+    const customerId = extractCustomerId(object);
+    const sessionId = extractSessionId(object);
     logInfo("stripe.webhook.received", {
       type: event.type,
-      id: event.id,
+      eventId: event.id,
+      customerId,
+      sessionId,
       requestId: req.requestId,
     });
-
-    if (isSubscriptionEvent(event.type)) {
-      const payload = {
-        customer: event.data?.object?.customer ?? "unknown_customer",
-        plan: event.data?.object?.plan?.id ?? "unknown_plan",
-        status: event.data?.object?.status ?? "unknown_status",
-      };
-      logInfo("stripe.subscription.event", {
-        requestId: req.requestId,
-        event: {
-          id: event.id,
-          type: event.type,
-          ...payload,
-        },
-      });
-    }
 
     return res.json({ ok: true });
   },
@@ -118,18 +113,6 @@ type StripeConfig =
       ok: false;
       missing: string[];
     };
-
-type StripeEvent = {
-  id: string;
-  type: string;
-  data?: {
-    object?: {
-      customer?: string;
-      status?: string;
-      plan?: { id?: string };
-    };
-  };
-};
 
 function normalizePlan(req: Request): Plan | null {
   const rawPlan = readPlanParam(req);
@@ -179,69 +162,44 @@ function resolveStripeConfig(plan: Exclude<Plan, "free">): StripeConfig {
   };
 }
 
-async function createCheckoutSession(plan: Exclude<Plan, "free">, config: Extract<StripeConfig, { ok: true }>) {
-  const params = new URLSearchParams();
-  params.append("mode", "subscription");
-  params.append("line_items[0][price]", config.priceId);
-  params.append("line_items[0][quantity]", "1");
-  params.append("success_url", config.successUrl);
-  params.append("cancel_url", config.cancelUrl);
-  params.append("metadata[plan]", plan);
-  params.append("allow_promotion_codes", "true");
-
-  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.secretKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: params.toString(),
+async function createCheckoutSession(
+  plan: Exclude<Plan, "free">,
+  config: Extract<StripeConfig, { ok: true }>,
+): Promise<Stripe.Checkout.Session> {
+  const stripe = new Stripe(config.secretKey, { apiVersion: STRIPE_API_VERSION });
+  return stripe.checkout.sessions.create({
+    mode: "subscription",
+    line_items: [
+      {
+        price: config.priceId,
+        quantity: 1,
+      },
+    ],
+    success_url: config.successUrl,
+    cancel_url: config.cancelUrl,
+    metadata: { plan },
+    allow_promotion_codes: true,
   });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`stripe_${response.status}: ${detail.slice(0, 200)}`);
-  }
-
-  return response.json() as Promise<{ url: string }>;
 }
 
-function verifyStripeSignature(payload: Buffer, header: string, secret: string): StripeEvent {
-  const parsed = parseSignatureHeader(header);
-  if (!parsed) {
-    throw new Error("signature_header_invalid");
+function extractCustomerId(object: Stripe.Event.Data.Object | undefined): string | null {
+  if (!object || typeof object !== "object") return null;
+  const customerField = (object as { customer?: string | Stripe.Customer }).customer;
+  if (!customerField) return null;
+  if (typeof customerField === "string") return customerField;
+  if (typeof customerField === "object" && customerField !== null && "id" in customerField) {
+    const candidate = (customerField as { id?: string }).id;
+    return typeof candidate === "string" ? candidate : null;
   }
-  const signedPayload = `${parsed.timestamp}.${payload.toString("utf8")}`;
-  const expected = crypto.createHmac("sha256", secret).update(signedPayload).digest("hex");
-  const signatureBuffer = Buffer.from(parsed.v1, "hex");
-  const expectedBuffer = Buffer.from(expected, "hex");
-  if (
-    signatureBuffer.length !== expectedBuffer.length ||
-    !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
-  ) {
-    throw new Error("signature_mismatch");
-  }
-  return JSON.parse(payload.toString("utf8"));
+  return null;
 }
 
-function parseSignatureHeader(header: string): { timestamp: string; v1: string } | null {
-  const parts = header.split(",");
-  const timestampPart = parts.find((part) => part.startsWith("t="));
-  const v1Part = parts.find((part) => part.startsWith("v1="));
-  if (!timestampPart || !v1Part) return null;
-  return {
-    timestamp: timestampPart.split("=", 2)[1] ?? "",
-    v1: v1Part.split("=", 2)[1] ?? "",
-  };
-}
-
-function isSubscriptionEvent(type: string): boolean {
-  return [
-    "checkout.session.completed",
-    "customer.subscription.created",
-    "customer.subscription.updated",
-    "customer.subscription.deleted",
-  ].includes(type);
+function extractSessionId(object: Stripe.Event.Data.Object | undefined): string | null {
+  if (!object || typeof object !== "object") return null;
+  if ("id" in object && typeof object.id === "string") {
+    return object.id;
+  }
+  return null;
 }
 
 function describeError(error: unknown): string {

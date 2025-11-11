@@ -11,9 +11,9 @@
       <div class="wrap nav-row">
         <a class="logo" href="/">Aurora-Signals</a>
         <nav class="primary-nav" aria-label="Primary navigation">
-          <a href="#signals">Signals</a>
-          <a href="#how">How it works</a>
-          <a href="#pricing">Pricing</a>
+          <a href="#how-it-works">How it works</a>
+          <a href="#today-signals">Today’s highlights</a>
+          <a href="#what-you-get">What you get</a>
           <a href="/blog">Blog</a>
           <a href="/legal">Legal</a>
         </nav>
@@ -25,19 +25,23 @@
       <section class="hero">
         <div class="wrap hero-grid">
           <div class="hero-copy">
-            <p class="tag">Live equities & crypto telemetry</p>
-            <h1>Model-driven signal summaries your team can audit.</h1>
+            <p class="tag">Aurora-Signals</p>
+            <h1>Live equities + crypto scenarios with risk-aware language.</h1>
             <p class="lead">
-              Aurora-Signals ingests Polygon equities plus CoinGecko crypto feeds, layers in technical factors,
-              and ships concise rationales with stated timeframes and stop-loss guardrails.
+              Aurora-Signals ingests Polygon equities plus CoinGecko crypto feeds, layers in technical and fundamental checkpoints,
+              and surfaces concise briefs focused on potential moves, stop-loss hints, and scenario-based disclaimers.
             </p>
             <ul class="hero-list">
-              <li>Real-market data only: Polygon OHLCV + CoinGecko spot + volume ratios.</li>
-              <li>Signals ship with model-estimated move ranges and documented rationales.</li>
+              <li>Real-market data only: Polygon OHLCV + CoinGecko spot, dominance, and volume ratios.</li>
+              <li>Each card pairs a scenario range with technical + fundamental notes plus a risk reminder.</li>
             </ul>
+            <p class="hero-subnote">
+              Scenarios describe potential moves and are not guaranteed; outcomes depend on evolving market conditions.
+            </p>
             <div class="cta-group">
-              <a class="btn btn-primary" href="#signals" data-scroll-target="#signals">View today's signals</a>
-              <a class="btn btn-secondary" href="#pricing" data-scroll-target="#pricing">See pricing</a>
+              <a class="btn btn-primary" href="#today-signals" data-scroll-target="#today-signals">View today's signals</a>
+              <a class="btn btn-secondary" href="#what-you-get" data-scroll-target="#what-you-get">See pricing</a>
+              <button class="btn btn-outline" type="button" data-plan="pro">Subscribe</button>
             </div>
             <p class="hero-footnote" data-copy="disclaimer"></p>
           </div>
@@ -67,7 +71,7 @@
         </div>
       </section>
 
-      <section class="section info" id="how">
+      <section class="section info" id="how-it-works">
         <div class="wrap">
           <div class="section-head">
             <p class="tag">How it works</p>
@@ -88,18 +92,18 @@
             <article class="info-card">
               <span class="info-step">03</span>
               <h3>Summarize with context</h3>
-              <p>Each published signal receives timeframe, expected move range, suggested stop-loss, and 2–5 rationales.</p>
+              <p>Each published signal receives timeframe, expected move wording, stop-loss hint, rationale, and risk note.</p>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="section signals" id="signals">
+      <section class="section signals" id="today-signals">
         <div class="wrap">
           <div class="section-head">
             <p class="tag">Live signal preview</p>
-            <h2>Top opportunities today</h2>
-            <p>Rendered straight from <code>/signals/today</code>. No mock data, ever.</p>
+            <h2>Today’s highlights</h2>
+            <p>Rendered straight from <code>/signals/today</code>. Scenarios describe potential moves; outcomes depend on market conditions.</p>
             <div class="section-actions">
               <button class="btn btn-ghost" id="refresh-signals" type="button">Refresh feed</button>
               <a class="btn btn-outline" href="/signals/today" target="_blank" rel="noopener">View full JSON</a>
@@ -113,23 +117,23 @@
         </div>
       </section>
 
-      <section class="section pricing" id="pricing">
+      <section class="section pricing" id="what-you-get">
         <div class="wrap">
           <div class="section-head">
             <p class="tag">Pricing</p>
-            <h2>Predictable tiers with Stripe checkout.</h2>
-            <p>Upgrade only when you need faster cadences or deeper coverage.</p>
+            <h2>What you get</h2>
+            <p>Choose the tier that fits your desk and let Stripe handle checkout securely.</p>
           </div>
           <div class="pricing-grid">
             <article class="pricing-card">
               <h3>Free</h3>
               <p class="price">$0<span>/month</span></p>
               <ul>
-                <li>3 delayed equity signals daily</li>
-                <li>Blog + legal archive access</li>
-                <li>Status + outage notifications</li>
+                <li>Live JSON preview via <code>/signals/today</code></li>
+                <li>Marketing site, blog, and legal archive</li>
+                <li>Status + health endpoints</li>
               </ul>
-              <button class="btn btn-outline" type="button" data-scroll-target="#signals">
+              <button class="btn btn-outline" type="button" data-scroll-target="#today-signals">
                 Start with free feed
               </button>
             </article>
@@ -139,25 +143,26 @@
               <h3>Pro</h3>
               <p class="price">$14<span>/month</span></p>
               <ul>
-                <li>All live equity signals</li>
-                <li>Daily + weekly marketing templates</li>
-                <li>Webhook + Discord delivery</li>
+                <li>Full US equity + major crypto signals with rationale + risk notes</li>
+                <li>Daily + weekly marketing templates via CLI or GitHub Actions</li>
+                <li>Discord/Telegram ready copy when secrets are configured</li>
               </ul>
               <button class="btn btn-primary" type="button" data-plan="pro">Upgrade to Pro</button>
+              <p class="pricing-error" data-plan-error="pro" aria-live="polite"></p>
             </article>
 
             <article class="pricing-card">
               <h3>Elite</h3>
               <p class="price">$39<span>/month</span></p>
               <ul>
-                <li>Crypto + on-chain signal set</li>
-                <li>Whale surge + dominance alerts</li>
-                <li>Priority refresh + support</li>
+                <li>Everything in Pro plus chain-aware ETH/SOL coverage</li>
+                <li>Dominance + liquidity context for fast-moving crypto names</li>
+                <li>Stop-loss + risk language tuned for higher-volatility desks</li>
               </ul>
               <button class="btn btn-secondary" type="button" data-plan="elite">Go Elite</button>
+              <p class="pricing-error" data-plan-error="elite" aria-live="polite"></p>
             </article>
           </div>
-          <p id="pricing-status" class="pricing-status" role="status" aria-live="polite"></p>
         </div>
       </section>
 
