@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 BASE_URL="$(grep -E '^BASE_URL=' .env.local | tail -1 | cut -d= -f2-)"
-[ -z "$BASE_URL" ] && BASE_URL="https://api.manysignals.finance"
+[ -z "$BASE_URL" ] && BASE_URL="https://aurora-signals.onrender.com"
 
 echo "• setup:"
 curl -s "$BASE_URL/setup" | head || true

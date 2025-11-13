@@ -49,23 +49,23 @@ tg-free:
 	TELEGRAM_BOT_TOKEN=$${TELEGRAM_BOT_TOKEN:-$$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.local | tail -1 | cut -d= -f2-)} CHAT=$${TELEGRAM_CHAT_ID_FREE:-$$(grep -E '^TELEGRAM_CHAT_ID_FREE=' .env.local | tail -1 | cut -d= -f2-)} ./scripts/send-telegram.sh "FREE sanity (24h stocks)"
 
 diagnostics:
-	curl -fsS "$${BASE_URL:-https://api.manysignals.finance}/diagnostics" | jq .
+	curl -fsS "$${BASE_URL:-https://aurora-signals.onrender.com}/diagnostics" | jq .
 
 post-now:
 	@test -n "$$ADMIN_TOKEN" || (echo "ADMIN_TOKEN is required" >&2; exit 1)
-	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://api.manysignals.finance}/admin/post-now"
+	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://aurora-signals.onrender.com}/admin/post-now"
 
 post-daily:
 	@test -n "$$ADMIN_TOKEN" || (echo "ADMIN_TOKEN is required" >&2; exit 1)
-	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://api.manysignals.finance}/admin/post-daily"
+	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://aurora-signals.onrender.com}/admin/post-daily"
 
 post-weekly:
 	@test -n "$$ADMIN_TOKEN" || (echo "ADMIN_TOKEN is required" >&2; exit 1)
-	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://api.manysignals.finance}/admin/post-weekly"
+	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://aurora-signals.onrender.com}/admin/post-weekly"
 
 tg-sanity:
 	@test -n "$$ADMIN_TOKEN" || (echo "ADMIN_TOKEN is required" >&2; exit 1)
-	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://api.manysignals.finance}/admin/test-telegram"
+	@curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $${ADMIN_TOKEN}" -X POST "$${BASE_URL:-https://aurora-signals.onrender.com}/admin/test-telegram"
 
 build:
 	pnpm build

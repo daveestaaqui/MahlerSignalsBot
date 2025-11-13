@@ -17,10 +17,11 @@ export interface SignalView {
   rationale: {
     technical: string;
     fundamental?: string;
+    macro?: string;
   };
   riskNote: string;
   disclaimer: string;
-  dataSources?: string[];
+  dataSources: string[];
   asOf: string;
 }
 
@@ -111,7 +112,6 @@ export async function buildTodaySignals(now: Date = new Date()): Promise<SignalV
 }
 
 type BuildSignalViewParams = {
-  id: string;
   symbol: string;
   assetClass: AssetClass;
   chain?: Chain;
@@ -120,18 +120,19 @@ type BuildSignalViewParams = {
   stopLossPct?: number;
   technical: string;
   fundamental?: string;
+  macro?: string;
   riskNote: string;
-  dataSources?: string[];
+  dataSources: string[];
   asOf: Date;
 };
 
 export function buildSignalView(params: BuildSignalViewParams): SignalView {
   const stopLossHint = typeof params.stopLossPct === "number"
-    ? `Stop losses could sit near ${formatPercent(params.stopLossPct)} from entry based on observed volatility; adjust for your own risk limits.`
+    ? `Illustrative stop: roughly ${formatPercent(params.stopLossPct)} from entry based on observed volatility; always align with your own risk controls.`
     : undefined;
 
   return {
-    id: params.id,
+    id: createSignalId(params.symbol, params.timeframe, params.asOf),
     symbol: params.symbol,
     assetClass: params.assetClass,
     chain: params.chain,
@@ -141,10 +142,11 @@ export function buildSignalView(params: BuildSignalViewParams): SignalView {
     rationale: {
       technical: params.technical,
       ...(params.fundamental ? { fundamental: params.fundamental } : {}),
+      ...(params.macro ? { macro: params.macro } : {}),
     },
     riskNote: params.riskNote,
     disclaimer: SHORT_DISCLAIMER,
-    dataSources: params.dataSources,
+    dataSources: params.dataSources?.length ? params.dataSources : [],
     asOf: params.asOf.toISOString(),
   };
 }
@@ -223,7 +225,7 @@ function buildEquityCandidate(
   const rvol = avgVolume ? Number((latest.v || 0) / avgVolume) : undefined;
 
   const direction = determineDirection(change1d, pctFrom20);
-  const timeframe = rvol && rvol > 1.6 ? "1–3 days" : "1–7 days";
+  const timeframe = selectScenarioWindow(rvol ?? 1);
   const move = buildMoveEnvelope("stock", direction, change1d, pctFrom20, rvol, timeframe);
   const stopLossPct = computeStopLoss("stock", rvol);
   const rationales = buildEquityRationales({
@@ -241,6 +243,11 @@ function buildEquityCandidate(
     timeframe,
     volatilityMetric: rvol,
   });
+  const macro = buildMacroContext({
+    assetClass: "stock",
+    timeframe,
+    volatilityMetric: rvol,
+  });
 
   const score =
     Math.abs(change1d) * 70 +
@@ -248,7 +255,6 @@ function buildEquityCandidate(
     (rvol ? Math.max(rvol - 1, 0) * 15 : 0);
 
   const view = buildSignalView({
-    id: `stock-${symbol}-${asOf.getTime()}`,
     symbol,
     assetClass: "stock",
     timeframe,
@@ -256,8 +262,9 @@ function buildEquityCandidate(
     stopLossPct,
     technical,
     fundamental,
+    macro,
     riskNote,
-    dataSources: ["Polygon"],
+    dataSources: ["polygon.io"],
     asOf,
   });
 
@@ -316,12 +323,12 @@ function buildCryptoCandidate(
   const volumeRatio = marketCap > 0 ? volume / marketCap : 0;
 
   const direction = determineDirection(change24 / 100, change7d / 100);
-  const timeframe =
-    Math.abs(change24) > 6 || volumeRatio > 0.35
-      ? "intraday"
-      : Math.abs(change24) > 3 || volumeRatio > 0.2
-      ? "1–3 days"
-      : "1–7 days";
+  const heatScore = Math.max(
+    Math.abs(change24) / 4,
+    Math.abs(change7d) / 6,
+    (volumeRatio ?? 0) * 3,
+  );
+  const timeframe = selectScenarioWindow(1 + heatScore);
   const move = buildMoveEnvelope(
     "crypto",
     direction,
@@ -348,6 +355,12 @@ function buildCryptoCandidate(
     volatilityMetric: volumeRatio,
     dominance,
   });
+  const macro = buildMacroContext({
+    assetClass: "crypto",
+    timeframe,
+    dominance,
+    volatilityMetric: volumeRatio,
+  });
 
   const score =
     Math.abs(change24) * 3 +
@@ -358,7 +371,6 @@ function buildCryptoCandidate(
   const chain = meta.chain === "solana" ? "solana" : meta.chain === "eth" ? "ethereum" : undefined;
 
   const view = buildSignalView({
-    id: `crypto-${meta.symbol}-${asOf.getTime()}`,
     symbol: meta.symbol,
     assetClass: "crypto",
     chain,
@@ -367,8 +379,9 @@ function buildCryptoCandidate(
     stopLossPct,
     technical,
     fundamental,
+    macro,
     riskNote,
-    dataSources: ["CoinGecko"],
+    dataSources: ["coingecko"],
     asOf,
   });
 
@@ -547,6 +560,26 @@ function buildRiskNote(params: {
   return segments.join(" ");
 }
 
+function buildMacroContext(params: {
+  assetClass: AssetClass;
+  timeframe: string;
+  volatilityMetric?: number;
+  dominance?: number;
+}): string {
+  if (params.assetClass === "stock") {
+    const rvolText =
+      typeof params.volatilityMetric === "number" && Number.isFinite(params.volatilityMetric)
+        ? `${params.volatilityMetric.toFixed(1)}x relative volume`
+        : "Baseline volume";
+    return `${rvolText} meets the current U.S. macro calendar; policy speeches and data releases can reverse the ${params.timeframe} setup without notice.`;
+  }
+  const dominanceText =
+    typeof params.dominance === "number" && params.dominance > 0
+      ? `${(params.dominance * 100).toFixed(1)}% dominance`
+      : "Liquidity concentration across majors";
+  return `${dominanceText} plus funding and L1 gas shifts can jolt sentiment over the ${params.timeframe} window; scenarios stay illustrative only.`;
+}
+
 function formatExpectedMoveText(symbol: string, timeframe: string, move: MoveEnvelope): string {
   const minLabel = formatSignedPercent(move.min);
   const maxLabel = formatSignedPercent(move.max);
@@ -556,7 +589,7 @@ function formatExpectedMoveText(symbol: string, timeframe: string, move: MoveEnv
       : move.bias === "bullish"
       ? "a constructive"
       : "a defensive";
-  return `${symbol} could see ${biasText} move in roughly ${minLabel} to ${maxLabel} over ${timeframe}, but actual outcomes may differ significantly.`;
+  return `${symbol} ${timeframe} scenario: potential ${biasText} move of ${minLabel} to ${maxLabel} if current conditions persist; outcomes are never guaranteed.`;
 }
 
 function formatSignedPercent(value: number): string {
@@ -564,11 +597,21 @@ function formatSignedPercent(value: number): string {
   return value > 0 ? `+${fixed}%` : `${fixed}%`;
 }
 
+function createSignalId(symbol: string, timeframe: string, asOf: Date): string {
+  const symbolSlug = symbol.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "").toUpperCase();
+  const timeframeSlug = timeframe.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `${symbolSlug || "SIGNAL"}-${timeframeSlug || "window"}-${asOf.toISOString()}`;
+}
+
 function determineDirection(momentum?: number, trend?: number): DirectionBias {
   const composite = (momentum ?? 0) + (trend ?? 0);
   if (composite >= 0.01) return "bullish";
   if (composite <= -0.01) return "bearish";
   return "neutral";
+}
+
+function selectScenarioWindow(heat: number): string {
+  return heat > 1.25 ? "next 1–3 days" : "next 3–7 days";
 }
 
 function percentFromAverage(values: number[], window: number, price: number): number | undefined {

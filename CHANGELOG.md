@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.0
+- Rebrand public copy to ManySignals (powered by Aurora-Signals) and refresh the marketing bundle with new hero/about/pricing sections.
+- Add `/about` JSON endpoint plus front-end hydration, reuse the centralized legal disclaimer, and wire tier copy (Free / $14 / $39).
+- Tighten CORS to allow GET access for status/health/metrics/signals/blog/legal/about from `manysignals.finance`.
+- Polish `/signals/today` schema (scenario wording, macro rationale, illustrative stops, stable IDs, canonical disclaimers) and update consumers (frontend + marketing).
+
 ## v0.1.0
 - First public MVP: monthly pricing only ($0 / $14 / $39)
 - Static web UI + JSON APIs (FREE delayed 24h), /status dashboard

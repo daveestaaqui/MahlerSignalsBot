@@ -1,6 +1,7 @@
 import path from "path";
 import express from "express";
 import adminRouter from "./routes/admin";
+import aboutRouter from "./routes/about";
 import metricsRouter from "./routes/metrics";
 import blogRouter from "./routes/blog";
 import legalRouter from "./routes/legal";
@@ -26,6 +27,7 @@ app.get("/", (_req, res) => {
 app.get("/status", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 app.get("/healthz", (_req, res) => res.status(200).end("ok"));
 
+app.use("/about", aboutRouter);
 app.use("/legal", legalRouter);
 app.use("/blog", blogRouter);
 app.use("/config", configRouter);
@@ -44,8 +46,17 @@ const TRUSTED_ORIGINS = new Set([
   "https://manysignals.finance",
   "https://www.manysignals.finance",
 ]);
-const ALLOWED_METHODS = "GET,POST";
+const ALLOWED_METHODS = "GET,OPTIONS";
 const ALLOWED_HEADERS = "Content-Type, Authorization";
+const PUBLIC_PATHS = [
+  /^\/status$/,
+  /^\/healthz$/,
+  /^\/metrics(?:\/.*)?$/,
+  /^\/signals\/today$/,
+  /^\/blog(?:\/[^/]*)?$/,
+  /^\/about$/,
+  /^\/legal(?:\/.*)?$/,
+];
 
 function corsGate(
   req: express.Request,
@@ -53,7 +64,9 @@ function corsGate(
   next: express.NextFunction,
 ) {
   const origin = req.headers.origin;
-  if (origin && TRUSTED_ORIGINS.has(origin)) {
+  const pathname = req.path ?? req.url ?? "";
+  const isAllowedPath = req.method === "GET" && isCorsPath(pathname);
+  if (origin && TRUSTED_ORIGINS.has(origin) && isAllowedPath) {
     res.header("Access-Control-Allow-Origin", origin);
     res.header("Vary", "Origin");
     res.header("Access-Control-Allow-Methods", ALLOWED_METHODS);
@@ -62,7 +75,11 @@ function corsGate(
   }
 
   if (req.method === "OPTIONS") {
-    if (origin && TRUSTED_ORIGINS.has(origin)) {
+    if (origin && TRUSTED_ORIGINS.has(origin) && isCorsPath(pathname)) {
+      res.header("Access-Control-Allow-Origin", origin);
+      res.header("Vary", "Origin");
+      res.header("Access-Control-Allow-Methods", ALLOWED_METHODS);
+      res.header("Access-Control-Allow-Headers", ALLOWED_HEADERS);
       res.status(204).end();
       return;
     }
@@ -71,4 +88,9 @@ function corsGate(
   }
 
   next();
+}
+
+function isCorsPath(pathname: string): boolean {
+  const cleaned = pathname.split("?")[0] || "/";
+  return PUBLIC_PATHS.some((pattern) => pattern.test(cleaned));
 }

@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 import brandCopy from '../branding/copy.json' assert { type: 'json' };
 
 const FALLBACK_DISCLAIMER =
@@ -11,31 +12,36 @@ const FALLBACK_ABOUT =
 const usage = 'Usage: node marketing/send-template.mjs <daily|weekly> <context.json>';
 const [, , templateName, contextFile] = process.argv;
 
-if (!templateName || !contextFile) {
-  console.error(usage);
-  process.exit(1);
+async function main() {
+  if (!templateName || !contextFile) {
+    console.error(usage);
+    process.exit(1);
+  }
+
+  try {
+    const template = loadTemplate(templateName);
+    const context = loadContext(contextFile);
+    const legalCopy = await loadLegalCopy();
+    const signals = Array.isArray(context.signals) ? context.signals : [];
+    const derived = deriveSignalVars(signals);
+    const vars = {
+      date: context.date || new Date().toISOString().slice(0, 10),
+      week: context.week || deriveWeekLabel(new Date()),
+      ...derived,
+      ...context,
+      about: legalCopy.about,
+      disclaimer: legalCopy.disclaimer,
+    };
+    const filled = applyTemplate(template, vars);
+    enforceContract(filled);
+    console.log(JSON.stringify(filled, null, 2));
+  } catch (error) {
+    console.error('[marketing] template build failed:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
 }
 
-try {
-  const template = loadTemplate(templateName);
-  const context = loadContext(contextFile);
-  const signals = Array.isArray(context.signals) ? context.signals : [];
-  const derived = deriveSignalVars(signals);
-  const vars = {
-    date: context.date || new Date().toISOString().slice(0, 10),
-    week: context.week || deriveWeekLabel(new Date()),
-    ...derived,
-    ...context,
-    about: brandCopy.aboutAurora || brandCopy.aboutBlurb || FALLBACK_ABOUT,
-    disclaimer: brandCopy.disclaimerShort || FALLBACK_DISCLAIMER,
-  };
-  const filled = applyTemplate(template, vars);
-  enforceContract(filled);
-  console.log(JSON.stringify(filled, null, 2));
-} catch (error) {
-  console.error('[marketing] template build failed:', error instanceof Error ? error.message : error);
-  process.exit(1);
-}
+main();
 
 function loadTemplate(kind) {
   const file = kind === 'weekly' ? 'weekly.json' : 'daily.json';
@@ -48,6 +54,31 @@ function loadContext(filePath) {
   const raw = fs.readFileSync(filePath, 'utf-8');
   const parsed = JSON.parse(raw);
   return Array.isArray(parsed) ? { signals: parsed } : parsed;
+}
+
+async function loadLegalCopy() {
+  try {
+    const distPath = path.join(process.cwd(), 'dist', 'lib', 'legal.js');
+    if (fs.existsSync(distPath)) {
+      const moduleUrl = pathToFileURL(distPath).href;
+      const legalModule = await import(moduleUrl);
+      const disclaimer = (legalModule?.SHORT_DISCLAIMER || '').trim();
+      const about = (legalModule?.ABOUT_BLURB || '').trim();
+      if (disclaimer) {
+        return {
+          disclaimer,
+          about: about || brandCopy.aboutAurora || brandCopy.aboutBlurb || FALLBACK_ABOUT,
+        };
+      }
+    }
+  } catch (error) {
+    // fall through to JSON-based fallback
+  }
+
+  return {
+    disclaimer: (brandCopy.disclaimerShort || '').trim() || FALLBACK_DISCLAIMER,
+    about: (brandCopy.aboutAurora || brandCopy.aboutBlurb || '').trim() || FALLBACK_ABOUT,
+  };
 }
 
 function deriveSignalVars(signals) {
@@ -90,6 +121,7 @@ function extractLeadRationale(signal) {
   if (signal?.rationale && typeof signal.rationale === 'object') {
     if (signal.rationale.technical) return String(signal.rationale.technical);
     if (signal.rationale.fundamental) return String(signal.rationale.fundamental);
+    if (signal.rationale.macro) return String(signal.rationale.macro);
   }
   return '';
 }

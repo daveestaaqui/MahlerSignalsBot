@@ -1,499 +1,221 @@
 <!doctype html>
-<html lang="en" data-api-base="https://api.manysignals.finance">
+<html lang="en" data-api-base="https://aurora-signals.onrender.com">
   <head>
     <meta charset="utf-8" />
-    <title>Aurora-Signals — Daily & Weekly Market Scenarios</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-<<<<<<< HEAD
+    <title>ManySignals — Scenario-based signals for equities + crypto majors</title>
     <meta
       name="description"
-      content="Aurora-Signals scans US stocks and major crypto pairs to produce daily and weekly scenario-based signals with clear rationales and risk notes."
-    />
-=======
-    <title>ManySignals | Scenario-safe market intelligence</title>
-    <meta
-      name="description"
-      content="ManySignals publishes scenario-ready signals for equities and crypto with conservative risk notes and Stripe-ready upgrades."
+      content="ManySignals delivers daily and weekly scenario briefs for US equities plus Ethereum and Solana majors with real data, expected move ranges, and risk notes."
     />
     <link rel="canonical" href="https://manysignals.finance/" />
-    <meta property="og:url" content="https://manysignals.finance" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:title" content="ManySignals" />
-    <meta
-      property="og:description"
-      content="Scenario language, conservative risk notes, and instant Stripe checkout."
-    />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
-    <link rel="icon" type="image/png" sizes="196x196" href="/favicon.png" />
->>>>>>> 27a214a (feat(prod): manysignals.finance integration, CORS, Stripe, marketing, docs)
+    <meta property="og:description" content="Scenario-ready signals for US equities + ETH/SOL majors." />
+    <meta property="og:url" content="https://manysignals.finance" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="site-header">
       <div class="shell header-inner">
-        <div class="brand">
-<<<<<<< HEAD
-          <div class="brand-mark">A</div>
-          <div class="brand-text">
-            <span class="brand-name">Aurora-Signals</span>
-            <span class="brand-tagline">Scenario-based market analytics</span>
-          </div>
-=======
-          <a href="/" class="logo">
-            <img src="/brand/logo.svg" alt="ManySignals roundwave mark" class="logo-mark" />
+        <a class="logo" href="/">
+          <img src="/brand/logo.svg" alt="ManySignals logo" class="logo-mark" />
+          <div class="logo-text">
             <span>ManySignals</span>
-          </a>
-          <p class="tagline">Scenario-safe signal briefs for equities + crypto</p>
->>>>>>> 27a214a (feat(prod): manysignals.finance integration, CORS, Stripe, marketing, docs)
-        </div>
-
+            <small>powered by Aurora-Signals</small>
+          </div>
+        </a>
         <nav class="primary-nav">
-<<<<<<< HEAD
-          <a href="#how">How it works</a>
-          <a href="#analysis">What we analyze</a>
-          <a href="#today">Today's scenarios</a>
-          <a href="#pricing">Plans</a>
-          <a href="/blog">Blog</a>
+          <a href="#about">About</a>
+          <a href="#today">Today</a>
+          <a href="#how-it-works">How it works</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#blog">Blog</a>
           <a href="/legal">Legal</a>
         </nav>
-
-        <button class="btn btn-ghost" id="nav-subscribe">Subscribe</button>
-=======
-          <a href="#hero">Overview</a>
-          <a href="#how-it-works">How it works</a>
-          <a href="#what-you-get">What you get</a>
-          <a href="#today">Today</a>
-          <a href="#pricing">Pricing</a>
-        </nav>
-        <div class="nav-cta">
-          <a class="btn btn-secondary" href="#today">View today’s signals</a>
-          <a class="btn btn-primary" href="#pricing">Subscribe now</a>
-        </div>
->>>>>>> 27a214a (feat(prod): manysignals.finance integration, CORS, Stripe, marketing, docs)
+        <button class="btn btn-primary" id="nav-pricing">See plans</button>
       </div>
     </header>
 
     <main>
-<<<<<<< HEAD
-      <!-- HERO -->
-      <section class="hero" id="top">
+      <section class="hero" id="hero">
         <div class="shell hero-grid">
           <div class="hero-copy">
-            <h1>Daily & weekly scenarios for stocks and crypto.</h1>
-            <p class="hero-subtitle">
-              Aurora-Signals continuously scans US equities and major Ethereum / Solana pairs,
-              turning raw data into scenario-based signals with plain-English rationales and risk notes.
-=======
-      <section class="hero" id="hero">
-        <div class="wrap hero-grid">
-          <div>
-            <p class="overline">Live monitoring</p>
-            <h1>Scenario-ready signals for equities and crypto</h1>
+            <p class="overline">Daily + weekly scenarios</p>
+            <h1>Scenario-ready signals for US equities and ETH/SOL majors</h1>
             <p class="lead">
-              ManySignals tracks U.S. equities plus Ethereum and Solana majors, translating real data into
-              scenario language with expected moves, rationales, and risk caveats you can audit.
->>>>>>> 27a214a (feat(prod): manysignals.finance integration, CORS, Stripe, marketing, docs)
+              ManySignals monitors Polygon equities plus CoinGecko majors, translating verified price & volume structures into
+              scenario language with expected move ranges, rationale, and risk notes.
             </p>
-
             <div class="hero-actions">
-<<<<<<< HEAD
-              <button class="btn btn-primary" id="cta-view-today">
-                View today's scenarios
-              </button>
-              <a href="/blog" class="btn btn-secondary">Read the blog</a>
-=======
-              <a class="btn btn-primary" href="#today">View today’s signals</a>
-              <a class="btn btn-secondary" href="#pricing">Subscribe now</a>
->>>>>>> 27a214a (feat(prod): manysignals.finance integration, CORS, Stripe, marketing, docs)
+              <a class="btn btn-primary" href="#today">View today’s highlights</a>
+              <a class="btn btn-secondary" href="#pricing">Compare tiers</a>
             </div>
-
             <ul class="hero-points">
-              <li>US stocks & large-cap crypto, updated intraday</li>
-              <li>Technical + fundamental rationale for each scenario</li>
-              <li>Clear risk notes and illustrative stop levels</li>
+              <li>Daily + weekly briefs for US equities, ETH, SOL, and majors</li>
+              <li>Clear timeframes: next 1–3 days or next 3–7 days</li>
+              <li>Expected move ranges, illustrative stops, and short risk notes</li>
             </ul>
-
-            <p class="hero-disclaimer">
-              Scenarios are illustrative only. Outcomes depend on future market conditions and are never guaranteed.
-            </p>
           </div>
-
           <aside class="hero-panel">
             <div class="status-card">
-              <div class="status-header">
-                <span class="status-dot"></span>
-                <span class="status-label">System status</span>
-              </div>
-              <div class="status-body">
-                <div class="status-row">
-                  <span>Backend</span>
-                  <span id="status-backend">Checking…</span>
-                </div>
-                <div class="status-row">
-                  <span>Signals API</span>
-                  <span id="status-signals">Checking…</span>
-                </div>
-                <div class="status-row">
-                  <span>Last refresh</span>
-                  <span id="status-refreshed">—</span>
-                </div>
-              </div>
+              <header>
+                <p class="overline">API health</p>
+                <h2>aurora-signals.onrender.com</h2>
+              </header>
+              <p id="system-status">Checking status…</p>
               <p class="status-footnote">
-                Aurora-Signals monitors its own health and will surface issues here if they arise.
+                Canonical API base for integrations: <strong>https://aurora-signals.onrender.com</strong>
               </p>
             </div>
-
-            <div class="mini-card">
-              <h2>At a glance</h2>
-              <ul class="mini-list">
-                <li>Equities coverage: liquid US names</li>
-                <li>Crypto coverage: BTC, ETH, SOL & majors</li>
-                <li>Horizons: intraday, 1–3 days, 3–10 days</li>
-              </ul>
+            <div class="status-card">
+              <header>
+                <p class="overline">Latest refresh</p>
+                <h2>Today’s stance</h2>
+              </header>
+              <p id="status-highlight">Live signals load once data providers respond.</p>
             </div>
           </aside>
         </div>
       </section>
 
-      <!-- HOW IT WORKS -->
-      <section class="section" id="how">
-        <div class="shell">
-          <header class="section-header">
-            <h2>How Aurora-Signals works</h2>
-            <p>
-              We combine structured market data with rule-based scoring to surface the most interesting scenarios each day.
-            </p>
-          </header>
-
-          <div class="steps-grid">
-            <article class="step-card">
-              <h3>1. Scan</h3>
-              <p>
-                We pull real-time and delayed data for US stocks and major crypto pairs on Ethereum and Solana,
-                tracking price action, volume, volatility, and trend structure.
-              </p>
-            </article>
-            <article class="step-card">
-              <h3>2. Score</h3>
-              <p>
-                A rules engine evaluates each asset on technical structure (breakouts, bases, momentum),
-                recent news and macro context, and liquidity filters.
-              </p>
-            </article>
-            <article class="step-card">
-              <h3>3. Explain</h3>
-              <p>
-                For the strongest candidates, we generate scenario copy: potential move ranges, technical & fundamental
-                rationales, risk notes, and an illustrative stop level.
-              </p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <!-- WHAT WE ANALYZE -->
-      <section class="section section-alt" id="analysis">
-        <div class="shell analysis-grid">
+      <section class="section about" id="about">
+        <div class="shell about-grid">
           <div>
-            <header class="section-header">
-              <h2>What we analyze</h2>
-              <p>
-                Aurora-Signals focuses on instruments where data quality and liquidity are robust enough for scenario work.
-              </p>
-            </header>
-            <ul class="pill-list">
-              <li>US listed equities with sufficient average daily volume</li>
-              <li>BTC, ETH, SOL and major pairs on Ethereum & Solana</li>
-              <li>Trend, volatility, and volume relative to recent history</li>
-              <li>Macro headlines and earnings context (where relevant)</li>
+            <p class="overline">About ManySignals</p>
+            <h2>Built for desks blending equities with crypto majors</h2>
+            <p id="about-tagline">
+              Daily and weekly scenario-based signals for U.S. equities plus Ethereum and Solana majors.
+            </p>
+            <p id="about-blurb">
+              ManySignals pairs Polygon equities data with CoinGecko on-chain context to publish scenario-based briefs that stay conservative by default.
+            </p>
+            <ul class="about-list">
+              <li>Daily/weekly scenarios for mega-cap US equities with real polygon.io data.</li>
+              <li>ETH, SOL, BTC, LINK, ARB, OP, and other majors with CoinGecko liquidity context.</li>
+              <li>Expected move ranges describe potential outcomes — never promises.</li>
+              <li>Each card includes technical, fundamental, macro, and risk language.</li>
             </ul>
           </div>
-
-          <div class="analysis-card">
-            <h3>Signals, not advice</h3>
-            <p>
-              Each scenario describes a possible move under specific conditions, with clear language about uncertainty.
-              We do not provide personalized financial, investment, or trading advice.
-            </p>
-            <p class="analysis-disclaimer">
-              This system provides automated market analysis for informational purposes only and does not constitute
-              personalized financial, investment, or trading advice.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <!-- TODAY'S SCENARIOS -->
-      <section class="section" id="today">
-        <div class="shell">
-          <header class="section-header">
-            <h2>Today's highlights</h2>
-            <p>
-              Live preview of a subset of today's scenarios fetched directly from the Aurora-Signals API.
-              Data sources include providers such as Polygon (equities) and CoinGecko (crypto).
-            </p>
-          </header>
-
-          <div id="today-signals" class="signals-grid signals-grid--loading">
-            <div class="signals-placeholder">
-              <p>Loading live scenarios from the API…</p>
+          <div class="about-card">
+            <header>
+              <h3>Tiers at a glance</h3>
+              <p>Free / $14 / $39</p>
+            </header>
+            <div id="tier-list" class="tier-list">
+              <p class="empty">Loading plan details…</p>
             </div>
           </div>
-<<<<<<< HEAD
-
-          <p class="section-note">
-            Scenario text is generated from real market data at the time of refresh. Outcomes remain uncertain and can
-            change quickly as conditions evolve.
-=======
-          <div class="hero-panel">
-            <h3>Signal refresh</h3>
-            <p>Hourly scans blend Polygon equities data with CoinGecko on-chain context; optional webhooks keep desks in sync.</p>
-            <ul class="panel-list">
-              <li>Stocks: SPY, QQQ, NVDA, MSFT, AAPL, TSLA plus rotating watchlist names.</li>
-              <li>Crypto: BTC, ETH, SOL, LINK, ARB, OP, and additional L2 narratives.</li>
-              <li>Each card ships expected move, stop hint, risk note, and the short disclaimer.</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="how-it-works">
-        <div class="wrap section-head">
-          <p class="tag">How it works</p>
-          <h2>Scan, score, and ship concise scenario briefs</h2>
-        </div>
-        <div class="card-grid">
-          <article>
-            <h3>Scan</h3>
-            <p>Collect Polygon OHLCV for equities alongside CoinGecko spot, dominance, and volatility pairs.</p>
-          </article>
-          <article>
-            <h3>Score</h3>
-            <p>Evaluate momentum, moving-average drift, relative volume, and on-chain strength to surface potential moves.</p>
-          </article>
-          <article>
-            <h3>Ship</h3>
-            <p>Publish scenario text, rationales, and risk notes to the API, marketing templates, or direct alerts.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="section alt" id="what-you-get">
-        <div class="wrap">
-          <div class="section-head">
-            <p class="tag">What you get</p>
-            <h2>Clarity, context, and compliance-ready tone</h2>
-          </div>
-          <ul class="deliverables">
-            <li>4–6 live scenarios per refresh with clear symbol, asset class, and timeframe tags.</li>
-            <li>Equity + crypto mix with scenario phrasing (“potential move”, “if current conditions persist”).</li>
-            <li>Combined rationale paragraph blending technical, fundamental, and risk context.</li>
-            <li>Stop-loss hint and concise risk reminder baked into every card.</li>
-            <li>Short disclaimer so stakeholders remember outcomes are uncertain and not guaranteed.</li>
-          </ul>
         </div>
       </section>
 
       <section class="section" id="today">
-        <div class="wrap section-head">
-          <p class="tag">Today’s highlights</p>
-          <h2>Live Signal Feed</h2>
-          <p>Fresh scenarios from <code>/signals/today</code>; each offering reflects current market data only.</p>
-        </div>
-        <div id="signals-list" class="signals-grid">
-          <p class="empty">Loading signals…</p>
-        </div>
-        <div id="signals-error" class="error-notice" aria-live="polite"></div>
-        <p class="disclaimer-text">
-          This system provides automated market analysis for informational purposes only and does not constitute personalized
-          financial, investment, or trading advice.
-        </p>
-      </section>
-
-      <section class="section alt" id="pricing">
-        <div class="wrap section-head">
-          <p class="tag">Pricing</p>
-          <h2>Transparent tiers, no hype</h2>
-          <p>Choose what fits your desk: scan the public feed for free or unlock higher-signal coverage.</p>
-        </div>
-        <div class="pricing-grid">
-          <article class="pricing-card">
-            <h3>Free</h3>
-            <p class="price">$0<span>/month</span></p>
-            <ul>
-              <li>JSON access via <code>/signals/today</code></li>
-              <li>Legal + blog archives</li>
-              <li>Status and health endpoints</li>
-            </ul>
-            <button class="btn btn-outline" id="btn-free" data-plan="free">Start with Free</button>
-          </article>
-          <article class="pricing-card highlight">
-            <p class="badge">Popular</p>
-            <h3>Pro</h3>
-            <p class="price">$14<span>/month</span></p>
-            <ul>
-              <li>All live equity and major crypto scenarios</li>
-              <li>Daily + weekly marketing templates</li>
-              <li>Webhook + Discord/Telegram delivery when configured</li>
-            </ul>
-            <button class="btn btn-primary" id="btn-pro" data-plan="pro">Subscribe to Pro</button>
-            <p class="pricing-error" data-plan-error="pro" aria-live="polite"></p>
-          </article>
-          <article class="pricing-card">
-            <h3>Elite</h3>
-            <p class="price">$39<span>/month</span></p>
-            <ul>
-              <li>Everything in Pro plus chain-aware ETH + SOL coverage</li>
-              <li>Higher-volatility context and dominance tracking</li>
-              <li>Priority refresh cadence + support</li>
-            </ul>
-            <button class="btn btn-secondary" id="btn-elite" data-plan="elite">Subscribe to Elite</button>
-            <p class="pricing-error" data-plan-error="elite" aria-live="polite"></p>
-          </article>
-        </div>
-      </section>
-
-      <section class="section" id="blog">
-        <div class="wrap section-head">
-          <p class="tag">Blog</p>
-          <h2>Recent dispatches</h2>
-          <p>Stay current on how the models adapt to new market environments.</p>
-        </div>
-        <div class="wrap blog-list" id="blog-list">
-          <p class="empty">Loading blog posts…</p>
-        </div>
-        <div id="blog-error" class="error-notice" aria-live="polite"></div>
-      </section>
-
-      <section class="section alt" id="legal">
-        <div class="wrap">
-          <p class="tag">Legal</p>
-          <h2>Information only</h2>
-          <p>
-            This system provides automated market analysis for informational purposes only and does not constitute personalized
-            financial, investment, or trading advice.
->>>>>>> 27a214a (feat(prod): manysignals.finance integration, CORS, Stripe, marketing, docs)
-          </p>
-        </div>
-      </section>
-
-      <!-- PRICING -->
-      <section class="section section-alt" id="pricing">
         <div class="shell">
           <header class="section-header">
-            <h2>Plans</h2>
-            <p>Start with the free view and upgrade when you're ready for more depth and automation.</p>
+            <p class="overline">Today’s highlights</p>
+            <h2>Daily signal cards with scenario language</h2>
+            <p>
+              Each scenario references real inputs from polygon.io or coingecko and frames a potential move for the next 1–3 or 3–7 days.
+            </p>
           </header>
+          <div id="today-signals" class="signals-grid">
+            <p class="empty">Loading signals…</p>
+          </div>
+          <p class="section-note">Signals are informational scenario briefs, not investment advice.</p>
+        </div>
+      </section>
 
+      <section class="section section-alt" id="how-it-works">
+        <div class="shell steps-grid">
+          <article>
+            <h3>1. Capture</h3>
+            <p>Polygon daily bars and CoinGecko market data feed the Aurora-Signals engine every few minutes.</p>
+          </article>
+          <article>
+            <h3>2. Score</h3>
+            <p>Models rank each asset’s structure, liquidity, momentum, and dominance to decide whether a scenario is worth publishing.</p>
+          </article>
+          <article>
+            <h3>3. Communicate</h3>
+            <p>Signals are converted to scenario language with expected move ranges, rationale, macro context, illustrative stops, and a short risk note.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="pricing">
+        <div class="shell">
+          <header class="section-header">
+            <p class="overline">Pricing</p>
+            <h2>Choose a tier that matches your workflow</h2>
+            <p>Three plans keep the same copy discipline across Free, Pro ($14/mo), and Elite ($39/mo).</p>
+          </header>
           <div class="pricing-grid">
-            <article class="pricing-card">
+            <article class="pricing-card" data-tier-card="Free">
               <h3>Free</h3>
-              <p class="price">$0 <span>/ month</span></p>
-              <ul class="feature-list">
-                <li>Web access to today's public scenarios</li>
-                <li>Core equities & crypto coverage</li>
-                <li>Plain-English rationales & risk notes</li>
+              <p class="price">$0</p>
+              <p class="summary">Delayed equity briefs to audit tone and structure.</p>
+              <ul>
+                <li>2 US equity scenarios per day</li>
+                <li>Delivered after market close</li>
+                <li>Scenario language + risk notes</li>
               </ul>
-              <button class="btn btn-secondary btn-full" data-tier="free">
-                Explore scenarios
-              </button>
+              <button class="btn btn-secondary" data-tier="free">Preview feed</button>
             </article>
-
-            <article class="pricing-card highlight">
-              <div class="badge">Most popular</div>
+            <article class="pricing-card" data-tier-card="Pro">
               <h3>Pro</h3>
-              <p class="price">$14 <span>/ month</span></p>
-              <ul class="feature-list">
-                <li>Full daily feed of curated signals</li>
-                <li>Expanded coverage & timeframes</li>
-                <li>Email summaries with top scenarios</li>
+              <p class="price">$14</p>
+              <p class="summary">Real-time equities with earlier refresh windows.</p>
+              <ul>
+                <li>US equities (intraday + next 1–3 days)</li>
+                <li>Technical + fundamental rationale</li>
+                <li>Email + webhook ready</li>
               </ul>
-              <button class="btn btn-primary btn-full" data-tier="pro">
-                Start Pro
-              </button>
-              <p class="pricing-footnote">
-                Uses Stripe Checkout in test or live mode depending on how you configure keys.
-              </p>
+              <button class="btn btn-primary" data-tier="pro">Upgrade to Pro</button>
             </article>
-
-            <article class="pricing-card">
+            <article class="pricing-card" data-tier-card="Elite">
               <h3>Elite</h3>
-              <p class="price">$39 <span>/ month</span></p>
-              <ul class="feature-list">
+              <p class="price">$39</p>
+              <p class="summary">Adds ETH/SOL majors, on-chain context, and Discord alerts.</p>
+              <ul>
                 <li>All Pro features</li>
-                <li>Higher-frequency refresh windows</li>
-                <li>Priority ops & support queue</li>
+                <li>ETH, SOL, BTC, LINK, ARB, OP + rotations</li>
+                <li>Priority roadmap access</li>
               </ul>
-              <button class="btn btn-secondary btn-full" data-tier="elite">
-                Start Elite
-              </button>
+              <button class="btn btn-primary" data-tier="elite">Join Elite</button>
             </article>
           </div>
-
-          <p class="section-note">
-            Stripe is used for subscription billing. You can configure test or live keys without changing this page.
-          </p>
-
-          <p class="pricing-error" id="pricing-error" hidden>
-            Unable to start checkout right now. Please refresh the page or try again later.
-          </p>
         </div>
       </section>
 
-      <!-- FAQ -->
-      <section class="section" id="faq">
+      <section class="section section-alt" id="blog">
         <div class="shell">
           <header class="section-header">
-            <h2>Common questions</h2>
+            <p class="overline">Notes & recaps</p>
+            <h2>Read the weekly context</h2>
+            <p>Blog posts expand on the same rationales shipped to paying subscribers.</p>
           </header>
-          <div class="faq-grid">
-            <article class="faq-item">
-              <h3>Is this investment advice?</h3>
-              <p>
-                No. Aurora-Signals produces automated scenarios based on market data. They are for
-                informational purposes only and are not personalized financial, investment, or trading advice.
-              </p>
-            </article>
-            <article class="faq-item">
-              <h3>Where does the data come from?</h3>
-              <p>
-                Equities data is sourced from providers such as Polygon, and crypto data from public APIs such as
-                CoinGecko and major exchanges. All scenarios are derived from real market data.
-              </p>
-            </article>
-            <article class="faq-item">
-              <h3>Can performance be guaranteed?</h3>
-              <p>
-                No. Market outcomes are uncertain. Each scenario describes a conditional possibility, not a promise.
-                Risk management and independent judgment remain essential.
-              </p>
-            </article>
+          <div id="blog-list" class="blog-list">
+            <p class="empty">Loading posts…</p>
           </div>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <div class="shell footer-inner">
-        <div class="footer-brand">
-          <span class="brand-name">Aurora-Signals</span>
-          <p class="disclaimer-text">
-            This system provides automated market analysis for informational purposes only and does not constitute
-            personalized financial, investment, or trading advice.
-          </p>
+      <div class="shell footer-grid">
+        <div>
+          <p>ManySignals marketing surface ↔ Aurora-Signals API.</p>
+          <p>API base: <a href="https://aurora-signals.onrender.com" target="_blank" rel="noreferrer">https://aurora-signals.onrender.com</a></p>
         </div>
-        <nav class="footer-nav">
+        <div class="footer-links">
           <a href="/legal">Legal</a>
-          <a href="/blog">Blog</a>
-<<<<<<< HEAD
-          <a href="#top">Back to top</a>
-        </nav>
-=======
-          <a href="mailto:hello@manysignals.finance">Contact</a>
+          <a href="https://manysignals.finance" target="_blank" rel="noreferrer">Marketing site</a>
+          <a href="/blog">Blog API</a>
         </div>
->>>>>>> 27a214a (feat(prod): manysignals.finance integration, CORS, Stripe, marketing, docs)
+        <p id="global-disclaimer" class="disclaimer">Loading disclaimer…</p>
       </div>
     </footer>
 
-    <script src="/app.js" type="module"></script>
+    <script src="/app.js" defer></script>
   </body>
 </html>

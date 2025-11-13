@@ -1,6 +1,6 @@
 {
   "name": "mcp-n8n",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MCP bridge for n8n",
   "bin": {
     "n8n-mcp": "server.js"

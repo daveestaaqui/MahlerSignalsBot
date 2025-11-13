@@ -9,7 +9,7 @@ jobs:
   broadcast:
     runs-on: ubuntu-latest
     env:
-      BASE_URL: ${{ secrets.BASE_URL }}
+      BASE_URL: ${{ secrets.BASE_URL || 'https://aurora-signals.onrender.com' }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -30,10 +30,6 @@ jobs:
       - name: Fetch latest signals
         run: |
           set -euo pipefail
-          if [ -z "${BASE_URL}" ]; then
-            echo "BASE_URL not configured" >&2
-            exit 1
-          fi
           curl -fsS "${BASE_URL}/signals/today" > signals.json
 
       - name: Fetch weekly summary
