@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { buildTodaySignals, type SignalView } from "../../domain/signals";
 import { logError, logInfo, type RequestWithId } from "../../lib/logger";
 
 const router = Router();
 
-router.get("/today", async (req: RequestWithId, res) => {
+export async function signalsTodayHandler(req: RequestWithId, res: Response) {
   try {
     const signals: SignalView[] = await buildTodaySignals();
     logInfo("signals.today.ok", { count: signals.length, requestId: req.requestId });
@@ -16,6 +16,8 @@ router.get("/today", async (req: RequestWithId, res) => {
     });
     res.status(502).json({ ok: false, error: "signals_unavailable" });
   }
-});
+}
+
+router.get("/today", signalsTodayHandler);
 
 export default router;

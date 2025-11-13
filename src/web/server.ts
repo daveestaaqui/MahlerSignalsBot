@@ -8,6 +8,7 @@ import legalRouter from "./routes/legal";
 import signalsRouter from "./routes/signals";
 import stripeRouter, { stripeWebhookRouter } from "./routes/stripe";
 import configRouter from "./routes/config";
+import diagnosticsRouter from "./routes/diagnostics";
 import { requireBearer } from "../lib/auth";
 import { attachRequestId } from "../lib/logger";
 
@@ -35,6 +36,7 @@ app.use("/signals", signalsRouter);
 app.use("/stripe", stripeRouter);
 app.use("/admin", requireBearer, adminRouter);
 app.use("/metrics", metricsRouter);
+app.use("/diagnostics", diagnosticsRouter);
 
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "0.0.0.0";
@@ -56,6 +58,7 @@ const PUBLIC_PATHS = [
   /^\/blog(?:\/[^/]*)?$/,
   /^\/about$/,
   /^\/legal(?:\/.*)?$/,
+  /^\/diagnostics$/,
 ];
 
 function corsGate(

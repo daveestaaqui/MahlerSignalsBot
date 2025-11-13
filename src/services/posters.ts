@@ -5,6 +5,7 @@ import { POSTING_ENV } from '../config/posting';
 import { composePromo } from './templates';
 import { promoteAll } from './promo';
 import { dispatchToDiscord } from '../posters/discord';
+import { SHORT_DISCLAIMER } from '../lib/legal';
 
 export type Tier = 'FREE' | 'PRO' | 'ELITE';
 export type Provider = 'telegram' | 'discord';
@@ -51,7 +52,7 @@ export async function postTelegram(tierInput: TierInput, input: MessageInput): P
   const tier = normalizeTier(tierInput);
   const chatId = telegramChats[tier];
   const message = toMessage(input);
-  const payload = `${message.telegram}\n\n⚠️ Not financial advice • https://manysignals.finance`;
+  const payload = `${message.telegram}\n\n${SHORT_DISCLAIMER}`;
   const logMeta = { tier, preview: payload.slice(0, 160) };
 
   if (!tgToken || !chatId) {
@@ -86,7 +87,7 @@ export async function postTelegram(tierInput: TierInput, input: MessageInput): P
 export async function postDiscord(tierInput: TierInput, input: MessageInput): Promise<ProviderOutcome> {
   const tier = normalizeTier(tierInput);
   const message = toMessage(input);
-  const content = `${message.compact}\n\n⚠️ Not financial advice • https://manysignals.finance`;
+  const content = `${message.compact}\n\n${SHORT_DISCLAIMER}`;
   const result = await dispatchToDiscord({ tier, content });
   if (result.sent) {
     return { posted: true };

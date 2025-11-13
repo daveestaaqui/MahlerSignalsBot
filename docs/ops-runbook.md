@@ -3,7 +3,7 @@
 ## Canonical endpoints
 - API: https://aurora-signals.onrender.com
 - Marketing: https://manysignals.finance
-- Public JSON: `/status`, `/healthz`, `/metrics`, `/signals/today`, `/about`, `/blog`, `/legal`
+- Public JSON: `/status`, `/healthz`, `/metrics`, `/metrics/weekly`, `/diagnostics`, `/signals/today`, `/about`, `/blog`, `/blog/:slug`, `/legal`
 
 ## Daily routine
 1. Keep the Render service on Node 20 with `pnpm start` (serves Express + schedulers).

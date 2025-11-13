@@ -28,7 +28,7 @@ stripeRouter.post("/checkout", async (req: RequestWithId, res: Response) => {
     });
     return res.status(500).json({
       ok: false,
-      error: "Stripe not configured",
+      error: "stripe_not_configured",
       missing: config.missing,
     });
   }

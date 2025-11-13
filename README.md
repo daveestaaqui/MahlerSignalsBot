@@ -48,6 +48,7 @@ GET /status            # health summary
 GET /healthz           # liveness probe
 GET /metrics           # build + version info
 GET /metrics/weekly    # aggregate performance snapshot
+GET /diagnostics       # { ok, version, env, apiBase, publicEndpoints[] }
 GET /signals/today     # array of SignalView objects
 GET /about             # marketing copy + pricing tiers
 GET /blog              # list of blog slugs
@@ -62,6 +63,7 @@ All public GET endpoints support CORS for `https://manysignals.finance` and `htt
 ## Admin + ops
 
 - Set `ADMIN_TOKEN` for `/admin/*` routes. Use `scripts/ping-admin.sh` or `make post-now` to trigger cycles.
+- `make diagnostics` (or `curl https://aurora-signals.onrender.com/diagnostics`) returns `{ ok, version, env, apiBase, publicEndpoints[] }` for quick smoke checks.
 - Run smoke tests before deploy: `BASE_URL=https://aurora-signals.onrender.com node scripts/check-endpoints.mjs`.
 - Marketing workflows (`.github/workflows/marketing-*.yml`) pull signals from `https://aurora-signals.onrender.com/signals/today` and gracefully skip channels without secrets.
 - `marketing/send-template.mjs` composes Telegram/Discord copy using the canonical disclaimer from `src/lib/legal.ts` (via the compiled dist module).

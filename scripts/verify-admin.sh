@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${BASE_URL:?BASE_URL env required}"
+BASE_URL="${BASE_URL:-https://aurora-signals.onrender.com}"
 : "${ADMIN_TOKEN:?ADMIN_TOKEN env required}"
 
 call() {

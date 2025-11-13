@@ -20,7 +20,7 @@
 
 ✅ **Operational checks**
 - `pnpm build` succeeds locally.
-- `/status`, `/healthz`, `/metrics`, `/signals/today`, `/about`, `/legal`, `/stripe/checkout` respond 200 via the production base.
+- `/status`, `/healthz`, `/metrics`, `/metrics/weekly`, `/diagnostics`, `/signals/today`, `/about`, `/legal`, `/stripe/checkout` respond 200 via the production base.
 - `/admin/test-all` (with `Authorization: Bearer ADMIN_TOKEN`) reports success for signals + Discord + Telegram. Investigate any missing secrets before launch.
 - Marketing workflows (daily + weekly) run in dry mode and log “channel not configured” when secrets are blank—no failing jobs due to absent channels.
 

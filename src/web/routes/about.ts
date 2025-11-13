@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { ABOUT_BLURB, SHORT_DISCLAIMER } from "../../lib/legal";
 import { RequestWithId, logInfo } from "../../lib/logger";
 
@@ -51,24 +51,38 @@ const TIERS: Tier[] = [
   },
 ];
 
-router.get("/", (req: RequestWithId, res) => {
-  const payload = {
+export type AboutPayload = {
+  name: string;
+  tagline: string;
+  about: string;
+  tiers: Tier[];
+  apiBase: string;
+  marketingSite: string;
+  disclaimer: string;
+};
+
+export function buildAboutPayload(apiBase = process.env.BASE_URL || DEFAULT_API_BASE): AboutPayload {
+  return {
     name: "ManySignals",
     tagline:
       "Daily and weekly scenario-based signals for U.S. equities plus Ethereum and Solana majors.",
     about: ABOUT_BLURB,
     tiers: TIERS,
-    apiBase: process.env.BASE_URL || DEFAULT_API_BASE,
+    apiBase,
     marketingSite: MARKETING_SITE,
     disclaimer: SHORT_DISCLAIMER,
   };
+}
 
+export function aboutHandler(req: RequestWithId, res: Response) {
+  const payload = buildAboutPayload();
   logInfo("about.fetch", {
     route: "/about",
     requestId: req.requestId,
   });
-
   res.json(payload);
-});
+}
+
+router.get("/", aboutHandler);
 
 export default router;

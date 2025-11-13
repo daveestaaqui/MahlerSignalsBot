@@ -38,7 +38,7 @@ The static marketing bundle points at the production API. Override via `<html da
 ## 4. Deploy on Render
 1. Create a Render Web Service from this repo (Node 20). Build command `pnpm install && pnpm build`. Start command `pnpm start`.
 2. Add env vars: `ADMIN_TOKEN`, `BASE_URL=https://aurora-signals.onrender.com`, Polygon/CoinGecko keys, Stripe keys, Telegram/Discord secrets.
-3. Redeploy and verify `/status`, `/healthz`, `/metrics`, `/signals/today`, `/about`, and `/legal` all succeed via the production base.
+3. Redeploy and verify `/status`, `/healthz`, `/metrics`, `/metrics/weekly`, `/diagnostics`, `/signals/today`, `/about`, and `/legal` all succeed via the production base.
 4. Serve the marketing site at `https://manysignals.finance` (or temporarily from `/public` inside this repo) and ensure CORS remains limited to the marketing origins.
 
 ## 5. Smoke tests
