@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { RequestWithId, logError, logInfo } from "../../lib/logger";
@@ -6,7 +6,7 @@ import { ABOUT_BLURB, SHORT_DISCLAIMER } from "../../lib/legal";
 
 const router = Router();
 
-router.get("/", (req: RequestWithId, res) => {
+router.get("/", (req: RequestWithId, res: Response) => {
   try {
     const mdPath = join(process.cwd(), "docs", "legal.md");
     const raw = readFileSync(mdPath, "utf-8");

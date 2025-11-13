@@ -1,5 +1,5 @@
 import path from "path";
-import express from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import adminRouter from "./routes/admin";
 import aboutRouter from "./routes/about";
 import metricsRouter from "./routes/metrics";
@@ -21,13 +21,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-app.get("/", (_req, res) => {
+app.get("/", (_req: Request, res: Response) => {
   const filePath = path.join(process.cwd(), "public", "index.html");
   res.sendFile(filePath);
 });
 
-app.get("/status", (_req, res) => res.json({ ok: true, ts: Date.now() }));
-app.get("/healthz", (_req, res) => res.status(200).end("ok"));
+app.get("/status", (_req: Request, res: Response) => res.json({ ok: true, ts: Date.now() }));
+app.get("/healthz", (_req: Request, res: Response) => res.status(200).end("ok"));
 
 app.use("/about", aboutRouter);
 app.use("/legal", legalRouter);
@@ -66,9 +66,9 @@ const PUBLIC_PATHS = [
 ];
 
 function corsGate(
-  req: express.Request,
-  res: express.Response,
-  next: express.NextFunction,
+  req: Request,
+  res: Response,
+  next: NextFunction,
 ) {
   const origin = req.headers.origin;
   const pathname = req.path ?? req.url ?? "";

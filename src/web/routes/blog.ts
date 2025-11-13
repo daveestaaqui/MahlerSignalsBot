@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import fs from "fs";
 import path from "path";
 import { RequestWithId, logError, logInfo, logWarn } from "../../lib/logger";
@@ -7,7 +7,7 @@ import { ABOUT_BLURB, SHORT_DISCLAIMER } from "../../lib/legal";
 const router = Router();
 const blogDir = path.join(process.cwd(), "docs/blog");
 
-router.get("/", (req: RequestWithId, res) => {
+router.get("/", (req: RequestWithId, res: Response) => {
   try {
     const files = fs.readdirSync(blogDir).filter((f) => f.endsWith(".md"));
     const posts = files.map((file) => file.replace(/\.md$/, ""));
@@ -27,7 +27,7 @@ router.get("/", (req: RequestWithId, res) => {
   }
 });
 
-router.get("/:slug", (req: RequestWithId, res) => {
+router.get("/:slug", (req: RequestWithId, res: Response) => {
   try {
     const filePath = path.join(blogDir, `${req.params.slug}.md`);
     if (!fs.existsSync(filePath)) {

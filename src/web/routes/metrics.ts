@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { RequestWithId, logError, logInfo } from "../../lib/logger";
 import { generateWeeklySummary } from "../../services/weeklySummary";
 
 const router = Router();
 
-router.get("/", (req: RequestWithId, res) => {
+router.get("/", (req: RequestWithId, res: Response) => {
   const now = Date.now();
   const payload = {
     ok: true,
@@ -15,7 +15,7 @@ router.get("/", (req: RequestWithId, res) => {
   res.json(payload);
 });
 
-router.get("/weekly", (req: RequestWithId, res) => {
+router.get("/weekly", (req: RequestWithId, res: Response) => {
   try {
     const summary = generateWeeklySummary();
     logInfo("metrics.weekly", {

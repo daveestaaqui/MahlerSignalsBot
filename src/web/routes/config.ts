@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { logInfo, RequestWithId } from "../../lib/logger";
 import { SHORT_DISCLAIMER, ABOUT_BLURB } from "../../lib/legal";
 
 const router = Router();
 
-router.get("/", (req: RequestWithId, res) => {
+router.get("/", (req: RequestWithId, res: Response) => {
   const payload = {
     name: "ManySignals",
     baseUrl: process.env.AURORA_BASE_URL || "https://manysignals.finance",
