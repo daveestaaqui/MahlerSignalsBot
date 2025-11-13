@@ -160,13 +160,13 @@ docker run --rm -p 8787:8787 --env-file .env aurora:latest
 
 ### Option B: Render (free tier)
 1) Go to https://render.com/ → New → **Blueprint** → point to this repo (has `render.yaml`).
-2) After deploy, you get a URL like `https://aurora-signals.onrender.com`.
+2) After deploy, you get a URL like `https://api.manysignals.finance`.
 3) Add the same GitHub Secrets `ADMIN_ENDPOINT_URL` + `ADMIN_TOKEN`.
 
 ## Deploy on Render
 1) Go to https://render.com → **New → Blueprint** → select this repo (it already contains `render.yaml`).
 2) Once the first build finishes, open **Settings → Environment** and paste values from `ops/render.env.sample` (at minimum set a strong `ADMIN_TOKEN`).
-3) Copy the External URL (for example `https://aurora-signals.onrender.com`).
+3) Copy the External URL (for example `https://api.manysignals.finance`).
 4) Locally run `scripts/set-gh-secrets-hint.sh https://YOUR-RENDER-URL` and add those secrets to GitHub so the daily cron can call `/admin/post`.
 5) Verify the endpoint:
    ```bash
@@ -281,13 +281,13 @@ docker run --rm -p 8787:8787 --env-file .env aurora:latest
 
 ### Option B: Render (free tier)
 1) Go to https://render.com/ → New → **Blueprint** → point to this repo (has `render.yaml`).
-2) After deploy, you get a URL like `https://aurora-signals.onrender.com`.
+2) After deploy, you get a URL like `https://api.manysignals.finance`.
 3) Add the same GitHub Secrets `ADMIN_ENDPOINT_URL` + `ADMIN_TOKEN`.
 
 ## Deploy on Render
 1) Go to https://render.com → **New → Blueprint** → select this repo (it already contains `render.yaml`).
 2) Once the first build finishes, open **Settings → Environment** and paste values from `ops/render.env.sample` (at minimum set a strong `ADMIN_TOKEN`).
-3) Copy the External URL (for example `https://aurora-signals.onrender.com`).
+3) Copy the External URL (for example `https://api.manysignals.finance`).
 4) Locally run `scripts/set-gh-secrets-hint.sh https://YOUR-RENDER-URL` and add those secrets to GitHub so the daily cron can call `/admin/post`.
 5) Verify the endpoint:
    ```bash
@@ -316,7 +316,7 @@ docker run --rm -p 8787:8787 --env-file .env aurora:latest
 2) **Secrets** are in Render/GitHub Actions (no secrets in repo).
 3) **Kick one cycle locally**:
    ```bash
-   export BASE_URL="https://aurora-signals.onrender.com"
+   export BASE_URL="https://api.manysignals.finance"
    export ADMIN_TOKEN="<your-admin-token>"
    make diagnostics
    make once

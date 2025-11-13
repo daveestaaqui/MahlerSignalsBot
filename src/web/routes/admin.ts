@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
 import { Router } from "express";
+import { fetch } from "undici";
 import { buildDailySummary, buildNowSummary } from "../../services/analysis";
-import { postDiscord, postTelegram } from "../../services/directPosters";
+import { postDiscord, postTelegram, type PostResult } from "../../services/directPosters";
 import { logError, logInfo, logWarn } from "../../lib/logger";
 
 const router = Router();
@@ -37,7 +38,7 @@ router.post("/post-weekly", async (req: Request, res: Response) => {
 router.post("/test-telegram", async (_req: Request, res: Response) => {
   await runAdminAction("test-telegram", res, async () => {
     const config = resolvePosterConfig();
-    const text = `AuroraSignals test ✅ ${new Date().toISOString()}`;
+    const text = `ManySignals test ✅ ${new Date().toISOString()}`;
     await dispatchSummary(text, config, {
       label: "test-telegram",
       skipDiscord: true,
@@ -48,7 +49,7 @@ router.post("/test-telegram", async (_req: Request, res: Response) => {
 router.post("/test-discord", async (_req: Request, res: Response) => {
   await runAdminAction("test-discord", res, async () => {
     const config = resolvePosterConfig();
-    const text = `AuroraSignals test ✅ ${new Date().toISOString()}`;
+    const text = `ManySignals test ✅ ${new Date().toISOString()}`;
     await dispatchSummary(text, config, {
       label: "test-discord",
       skipTelegram: true,
@@ -56,13 +57,24 @@ router.post("/test-discord", async (_req: Request, res: Response) => {
   });
 });
 
+router.get("/test-all", async (_req: Request, res: Response) => {
+  await runAdminAction("test-all", res, async () => {
+    const summary = await runConnectivitySweep();
+    return { summary };
+  });
+});
+
 router.get("/self-check", (_req: Request, res: Response) => {
-  const must = (key: string) => (process.env[key] ? "ok" : "missing");
+  const must = (keys: string | string[]) => {
+    const list = Array.isArray(keys) ? keys : [keys];
+    return list.some((key) => process.env[key]) ? "ok" : "missing";
+  };
   const report = {
     ADMIN_TOKEN: must("ADMIN_TOKEN"),
     TELEGRAM_BOT_TOKEN: must("TELEGRAM_BOT_TOKEN"),
-    TELEGRAM_PRO_CHAT_ID: must("TELEGRAM_PRO_CHAT_ID"),
-    TELEGRAM_ELITE_CHAT_ID: must("TELEGRAM_ELITE_CHAT_ID"),
+    TELEGRAM_FREE_CHAT_ID: must(["TELEGRAM_CHAT_ID_FREE", "TELEGRAM_FREE_CHAT_ID"]),
+    TELEGRAM_PRO_CHAT_ID: must(["TELEGRAM_CHAT_ID_PRO", "TELEGRAM_PRO_CHAT_ID"]),
+    TELEGRAM_ELITE_CHAT_ID: must(["TELEGRAM_CHAT_ID_ELITE", "TELEGRAM_ELITE_CHAT_ID"]),
     DISCORD_WEBHOOK_URL: must("DISCORD_WEBHOOK_URL"),
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET ? "set" : "unset",
   };
@@ -88,11 +100,15 @@ async function handleScheduled(
 async function runAdminAction(
   action: string,
   res: Response,
-  work: () => Promise<void>
+  work: () => Promise<unknown>
 ): Promise<void> {
   try {
-    await work();
-    res.json({ ok: true });
+    const result = await work();
+    if (result && typeof result === "object") {
+      res.json({ ok: true, ...result });
+    } else {
+      res.json({ ok: true });
+    }
   } catch (error) {
     logError("admin.action_failed", {
       action,
@@ -104,11 +120,13 @@ async function runAdminAction(
 
 function resolvePosterConfig(): PosterConfig {
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN || undefined;
-  const proChatId = process.env.TELEGRAM_PRO_CHAT_ID || "";
-  const eliteChatId = process.env.TELEGRAM_ELITE_CHAT_ID || "";
+  const freeChatId = readEnvValue(["TELEGRAM_CHAT_ID_FREE", "TELEGRAM_FREE_CHAT_ID"]);
+  const proChatId = readEnvValue(["TELEGRAM_CHAT_ID_PRO", "TELEGRAM_PRO_CHAT_ID"]);
+  const eliteChatId = readEnvValue(["TELEGRAM_CHAT_ID_ELITE", "TELEGRAM_ELITE_CHAT_ID"]);
   const discordWebhook = process.env.DISCORD_WEBHOOK_URL || undefined;
 
   const telegramChats = [
+    { chatId: freeChatId, label: "telegram:free" },
     { chatId: proChatId, label: "telegram:pro" },
     { chatId: eliteChatId, label: "telegram:elite" },
   ].filter((entry) => entry.chatId);
@@ -184,6 +202,141 @@ async function dispatchSummary(
     failures,
     attempted: results.length,
   });
+}
+
+async function runConnectivitySweep() {
+  const baseUrl = resolveBaseUrl();
+  const signals = await fetchSignalsSnapshot(baseUrl);
+  const config = resolvePosterConfig();
+  const timestamp = new Date().toISOString();
+  const testMessage = `Test connectivity ok • ${timestamp}`;
+
+  const discord = await dispatchDiscordHeartbeat(config.discordWebhook, testMessage);
+  const telegram = await dispatchTelegramHeartbeats(config, testMessage);
+
+  return {
+    baseUrl,
+    signals,
+    discord,
+    telegram,
+  };
+}
+
+async function fetchSignalsSnapshot(baseUrl: string) {
+  const trimmed = baseUrl.replace(/\/$/, "");
+  const url = `${trimmed}/signals/today`;
+  try {
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) {
+      throw new Error(`http_${res.status}`);
+    }
+    const payload = (await res.json()) as unknown;
+    let list: unknown[] = [];
+    if (Array.isArray(payload)) {
+      list = payload;
+    } else if (
+      payload &&
+      typeof payload === "object" &&
+      Array.isArray((payload as { signals?: unknown[] }).signals)
+    ) {
+      list = (payload as { signals: unknown[] }).signals ?? [];
+    }
+    return { ok: true, count: list.length, url };
+  } catch (error) {
+    const message = describeError(error);
+    logWarn("admin.test_all.signals_failed", { url, error: message });
+    return { ok: false, count: 0, url, error: message };
+  }
+}
+
+async function dispatchDiscordHeartbeat(webhook: string | undefined, message: string) {
+  if (!webhook) {
+    return { attempted: false, ok: false, error: "missing_webhook" };
+  }
+  const result = await postDiscord(webhook, message);
+  return { attempted: true, ok: result.ok, error: result.error };
+}
+
+async function dispatchTelegramHeartbeats(config: PosterConfig, message: string) {
+  if (!config.telegramToken) {
+    return config.telegramChats.length
+      ? config.telegramChats.map((chat) => ({
+          chatId: chat.chatId,
+          label: chat.label,
+          attempted: false,
+          ok: false,
+          error: "missing_token",
+        }))
+      : [
+          {
+            chatId: "",
+            label: "telegram",
+            attempted: false,
+            ok: false,
+            error: "missing_token",
+          },
+        ];
+  }
+  if (!config.telegramChats.length) {
+    return [
+      {
+        chatId: "",
+        label: "telegram",
+        attempted: false,
+        ok: false,
+        error: "missing_chat_ids",
+      },
+    ];
+  }
+
+  const results: Array<{ chatId: string; label: string; attempted: boolean; ok: boolean; error?: string }> = [];
+  for (const chat of config.telegramChats) {
+    const outcome = await safePostTelegram(config.telegramToken, chat.chatId, message, chat.label);
+    results.push({
+      chatId: chat.chatId,
+      label: chat.label,
+      attempted: true,
+      ok: outcome.ok,
+      error: outcome.error,
+    });
+  }
+  return results;
+}
+
+async function safePostTelegram(
+  token: string,
+  chatId: string,
+  message: string,
+  label: string,
+): Promise<PostResult> {
+  try {
+    return await postTelegram(token, chatId, message, label);
+  } catch (error) {
+    const description = describeError(error);
+    logWarn("admin.test_all.telegram_failed", { chatId, label, error: description });
+    return { ok: false, channel: label, error: description };
+  }
+}
+
+function resolveBaseUrl(): string {
+  const fromEnv =
+    process.env.BASE_URL ||
+    process.env.AURORA_BASE_URL ||
+    process.env.PUBLIC_BASE_URL ||
+    process.env.RENDER_EXTERNAL_URL;
+  if (fromEnv) {
+    return fromEnv.trim().replace(/\/$/, "");
+  }
+  const port = Number(process.env.PORT || 3000);
+  return `http://127.0.0.1:${port}`;
+}
+
+function readEnvValue(keys: string[]): string {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value) return value;
+  }
+  return "";
 }
 
 function getDryRun(req: Request): boolean {

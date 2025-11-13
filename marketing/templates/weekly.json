@@ -1,13 +1,6 @@
 {
-  "title": "Aurora-Signals Weekly Recap — Week {{week}}",
-  "body": "Desk-ready recap: {{top_rationales}}. Crypto view: {{crypto_summary}}. Equity view: {{equity_summary}}. Upcoming catalysts: {{events}}. {{about}}",
-  "cta": "Read the long-form blog recap: https://aurora-signals.onrender.com/blog",
-  "disclaimer": "{{disclaimer}}",
-  "sections": [
-    { "header": "Top rationales", "content": "{{top_rationales}}" },
-    { "header": "Crypto view", "content": "{{crypto_summary}}" },
-    { "header": "Equity view", "content": "{{equity_summary}}" },
-    { "header": "Catalysts", "content": "{{events}}" },
-    { "header": "Performance", "content": "{{performance_summary}}" }
-  ]
+  "title": "ManySignals – Weekly Scenario Recap",
+  "body": "Weekly signals: {{signal_count}} ({{asset_mix}}). Equity view: {{equity_summary}}. Crypto view: {{crypto_summary}}. Top 3 signals: {{top_rationales}}. {{disclaimer}}",
+  "cta": "Read the long-form blog recap: https://manysignals.finance/blog",
+  "disclaimer": "{{disclaimer}}"
 }

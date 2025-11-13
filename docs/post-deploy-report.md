@@ -21,16 +21,16 @@ This system provides automated market analysis for informational purposes only a
 
 | Path | Method | Status |
 | ---- | ------ | ------ |
-| `/` | GET | ERROR (getaddrinfo ENOTFOUND aurora-signals.onrender.com) |
-| `/status` | GET | ERROR (getaddrinfo ENOTFOUND aurora-signals.onrender.com) |
-| `/healthz` | GET | ERROR (getaddrinfo ENOTFOUND aurora-signals.onrender.com) |
-| `/metrics` | GET | ERROR (getaddrinfo ENOTFOUND aurora-signals.onrender.com) |
-| `/legal` | GET | ERROR (getaddrinfo ENOTFOUND aurora-signals.onrender.com) |
+| `/` | GET | ERROR (getaddrinfo ENOTFOUND api.manysignals.finance) |
+| `/status` | GET | ERROR (getaddrinfo ENOTFOUND api.manysignals.finance) |
+| `/healthz` | GET | ERROR (getaddrinfo ENOTFOUND api.manysignals.finance) |
+| `/metrics` | GET | ERROR (getaddrinfo ENOTFOUND api.manysignals.finance) |
+| `/legal` | GET | ERROR (getaddrinfo ENOTFOUND api.manysignals.finance) |
 
 ### Admin Endpoints
 
 | Path | Method | Status |
 | ---- | ------ | ------ |
-| `/admin/self-check` | GET | ERROR (getaddrinfo ENOTFOUND aurora-signals.onrender.com) |
-| `/admin/post-daily` | POST | ERROR (getaddrinfo ENOTFOUND aurora-signals.onrender.com) |
-| `/admin/post-weekly` | POST | ERROR (getaddrinfo ENOTFOUND aurora-signals.onrender.com) |
+| `/admin/self-check` | GET | ERROR (getaddrinfo ENOTFOUND api.manysignals.finance) |
+| `/admin/post-daily` | POST | ERROR (getaddrinfo ENOTFOUND api.manysignals.finance) |
+| `/admin/post-weekly` | POST | ERROR (getaddrinfo ENOTFOUND api.manysignals.finance) |

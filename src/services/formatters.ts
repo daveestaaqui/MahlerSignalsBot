@@ -41,7 +41,7 @@ const tierMeta: Record<Tier, { emoji: string; label: string; risk: string; cta: 
     emoji: '⭐',
     label: 'PRO',
     risk: 'Risk: commit ≤0.75R; respect structure stops.',
-    cta: 'CTA: Execute via Aurora Portal; journal fills within 15m.',
+    cta: 'CTA: Execute via ManySignals desk workflow; journal fills within 15m.',
   },
   free: {
     emoji: '⌛',
@@ -122,7 +122,7 @@ function formatBundle(bundle: Bundle): FormattedMessage {
   const footer = [
     tierMeta[tier].risk,
     tierMeta[tier].cta,
-    'Trade: https://aurorasignalx.app/trade | Connect: https://aurorasignalx.app/connect',
+    'Trade: https://manysignals.finance/#today | Connect: https://manysignals.finance/#pricing',
   ].map(escapeHtml);
 
   const telegram = [header, ...body, ...footer].join('\n');

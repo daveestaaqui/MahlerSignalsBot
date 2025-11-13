@@ -6,14 +6,15 @@ const router = Router();
 
 router.get("/", (req: RequestWithId, res) => {
   const payload = {
-    name: "Aurora-Signals",
-    baseUrl: process.env.AURORA_BASE_URL || "https://aurora-signals.onrender.com",
+    name: "ManySignals",
+    baseUrl: process.env.AURORA_BASE_URL || "https://manysignals.finance",
+    apiBaseUrl: process.env.BASE_URL || "https://api.manysignals.finance",
     links: {
       status: "/status",
       legal: "/legal",
       blog: "/blog",
       signalsToday: "/signals/today",
-      marketingSite: "/",
+      marketingSite: "https://manysignals.finance",
     },
     copy: {
       disclaimerShort: SHORT_DISCLAIMER,

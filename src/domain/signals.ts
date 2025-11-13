@@ -426,30 +426,30 @@ function buildEquityRationales(params: {
 
   if (typeof pctFrom20 === "number") {
     lines.push(
-      `Price is ${formatPercent(Math.abs(pctFrom20))} ${pctFrom20 >= 0 ? "above" : "below"} the 20-day average per Polygon daily bars.`,
+      `Price could sit ${formatPercent(Math.abs(pctFrom20))} ${pctFrom20 >= 0 ? "above" : "below"} the 20-day average per Polygon daily bars; if that spread persists the drift remains a potential ${pctFrom20 >= 0 ? "continuation" : "mean-reversion"} scenario and outcomes stay uncertain.`,
     );
   }
 
   if (typeof pctFrom50 === "number" && Math.abs(pctFrom50) >= 0.01) {
     lines.push(
-      `Distance to the 50-day baseline is ${formatPercent(Math.abs(pctFrom50))}, highlighting ${pctFrom50 >= 0 ? "positive" : "mean-reversion"} pressure.`,
+      `Distance to the 50-day baseline could signal ${pctFrom50 >= 0 ? "constructive" : "mean-reversion"} pressure if this stretch persists; outcomes remain uncertain.`,
     );
   }
 
   if (Math.abs(change1d) >= 0.002) {
     lines.push(
-      `Last close moved ${formatPercent(Math.abs(change1d))} ${change1d >= 0 ? "higher" : "lower"} with verifiable Polygon volume.`,
+      `Last close moved ${formatPercent(Math.abs(change1d))} ${change1d >= 0 ? "higher" : "lower"} with verifiable Polygon volume; if that impulse persists the bias could stay ${change1d >= 0 ? "constructive" : "defensive"}, yet outcomes remain uncertain.`,
     );
   }
 
   if (typeof rvol === "number" && Number.isFinite(rvol)) {
     lines.push(
-      `Relative volume is ${rvol.toFixed(1)}x the trailing 30-day average, indicating ${rvol > 1 ? "active" : "cooling"} participation.`,
+      `Relative volume is ${rvol.toFixed(1)}x the trailing 30-day average, indicating potential ${rvol > 1 ? "follow-through" : "cooling"} participation if liquidity persists; outcomes remain uncertain.`,
     );
   }
 
   lines.push(
-    `Model-estimated move references ${symbol} OHLCV (Polygon) plus volatility-based stop sizing; treat outputs as informational only.`,
+    `Model-estimated move references ${symbol} OHLCV (Polygon) plus volatility-based stop sizing; scenarios stay potential only and outcomes remain uncertain.`,
   );
 
   return lines.slice(0, 5);
@@ -469,39 +469,39 @@ function buildCryptoRationales(params: {
 
   if (typeof change24 === "number" && Number.isFinite(change24)) {
     lines.push(
-      `${symbol} moved ${change24.toFixed(1)}% over the last 24h per CoinGecko spot markets.`,
+      `${symbol} moved ${change24.toFixed(1)}% over the last 24h per CoinGecko spot markets; if that move persists it could keep a ${change24 >= 0 ? "constructive" : "defensive"} skew, though outcomes remain uncertain.`,
     );
   }
 
   if (typeof change7d === "number" && Number.isFinite(change7d)) {
-    lines.push(`Seven-day drift is ${change7d.toFixed(1)}%, framing the current signal.`);
+    lines.push(`Seven-day drift is ${change7d.toFixed(1)}%, framing a potential scenario if conditions persist; outcomes uncertain.`);
   }
 
   if (typeof change1h === "number" && Math.abs(change1h) >= 0.2) {
-    lines.push(`One-hour change registers ${change1h.toFixed(1)}%, flagging intraday momentum.`);
+    lines.push(`One-hour change registers ${change1h.toFixed(1)}%, flagging intraday momentum that could matter if it persists, yet outcomes remain uncertain.`);
   }
 
   if (typeof volume === "number" && volume > 0) {
     lines.push(
-      `24h volume cleared ${formatUsd(volume)} (${((volumeRatio ?? 0) * 100).toFixed(1)}% of market cap), confirming liquidity.`,
+      `24h volume cleared ${formatUsd(volume)} (${((volumeRatio ?? 0) * 100).toFixed(1)}% of market cap), hinting at potential liquidity support if this pace persists; outcomes uncertain.`,
     );
   }
 
   if (typeof dominance === "number" && dominance > 0) {
     lines.push(
-      `${(dominance * 100).toFixed(1)}% of tracked market cap sits in ${symbol}, aiding signal quality.`,
+      `${(dominance * 100).toFixed(1)}% of tracked market cap sits in ${symbol}, which could aid signal quality if dominance holds, though outcomes remain uncertain.`,
     );
   }
 
   lines.push(
-    "Models blend CoinGecko spot feeds with dominance and volume ratios; forecasts stay probabilistic.",
+    "Models blend CoinGecko spot feeds with dominance and volume ratios; forecasts stay probabilistic and outcomes are uncertain.",
   );
   return lines.slice(0, 5);
 }
 
 function summarizeRationaleLines(lines: string[]): string {
   if (!lines.length) {
-    return "Model found a tradable setup using current Polygon and CoinGecko inputs.";
+    return "Model found a potential setup using current Polygon and CoinGecko inputs; outcomes are uncertain.";
   }
   if (lines.length === 1) return lines[0]!;
   return `${lines[0]} ${lines[1]}`;

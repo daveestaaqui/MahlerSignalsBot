@@ -2,14 +2,14 @@ name: marketing-weekly
 
 on:
   schedule:
-    - cron: "30 20 * * 5"
+    - cron: "30 14 * * 0"
   workflow_dispatch:
 
 jobs:
   broadcast:
     runs-on: ubuntu-latest
     env:
-      BASE_URL: ${{ secrets.BASE_URL || 'https://aurora-signals.onrender.com' }}
+      BASE_URL: ${{ secrets.BASE_URL }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -115,7 +115,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
-          msg="Aurora-Signals marketing pipeline is live ✅"
+          msg="ManySignals marketing pipeline is live ✅"
           if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
             curl -fsS --retry 3 \
               -d "chat_id=${TELEGRAM_CHAT_ID}" \

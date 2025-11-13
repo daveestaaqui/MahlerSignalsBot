@@ -12,7 +12,7 @@ export function buildWeeklyDigest(): WeeklyDigestPayload {
   const losers = formatLeaders(summary.topLosers.slice(0, 5));
   const leaderboard = formatLeaderboard(summary.entries);
   const message = formatWeeklyDigestMessage({
-    header: 'AuroraSignalX • Weekly Performance Digest',
+    header: 'ManySignals • Weekly Performance Digest',
     bullets: [
       `Signals sent: ${summary.count}`,
       `Win rate (5d): ${summary.winRate5d !== null ? `${(summary.winRate5d * 100).toFixed(1)}%` : '—'}`,

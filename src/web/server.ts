@@ -12,6 +12,7 @@ import { attachRequestId } from "../lib/logger";
 
 const app = express();
 app.use(attachRequestId);
+app.use(corsGate);
 app.use("/stripe/webhook", stripeWebhookRouter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -38,3 +39,36 @@ const host = process.env.HOST || "0.0.0.0";
 app.listen(port, host);
 
 export default app;
+
+const TRUSTED_ORIGINS = new Set([
+  "https://manysignals.finance",
+  "https://www.manysignals.finance",
+]);
+const ALLOWED_METHODS = "GET,POST";
+const ALLOWED_HEADERS = "Content-Type, Authorization";
+
+function corsGate(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) {
+  const origin = req.headers.origin;
+  if (origin && TRUSTED_ORIGINS.has(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+    res.header("Access-Control-Allow-Methods", ALLOWED_METHODS);
+    res.header("Access-Control-Allow-Headers", ALLOWED_HEADERS);
+    res.header("Access-Control-Expose-Headers", "Content-Type");
+  }
+
+  if (req.method === "OPTIONS") {
+    if (origin && TRUSTED_ORIGINS.has(origin)) {
+      res.status(204).end();
+      return;
+    }
+    res.status(403).end();
+    return;
+  }
+
+  next();
+}

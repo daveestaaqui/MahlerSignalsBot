@@ -9,7 +9,7 @@ jobs:
   self-heal:
     runs-on: ubuntu-latest
     env:
-      BASE_URL: ${{ secrets.BASE_URL || 'https://aurora-signals.onrender.com' }}
+      BASE_URL: ${{ secrets.BASE_URL || 'https://api.manysignals.finance' }}
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
       ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
@@ -60,7 +60,7 @@ jobs:
           echo "Health check failed. Requesting redeploy via Render API…"
           if ! trigger_redeploy; then
             echo "Unable to trigger redeploy automatically" >&2
-            send_alert "redeploy_failed" "Aurora-Signals redeploy not attempted due to missing credentials at $(date --iso-8601=seconds)" || true
+            send_alert "redeploy_failed" "ManySignals redeploy not attempted due to missing credentials at $(date --iso-8601=seconds)" || true
             exit 1
           fi
 
@@ -69,10 +69,10 @@ jobs:
 
           if check "post-redeploy"; then
             echo "✅ Self-healed after redeploy."
-            send_alert "self-healed" "Aurora-Signals self-healed after Render redeploy at $(date --iso-8601=seconds)" || true
+            send_alert "self-healed" "ManySignals self-healed after Render redeploy at $(date --iso-8601=seconds)" || true
             exit 0
           fi
 
           echo "Redeploy did not restore service." >&2
-          send_alert "still-failing" "Aurora-Signals redeploy failed to restore health at $(date --iso-8601=seconds)" || true
+          send_alert "still-failing" "ManySignals redeploy failed to restore health at $(date --iso-8601=seconds)" || true
           exit 1

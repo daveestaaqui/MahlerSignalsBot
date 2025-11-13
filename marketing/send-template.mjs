@@ -7,7 +7,7 @@ import brandCopy from '../branding/copy.json' assert { type: 'json' };
 const FALLBACK_DISCLAIMER =
   'This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.';
 const FALLBACK_ABOUT =
-  'Aurora-Signals pairs real market + on-chain data with automated risk notes so desks can review high-signal setups quickly.';
+  'ManySignals pairs real market + on-chain data with automated risk notes so desks can review high-signal setups quickly.';
 const usage = 'Usage: node marketing/send-template.mjs <daily|weekly> <context.json>';
 const [, , templateName, contextFile] = process.argv;
 
@@ -57,7 +57,7 @@ function deriveSignalVars(signals) {
   const top = signals.slice(0, 3);
   const first = top[0] || {};
   const summary = summarizeSignals(top);
-  const equities = signals.filter((signal) => (signal?.assetClass || '').toLowerCase() === 'stock');
+  const equities = signals.filter((signal) => (signal?.assetClass || '').toLowerCase() === 'stock' || (signal?.assetClass || '').toLowerCase() === 'equity');
   const crypto = signals.filter((signal) => (signal?.assetClass || '').toLowerCase() === 'crypto');
 
   return {
@@ -67,6 +67,8 @@ function deriveSignalVars(signals) {
     top_rationales: summary,
     equity_summary: summarizeSignals(equities) || summary,
     crypto_summary: summarizeSignals(crypto) || summary,
+    signal_count: signals.length,
+    asset_mix: `${equities.length} equity • ${crypto.length} crypto`,
   };
 }
 

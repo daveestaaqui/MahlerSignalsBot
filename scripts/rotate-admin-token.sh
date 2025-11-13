@@ -5,7 +5,7 @@ import secrets; print(secrets.token_hex(24))
 PY
 )"
 source ./.env.local 2>/dev/null || true
-BASE="${BASE_URL:-https://aurora-signals.onrender.com}"
+BASE="${BASE_URL:-https://api.manysignals.finance}"
 echo "Generated NEW ADMIN_TOKEN:" && echo "  ${NEW}" && echo
 echo "1) Set it on Render:" && echo "   Render → Services → aurora-signals → Settings → Environment" && echo "   ADMIN_TOKEN = ${NEW}  (Save; redeploy)" && echo
 echo "2) Update GitHub Actions secret:" && echo "   gh secret set ADMIN_TOKEN -b \"${NEW}\"" && echo

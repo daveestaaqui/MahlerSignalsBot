@@ -1,6 +1,6 @@
 {
-  "title": "Aurora-Signals Daily Outlook — {{date}}",
-  "body": "Model-estimated focus: {{primary_symbol}} {{primary_expected_move}}. Drivers: {{primary_rationale}}. Additional qualified setups: {{top_rationales}}. {{about}}",
-  "cta": "Open today's live signal feed: https://aurora-signals.onrender.com/signals/today",
+  "title": "ManySignals – Today’s Scenarios",
+  "body": "Live count: {{signal_count}} scenarios ({{asset_mix}}). Highlight: {{primary_symbol}} {{primary_expected_move}}. Rationale: {{primary_rationale}}. Additional context: {{top_rationales}}. {{disclaimer}}",
+  "cta": "View the live feed: https://manysignals.finance/#today",
   "disclaimer": "{{disclaimer}}"
 }

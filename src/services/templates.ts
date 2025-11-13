@@ -30,7 +30,7 @@ export function composePromo(batchOrMsgs: PromoSource): string {
       .find((value) => value.length > 0) || '';
 
   const lead = tickers.length ? `${tickers.join(' & ')} setup` : 'Fresh signals';
-  const base = snippet ? `${lead}: ${snippet}` : `${lead} from Aurora Signals`;
+  const base = snippet ? `${lead}: ${snippet}` : `${lead} from ManySignals`;
   const withCta = `${base}. More in PRO/ELITE.`;
 
   return finalize(withCta);
