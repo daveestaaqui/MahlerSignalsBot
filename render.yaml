@@ -5,7 +5,7 @@ services:
     plan: free
     region: oregon
     runtime: node
-    buildCommand: ""
+    buildCommand: "pnpm install && pnpm build"
     startCommand: "node dist/web/server.js"
     autoDeploy: true
     healthCheckPath: "/status"

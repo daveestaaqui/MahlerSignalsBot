@@ -1,8 +1,5 @@
 
-import { buildDailyAnalysis, buildMarketingPosts } from '../logic/analysis';
-import { sendTelegram } from '../integrations/telegram';
-import { sendDiscord } from '../integrations/discord';
-import { sendMastodon } from '../integrations/mastodon';
+import { sendMarketingPosts } from '../services/marketing';
 
 type BooleanLike = boolean | string | number | undefined | null;
 
@@ -24,17 +21,8 @@ export type PostNowOptions = {
 
 export async function postNow(options: PostNowOptions = {}) {
   const dryRun = toBoolean(options.dryRun, false);
-  const { text } = await buildDailyAnalysis();
-  const mk = buildMarketingPosts();
-  const payload = [text, '', mk.telegram].join('\n');
-  if (dryRun) {
-    return [{ ok: true, dryRun: true, preview: payload }];
-  }
-  const out: any[] = [];
-  out.push(await sendTelegram(payload));
-  out.push(await sendDiscord(payload));
-  out.push(await sendMastodon(payload));
-  return out;
+  const result = await sendMarketingPosts(new Date(), { dryRun, template: 'daily' });
+  return [result];
 }
 
 export type PostDailyOptions = {
@@ -43,31 +31,16 @@ export type PostDailyOptions = {
 
 export async function postDaily(options?: PostDailyOptions | boolean) {
   const dryRun = toBoolean(typeof options === 'boolean' ? options : options?.dryRun, false);
-  const { text } = await buildDailyAnalysis();
-  const mk = buildMarketingPosts();
-  const msg = [text, '', mk.discord].join('\n');
-  if (dryRun) {
-    return [{ ok: true, dryRun: true, preview: msg }];
-  }
-  const out: any[] = [];
-  out.push(await sendTelegram(msg));
-  out.push(await sendDiscord(msg));
-  out.push(await sendMastodon(msg));
-  return out;
+  const result = await sendMarketingPosts(new Date(), { dryRun, template: 'daily' });
+  return [result];
 }
 
 export async function marketingBlast(topic?: string, options?: { dryRun?: BooleanLike }) {
   const dryRun = toBoolean(options?.dryRun, false);
-  const { text } = await buildDailyAnalysis();
-  const mk = buildMarketingPosts();
-  const header = topic && topic.trim() ? `${topic.trim()}\n` : '';
-  const payload = [header + text, '', mk.telegram].join('\n');
-  if (dryRun) {
-    return [{ ok: true, dryRun: true, preview: payload }];
-  }
-  const out: any[] = [];
-  out.push(await sendTelegram(payload));
-  out.push(await sendDiscord(payload));
-  out.push(await sendMastodon(payload));
-  return out;
+  const pivot = topic?.trim() || new Date();
+  const result = await sendMarketingPosts(pivot, {
+    dryRun,
+    template: 'daily',
+  });
+  return [result];
 }

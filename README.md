@@ -1,6 +1,6 @@
 # ManySignals Backend (Aurora-Signals)
 
-ManySignals is the marketing surface for Aurora-Signals, a Node 20 + Express backend that ships daily and weekly scenario-based signals for U.S. equities plus Ethereum/Solana majors. The production API already lives at **https://aurora-signals.onrender.com** and the marketing site at **https://manysignals.finance**.
+ManySignals is the marketing surface for Aurora-Signals, a Node 20 + Express backend that ships daily and weekly scenario-based signals for U.S. equities plus Ethereum/Solana majors. The production API already lives at **https://aurora-signals.onrender.com** and the marketing surfaces are the Hostinger site **https://manysignals.finance** plus embedded sections that call this API directly.
 
 ## What ships
 
@@ -49,6 +49,7 @@ GET /healthz           # liveness probe
 GET /metrics           # build + version info
 GET /metrics/weekly    # aggregate performance snapshot
 GET /diagnostics       # { ok, version, env, apiBase, publicEndpoints[] }
+GET /marketing/preview # Hostinger marketing JSON (top 3 signals + disclaimer)
 GET /signals/today     # array of SignalView objects
 GET /about             # marketing copy + pricing tiers
 GET /blog              # list of blog slugs
@@ -60,13 +61,28 @@ POST /admin/post-now   # requires Authorization: Bearer ADMIN_TOKEN
 
 All public GET endpoints support CORS for `https://manysignals.finance` and `https://www.manysignals.finance`.
 
+## Hostinger + marketing JSON
+
+- Hostinger sections fetch `/marketing/preview`, `/signals/today`, `/about`, `/diagnostics`, and `/legal` directly from `https://aurora-signals.onrender.com`.
+- `/marketing/preview` returns the top three `SignalView` objects, a stable `updatedAt` ISO timestamp, and the canonical disclaimer for landing funnels.
+- The Hostinger bundle uses the same tight CORS rules—only `https://manysignals.finance` (and the `www` alias) receive `GET/OPTIONS` headers.
+
 ## Admin + ops
 
-- Set `ADMIN_TOKEN` for `/admin/*` routes. Use `scripts/ping-admin.sh` or `make post-now` to trigger cycles.
-- `make diagnostics` (or `curl https://aurora-signals.onrender.com/diagnostics`) returns `{ ok, version, env, apiBase, publicEndpoints[] }` for quick smoke checks.
-- Run smoke tests before deploy: `BASE_URL=https://aurora-signals.onrender.com node scripts/check-endpoints.mjs`.
+- Set `ADMIN_TOKEN` for `/admin/*` routes. Use `scripts/ping-admin.sh` or `make post-now` to trigger manual cycles.
+- `make diagnostics`, `scripts/check-prod.sh`, or `curl https://aurora-signals.onrender.com/diagnostics` return `{ ok, version, env, apiBase, publicEndpoints[] }` for a one-call smoke test.
+- `scripts/redeploy.sh "<commit message>"` builds, tests, commits (if needed), pushes, and hits the Render deploy hook (set `RENDER_DEPLOY_HOOK` first).
+- Run deep smoke tests before deploy: `BASE_URL=https://aurora-signals.onrender.com node scripts/check-endpoints.mjs`.
 - Marketing workflows (`.github/workflows/marketing-*.yml`) pull signals from `https://aurora-signals.onrender.com/signals/today` and gracefully skip channels without secrets.
 - `marketing/send-template.mjs` composes Telegram/Discord copy using the canonical disclaimer from `src/lib/legal.ts` (via the compiled dist module).
+- All production env vars are documented in `docs/RENDER_ENV.md`; keep Render in sync with `.env.local`.
+
+## Posting & marketing
+
+- `sendMarketingPosts(date)` (in `src/services/marketing.ts`) feeds Telegram + Discord marketing channels, promo fan-out, and the X poster. Use `MARKETING_DRY_RUN=true pnpm tsx scripts/post-now.mjs` (or the admin endpoints) to preview without dispatching.
+- CLI helpers: `scripts/send-telegram.sh "message"`, `scripts/send-discord.sh "message"`, and `scripts/send-x.sh "message"` validate channel connectivity; they fall back gracefully if tokens/webhooks are missing.
+- Marketing workflows call `marketing/send-template.mjs` with the freshest signals JSON; you can reproduce locally via `node marketing/send-template.mjs daily signals.json`.
+- To test the Hostinger payload, run `pnpm dev` and hit `http://localhost:3000/marketing/preview`.
 
 ## Deployment notes
 

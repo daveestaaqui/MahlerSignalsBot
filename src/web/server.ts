@@ -9,6 +9,7 @@ import signalsRouter from "./routes/signals";
 import stripeRouter, { stripeWebhookRouter } from "./routes/stripe";
 import configRouter from "./routes/config";
 import diagnosticsRouter from "./routes/diagnostics";
+import marketingRouter from "./routes/marketing";
 import { requireBearer } from "../lib/auth";
 import { attachRequestId } from "../lib/logger";
 
@@ -33,6 +34,7 @@ app.use("/legal", legalRouter);
 app.use("/blog", blogRouter);
 app.use("/config", configRouter);
 app.use("/signals", signalsRouter);
+app.use("/marketing", marketingRouter);
 app.use("/stripe", stripeRouter);
 app.use("/admin", requireBearer, adminRouter);
 app.use("/metrics", metricsRouter);
@@ -56,9 +58,11 @@ const PUBLIC_PATHS = [
   /^\/metrics(?:\/.*)?$/,
   /^\/signals\/today$/,
   /^\/blog(?:\/[^/]*)?$/,
+  /^\/config$/,
   /^\/about$/,
   /^\/legal(?:\/.*)?$/,
   /^\/diagnostics$/,
+  /^\/marketing\/preview$/,
 ];
 
 function corsGate(

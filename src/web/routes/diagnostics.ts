@@ -10,12 +10,14 @@ const PUBLIC_ENDPOINTS = [
   "/healthz",
   "/metrics",
   "/metrics/weekly",
+  "/config",
   "/signals/today",
   "/blog",
   "/blog/:slug",
   "/about",
   "/legal",
   "/diagnostics",
+  "/marketing/preview",
 ];
 
 type DiagnosticsPayload = {
