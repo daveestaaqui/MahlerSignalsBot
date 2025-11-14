@@ -11,7 +11,22 @@
 - [ ] `/admin/test-all` (Bearer `ADMIN_TOKEN`) shows `{ ok: true }` and `checks.signalsToday` / `checks.marketingPreview` both `ok: true` with non-zero counts.
 - [ ] Hostinger sections render correctly after pulling `/marketing/preview` and `/signals/today` with CORS headers (`https://manysignals.finance` + `www` are whitelisted).
 - [ ] `pnpm build && pnpm test` are clean locally before deploying.
-- [ ] `marking-daily` and `marketing-weekly` workflows succeed in dry-run mode on GitHub; logs should mention `marketing-daily complete` / `marketing-weekly complete`.
+- [ ] `marketing-daily` and `marketing-weekly` workflows succeed in dry-run mode on GitHub; logs should mention `marketing-daily complete` / `marketing-weekly complete`.
 - [ ] Render deploy hook is documented in `scripts/redeploy.sh` and verified once prior to launch.
+
+### Command quick reference
+```bash
+# 1) Diagnostics sweep with ADMIN_TOKEN
+curl -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  https://aurora-signals.onrender.com/admin/test-all | jq
+
+# 2) Dry-run the daily marketing post
+curl -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -X POST "https://aurora-signals.onrender.com/admin/post-daily?dryRun=true"
+
+# 3) Mimic Hostinger fetching /marketing/preview (Origin header enabled)
+curl -H "Origin: https://manysignals.finance" \
+  https://aurora-signals.onrender.com/marketing/preview | jq
+```
 
 Keep launch messaging scenario-based: call the public product “ManySignals Finance” and refer to the Aurora Signals engine only as the backend analysis stack. Never fabricate data—if upstream sources are empty, return empty arrays with `ok: false`.

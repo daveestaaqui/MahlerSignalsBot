@@ -1,4 +1,4 @@
-# ManySignals Ops Runbook
+# ManySignals Finance Ops Runbook
 
 ## Deploy & release
 - CI builds, but Render still deploys on `git push origin main`. Use `scripts/redeploy.sh` to trigger the Render deploy hook with the right service ID when you need an out-of-band redeploy.
@@ -16,6 +16,16 @@
 - `POST /admin/post-daily?dryRun=true|false` → same payload but tagged as the standard daily dispatch.
 - `POST /admin/marketing-blast` with JSON `{ "topic": "FOMC outlook", "dryRun": true }` → reuses the same marketing service for ad-hoc blasts (topic becomes the “date” label). Always start with `dryRun:true` to avoid spamming channels.
 - Legacy `/admin/test-telegram` and `/admin/test-discord` still exist for single-channel verifications.
+
+```bash
+# Admin diagnostics, dry-run daily post, and Hostinger-style preview fetch
+curl -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  https://aurora-signals.onrender.com/admin/test-all | jq
+curl -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -X POST "https://aurora-signals.onrender.com/admin/post-daily?dryRun=true"
+curl -H "Origin: https://manysignals.finance" \
+  https://aurora-signals.onrender.com/marketing/preview | jq
+```
 
 ## Monitoring & debugging
 - Health endpoints: `/status`, `/healthz`, `/diagnostics`, and `/signals/today`. Run `scripts/check-prod.sh` for a quick sweep after any deployment.

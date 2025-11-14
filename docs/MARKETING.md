@@ -1,4 +1,4 @@
-# Marketing + Hostinger Runbook
+# ManySignals Finance Marketing + Hostinger Runbook
 
 ## Layers
 - **Render API** (`https://aurora-signals.onrender.com`): Express/TypeScript backend that serves JSON, admin routes, and marketing preview data.
@@ -35,6 +35,16 @@
 2. Run both workflows manually from GitHub (`Run workflow` → keep dry run true). Confirm they succeed and skip unconfigured channels gracefully.
 3. Flip `MARKETING_DRY_RUN` to `"false"` (Render and GitHub) once you're satisfied with the previews. Re-run `/admin/test-all` and `/admin/post-now?dryRun=false` to ensure each channel reports `attempted: true`.
 4. Monitor Hostinger for fresh `/marketing/preview` timestamps. If the preview lags, re-run `/admin/post-now?dryRun=true` to regenerate copy without posting.
+
+```bash
+# Spot-check marketing readiness end-to-end
+curl -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  https://aurora-signals.onrender.com/admin/test-all | jq
+curl -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -X POST "https://aurora-signals.onrender.com/admin/post-daily?dryRun=true"
+curl -H "Origin: https://manysignals.finance" \
+  https://aurora-signals.onrender.com/marketing/preview | jq
+```
 
 ## Deployment & env checklist
 - Render env vars: see `docs/RENDER_ENV.md` (BASE_URL, ADMIN_TOKEN, STRIPE keys, Telegram/Discord chat IDs, MARKETING_* flags, deploy hook, etc.).
