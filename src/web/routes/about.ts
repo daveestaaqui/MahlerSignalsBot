@@ -63,9 +63,9 @@ export type AboutPayload = {
 
 export function buildAboutPayload(apiBase = process.env.BASE_URL || DEFAULT_API_BASE): AboutPayload {
   return {
-    name: "ManySignals",
+    name: "ManySignals Finance",
     tagline:
-      "Daily and weekly scenario-based signals for U.S. equities plus Ethereum and Solana majors.",
+      "ManySignals Finance delivers daily and weekly scenario-based signals for U.S. equities plus Ethereum and Solana majors, powered by the Aurora Signals engine.",
     about: ABOUT_BLURB,
     tiers: TIERS,
     apiBase,

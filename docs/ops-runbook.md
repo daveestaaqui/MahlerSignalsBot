@@ -1,34 +1,43 @@
 # ManySignals Ops Runbook
 
-## Canonical endpoints
-- API: https://aurora-signals.onrender.com
-- Marketing: https://manysignals.finance
-- Public JSON: `/status`, `/healthz`, `/metrics`, `/metrics/weekly`, `/diagnostics`, `/signals/today`, `/marketing/preview`, `/about`, `/blog`, `/blog/:slug`, `/legal`
+## Deploy & release
+- CI builds, but Render still deploys on `git push origin main`. Use `scripts/redeploy.sh` to trigger the Render deploy hook with the right service ID when you need an out-of-band redeploy.
+- Local smoke test before pushing:
+  ```bash
+  nvm use 20
+  pnpm install
+  pnpm build && pnpm test
+  ```
+- Render service runs `pnpm start` on Node 20. If it wedges, redeploy or restart via Render dashboard.
 
-## Daily routine
-1. Keep the Render service on Node 20 with `pnpm start` (serves Express + schedulers).
-2. Monitor `/status` (heartbeat) and `/signals/today` (should return an array; empty arrays mean upstream data issues, not fake data).
-3. Marketing workflows (daily + weekly) consume `BASE_URL` which defaults to the canonical API and skip Telegram/Discord when secrets are unset.
+## Admin & marketing endpoints
+- `GET /admin/test-all` (Bearer `ADMIN_TOKEN`) → `{ ok, baseUrl, checks }`. `checks.signalsToday.ok` and `checks.marketingPreview.ok` should be `true`; channel checks report whether Telegram/Discord/X secrets exist.
+- `POST /admin/post-now?dryRun=true|false` → triggers `sendMarketingPosts` immediately. Default is `dryRun=true`. Returns `{ ok, summary, channels }`. Use this for copy reviews.
+- `POST /admin/post-daily?dryRun=true|false` → same payload but tagged as the standard daily dispatch.
+- `POST /admin/marketing-blast` with JSON `{ "topic": "FOMC outlook", "dryRun": true }` → reuses the same marketing service for ad-hoc blasts (topic becomes the “date” label). Always start with `dryRun:true` to avoid spamming channels.
+- Legacy `/admin/test-telegram` and `/admin/test-discord` still exist for single-channel verifications.
 
-## Manual commands
-```bash
-pnpm build
-pnpm start
-curl https://aurora-signals.onrender.com/status
-curl -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -X POST https://aurora-signals.onrender.com/admin/post-now
-```
+## Monitoring & debugging
+- Health endpoints: `/status`, `/healthz`, `/diagnostics`, and `/signals/today`. Run `scripts/check-prod.sh` for a quick sweep after any deployment.
+- `/diagnostics` lists the canonical API base and the CORS-safe endpoints; use it when Hostinger complains about fetches.
+- Render dashboard → Logs is the primary source for signal builder warnings (`signals.build.reject`, `signals.equity.fetch_failed`). Empty arrays are valid; never fake content.
+- GitHub Actions:
+  - `marketing-daily` (cron weekdays 21:00 UTC) and `marketing-weekly` (Sunday 17:00 UTC) call `sendMarketingPosts`. They should succeed even if channels are unconfigured; check the job logs for `marketing-*-complete`.
+  - Set `MARKETING_DRY_RUN=true` whenever you need a safe rehearsal. Flip to `false` only when you're ready for real posts.
 
-## Environment variables
-- `ADMIN_TOKEN`: bearer token for `/admin/*` routes.
-- Polygon & CoinGecko keys: required for live signals; never substitute mock data.
-- Stripe keys: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PRO` ($14), `STRIPE_PRICE_ELITE` ($39), URLs, and webhook secret.
-- Optional: Telegram bot token/chat IDs, Discord webhook, X credentials.
+## Investigating issues
+- **Failed marketing preview**: hit `/marketing/preview` and `/diagnostics`. If `ok:false`, check Polygon/CoinGecko keys.
+- **Stripe checkout issues**: verify `STRIPE_*` env vars on Render, confirm `docs/RENDER_ENV.md`, and tail Render logs for `/stripe/*` errors.
+- **Telegram/Discord delivery gaps**: `GET /admin/test-all` surfaces whether secrets are missing. For deeper tests use `/admin/test-telegram` or `/admin/test-discord`.
+- **Hostinger copy stale**: ensure Hostinger caches are cleared and that `/marketing/preview` timestamps move. If not, re-run `/admin/post-now?dryRun=true` and check Render logs.
 
-## Incident response
-- **Empty signals**: check provider logs (`signals.equity.fetch_failed`, `signals.build.reject`). If providers are down, respond with empty arrays and communicate status—do not fabricate data.
-- **Checkout failures**: confirm Stripe env vars and the canonical success/cancel URLs pointing to `manysignals.finance`.
-- **CORS complaints**: only `https://manysignals.finance` and `https://www.manysignals.finance` are allowed origins. Ensure the frontend uses the canonical API base.
+## Rotating keys & tokens
+- Telegram: update `TELEGRAM_BOT_TOKEN` plus the relevant chat IDs on Render and GitHub secrets. Use `/admin/test-telegram` in `dryRun=false` mode only after verifying the new bot credentials.
+- Discord: update `MARKETING_DISCORD_WEBHOOK_URL` (and tier-specific webhooks if needed). Use `/admin/test-discord` to validate.
+- X/Twitter: rotate `X_BEARER_TOKEN` / `X_ACCESS_TOKEN` in both Render and GitHub secrets; X posts are skipped automatically until new tokens exist.
+- Stripe, Polygon, CoinGecko: rotate secrets inside Render first, then run `scripts/redeploy.sh` to propagate the env without code changes.
 
-## Legal
-All surfaces must display the short disclaimer from `src/lib/legal.ts`. `/about`, `/legal`, `/signals/today`, marketing templates, and the public UI already pull from this source—reuse it for any new surface.
+## Canonical URLs
+- API base: `https://aurora-signals.onrender.com`
+- Marketing site: `https://manysignals.finance`
+- Public JSON endpoints: `/status`, `/healthz`, `/metrics`, `/metrics/weekly`, `/diagnostics`, `/signals/today`, `/marketing/preview`, `/about`, `/blog`, `/legal`

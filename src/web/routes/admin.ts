@@ -1,9 +1,8 @@
-import type { Request, Response } from "express";
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { fetch } from "undici";
-import { buildDailySummary, buildNowSummary } from "../../services/analysis";
-import { postDiscord, postTelegram, type PostResult } from "../../services/directPosters";
-import { logError, logInfo, logWarn } from "../../lib/logger";
+import { postDiscord, postTelegram } from "../../services/directPosters";
+import { logError, logInfo, logWarn, type RequestWithId } from "../../lib/logger";
+import { marketingBlast, postDaily, postNow } from "../jobs";
 
 const router = Router();
 
@@ -15,28 +14,57 @@ type PosterConfig = {
 
 const DRY_RUN_KEYS = ["dryRun", "dry_run"];
 
-router.post("/post-now", async (_req: Request, res: Response) => {
-  await runAdminAction("post-now", res, async () => {
-    const config = resolvePosterConfig();
-    const summary = await buildNowSummary();
-    await dispatchSummary(summary, config, { label: "now" });
-  });
+router.post("/post-now", async (req: RequestWithId, res: Response) => {
+  await runAdminAction(
+    req,
+    "post-now",
+    res,
+    async () => {
+      const dryRun = resolveDryRun(req, true);
+      return await postNow({ dryRun });
+    },
+    (result) => respondWithMarketingResult(res, result),
+  );
 });
 
-router.post("/post-daily", async (req: Request, res: Response) => {
-  await runAdminAction("post-daily", res, async () => {
-    await handleScheduled(req, "24h");
-  });
+router.post("/post-daily", async (req: RequestWithId, res: Response) => {
+  await runAdminAction(
+    req,
+    "post-daily",
+    res,
+    async () => {
+      const dryRun = resolveDryRun(req, true);
+      return await postDaily({ dryRun });
+    },
+    (result) => respondWithMarketingResult(res, result),
+  );
 });
 
-router.post("/post-weekly", async (req: Request, res: Response) => {
-  await runAdminAction("post-weekly", res, async () => {
-    await handleScheduled(req, "7d");
-  });
+router.post("/marketing-blast", async (req: RequestWithId, res: Response) => {
+  const dryRun = resolveDryRun(req, true);
+  const body = req.body as { topic?: unknown } | undefined;
+  const topic = typeof body?.topic === "string" ? body.topic : undefined;
+  await runAdminAction(
+    req,
+    "marketing-blast",
+    res,
+    async () => marketingBlast(topic, { dryRun }),
+    (result) => {
+      res.json({
+        ok: true,
+        dryRun: result.dryRun,
+        template: result.template,
+        topic,
+        summary: result.summary,
+        signals: result.signals,
+        channels: result.channels,
+      });
+    },
+  );
 });
 
-router.post("/test-telegram", async (_req: Request, res: Response) => {
-  await runAdminAction("test-telegram", res, async () => {
+router.post("/test-telegram", async (req: RequestWithId, res: Response) => {
+  await runAdminAction(req, "test-telegram", res, async () => {
     const config = resolvePosterConfig();
     const text = `ManySignals test ✅ ${new Date().toISOString()}`;
     await dispatchSummary(text, config, {
@@ -46,8 +74,8 @@ router.post("/test-telegram", async (_req: Request, res: Response) => {
   });
 });
 
-router.post("/test-discord", async (_req: Request, res: Response) => {
-  await runAdminAction("test-discord", res, async () => {
+router.post("/test-discord", async (req: RequestWithId, res: Response) => {
+  await runAdminAction(req, "test-discord", res, async () => {
     const config = resolvePosterConfig();
     const text = `ManySignals test ✅ ${new Date().toISOString()}`;
     await dispatchSummary(text, config, {
@@ -57,11 +85,14 @@ router.post("/test-discord", async (_req: Request, res: Response) => {
   });
 });
 
-router.get("/test-all", async (_req: Request, res: Response) => {
-  await runAdminAction("test-all", res, async () => {
-    const summary = await runConnectivitySweep();
-    return { summary };
-  });
+router.get("/test-all", async (req: RequestWithId, res: Response) => {
+  await runAdminAction(
+    req,
+    "test-all",
+    res,
+    async () => runConnectivitySweep(),
+    (summary) => res.json(summary),
+  );
 });
 
 router.get("/self-check", (_req: Request, res: Response) => {
@@ -83,39 +114,49 @@ router.get("/self-check", (_req: Request, res: Response) => {
 
 export default router;
 
-async function handleScheduled(
-  req: Request,
-  window: "24h" | "7d"
-) {
-  const dryRun = getDryRun(req);
-  const config = resolvePosterConfig();
-  const summary = await buildDailySummary(window);
-
-  await dispatchSummary(summary, config, {
-    dryRun,
-    label: window,
-  });
-}
-
-async function runAdminAction(
+async function runAdminAction<T>(
+  req: RequestWithId,
   action: string,
   res: Response,
-  work: () => Promise<unknown>
+  work: () => Promise<T>,
+  onSuccess?: (result: T) => void,
 ): Promise<void> {
   try {
     const result = await work();
+    if (onSuccess) {
+      onSuccess(result);
+      return;
+    }
+    if (Array.isArray(result)) {
+      res.json({ ok: true, result });
+      return;
+    }
     if (result && typeof result === "object") {
       res.json({ ok: true, ...result });
-    } else {
-      res.json({ ok: true });
+      return;
     }
+    res.json({ ok: true });
   } catch (error) {
     logError("admin.action_failed", {
       action,
+      requestId: req.requestId,
       error: describeError(error),
     });
     res.status(500).json({ ok: false, error: "internal_error" });
   }
+}
+
+type MarketingJobResult = Awaited<ReturnType<typeof postNow>>;
+
+function respondWithMarketingResult(res: Response, result: MarketingJobResult) {
+  res.json({
+    ok: true,
+    dryRun: result.dryRun,
+    template: result.template,
+    summary: result.summary,
+    signals: result.signals,
+    channels: result.channels,
+  });
 }
 
 function resolvePosterConfig(): PosterConfig {
@@ -207,18 +248,19 @@ async function dispatchSummary(
 async function runConnectivitySweep() {
   const baseUrl = resolveBaseUrl();
   const signals = await fetchSignalsSnapshot(baseUrl);
-  const config = resolvePosterConfig();
-  const timestamp = new Date().toISOString();
-  const testMessage = `Test connectivity ok • ${timestamp}`;
-
-  const discord = await dispatchDiscordHeartbeat(config.discordWebhook, testMessage);
-  const telegram = await dispatchTelegramHeartbeats(config, testMessage);
+  const marketingPreview = await fetchMarketingPreviewSnapshot(baseUrl);
+  const channels = summarizeMarketingChannels();
 
   return {
+    ok: signals.ok && marketingPreview.ok,
     baseUrl,
-    signals,
-    discord,
-    telegram,
+    checks: {
+      signalsToday: signals,
+      marketingPreview,
+      telegram: { configured: channels.telegram },
+      discord: { configured: channels.discord },
+      x: { configured: channels.x },
+    },
   };
 }
 
@@ -249,73 +291,29 @@ async function fetchSignalsSnapshot(baseUrl: string) {
   }
 }
 
-async function dispatchDiscordHeartbeat(webhook: string | undefined, message: string) {
-  if (!webhook) {
-    return { attempted: false, ok: false, error: "missing_webhook" };
-  }
-  const result = await postDiscord(webhook, message);
-  return { attempted: true, ok: result.ok, error: result.error };
-}
-
-async function dispatchTelegramHeartbeats(config: PosterConfig, message: string) {
-  if (!config.telegramToken) {
-    return config.telegramChats.length
-      ? config.telegramChats.map((chat) => ({
-          chatId: chat.chatId,
-          label: chat.label,
-          attempted: false,
-          ok: false,
-          error: "missing_token",
-        }))
-      : [
-          {
-            chatId: "",
-            label: "telegram",
-            attempted: false,
-            ok: false,
-            error: "missing_token",
-          },
-        ];
-  }
-  if (!config.telegramChats.length) {
-    return [
-      {
-        chatId: "",
-        label: "telegram",
-        attempted: false,
-        ok: false,
-        error: "missing_chat_ids",
-      },
-    ];
-  }
-
-  const results: Array<{ chatId: string; label: string; attempted: boolean; ok: boolean; error?: string }> = [];
-  for (const chat of config.telegramChats) {
-    const outcome = await safePostTelegram(config.telegramToken, chat.chatId, message, chat.label);
-    results.push({
-      chatId: chat.chatId,
-      label: chat.label,
-      attempted: true,
-      ok: outcome.ok,
-      error: outcome.error,
-    });
-  }
-  return results;
-}
-
-async function safePostTelegram(
-  token: string,
-  chatId: string,
-  message: string,
-  label: string,
-): Promise<PostResult> {
-  try {
-    return await postTelegram(token, chatId, message, label);
-  } catch (error) {
-    const description = describeError(error);
-    logWarn("admin.test_all.telegram_failed", { chatId, label, error: description });
-    return { ok: false, channel: label, error: description };
-  }
+function summarizeMarketingChannels() {
+  const telegramChatId = (
+    process.env.MARKETING_TELEGRAM_CHAT_ID ??
+    process.env.TELEGRAM_CHAT_ID_FREE ??
+    process.env.TELEGRAM_CHAT_ID_PRO ??
+    process.env.TELEGRAM_CHAT_ID_ELITE ??
+    ""
+  ).trim();
+  const telegramToken = (process.env.TELEGRAM_BOT_TOKEN ?? "").trim();
+  const discordWebhook = (
+    process.env.MARKETING_DISCORD_WEBHOOK_URL ??
+    process.env.DISCORD_WEBHOOK_URL ??
+    process.env.DISCORD_WEBHOOK_URL_FREE ??
+    process.env.DISCORD_WEBHOOK_URL_PRO ??
+    process.env.DISCORD_WEBHOOK_URL_ELITE ??
+    ""
+  ).trim();
+  const xToken = (process.env.X_ACCESS_TOKEN ?? process.env.X_BEARER_TOKEN ?? "").trim();
+  return {
+    telegram: Boolean(telegramToken && telegramChatId),
+    discord: Boolean(discordWebhook),
+    x: Boolean(xToken),
+  };
 }
 
 function resolveBaseUrl(): string {
@@ -339,29 +337,56 @@ function readEnvValue(keys: string[]): string {
   return "";
 }
 
-function getDryRun(req: Request): boolean {
-  const body = req.body;
-  if (!body) {
-    return false;
+function resolveDryRun(req: Request, fallback = true): boolean {
+  const query = req.query as Record<string, unknown>;
+  if (query && typeof query.dryRun !== "undefined") {
+    return parseBooleanInput(query.dryRun, fallback);
   }
 
-  if (typeof body === "boolean") {
-    return body;
-  }
-
-  if (typeof body === "object") {
+  const body = req.body as Record<string, unknown> | undefined;
+  if (body && typeof body === "object") {
     for (const key of DRY_RUN_KEYS) {
-      const value = (body as Record<string, unknown>)[key];
-      if (typeof value === "boolean") {
-        return value;
-      }
-      if (typeof value === "string") {
-        return value.toLowerCase() === "true";
+      if (Object.prototype.hasOwnProperty.call(body, key)) {
+        return parseBooleanInput(body[key], fallback);
       }
     }
   }
 
-  return false;
+  return fallback;
+}
+
+function parseBooleanInput(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["1", "true", "yes", "y", "on"].includes(normalized)) return true;
+    if (["0", "false", "no", "n", "off"].includes(normalized)) return false;
+    return fallback;
+  }
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  return fallback;
+}
+
+async function fetchMarketingPreviewSnapshot(baseUrl: string) {
+  const trimmed = baseUrl.replace(/\/$/, "");
+  const url = `${trimmed}/marketing/preview`;
+  try {
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) {
+      throw new Error(`http_${res.status}`);
+    }
+    const payload = (await res.json()) as { signals?: unknown[]; updatedAt?: string };
+    const list = Array.isArray(payload?.signals) ? payload.signals : [];
+    const updatedAt = typeof payload?.updatedAt === "string" ? payload.updatedAt : null;
+    return { ok: true, count: list.length, updatedAt, url };
+  } catch (error) {
+    const message = describeError(error);
+    logWarn("admin.test_all.marketing_preview_failed", { url, error: message });
+    return { ok: false, count: 0, url, error: message };
+  }
 }
 
 function describeError(error: unknown): string {

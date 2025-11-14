@@ -1,102 +1,46 @@
-name: marketing-daily
+name: Daily ManySignals marketing
 
 on:
   schedule:
-    - cron: "20 14 * * 1-5"
+    - cron: "0 21 * * 1-5" # Weekday evening UTC; adjust as needed
   workflow_dispatch:
 
 jobs:
   broadcast:
     runs-on: ubuntu-latest
     env:
-      BASE_URL: ${{ secrets.BASE_URL || 'https://aurora-signals.onrender.com' }}
-      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      BASE_URL: https://aurora-signals.onrender.com
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      TELEGRAM_CHAT_ID_FREE: ${{ secrets.TELEGRAM_CHAT_ID_FREE }}
+      TELEGRAM_CHAT_ID_PRO: ${{ secrets.TELEGRAM_CHAT_ID_PRO }}
+      TELEGRAM_CHAT_ID_ELITE: ${{ secrets.TELEGRAM_CHAT_ID_ELITE }}
+      MARKETING_TELEGRAM_CHAT_ID: ${{ secrets.MARKETING_TELEGRAM_CHAT_ID }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      MARKETING_DISCORD_WEBHOOK_URL: ${{ secrets.MARKETING_DISCORD_WEBHOOK_URL }}
       X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
-      X_ACCOUNT_ID: ${{ secrets.X_ACCOUNT_ID }}
+      MARKETING_DRY_RUN: ${{ secrets.MARKETING_DRY_RUN != '' && secrets.MARKETING_DRY_RUN || 'true' }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Smoke test endpoints
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build TypeScript
+        run: pnpm build
+      - name: Dispatch daily marketing posts
         run: |
-          set -euo pipefail
-          node scripts/check-endpoints.mjs
-
-      - name: Fetch latest signals
-        run: |
-          set -euo pipefail
-          curl -fsS "${BASE_URL}/signals/today" > signals.json
-
-      - name: Compose daily marketing copy
-        id: compose
-        run: |
-          set -euo pipefail
-          node marketing/send-template.mjs daily signals.json > marketing.json
-          title=$(jq -r '.title' marketing.json)
-          body=$(jq -r '.body' marketing.json)
-          disclaimer=$(jq -r '.disclaimer' marketing.json)
-          printf "%s\n\n%s\n\n%s\n" "$title" "$body" "$disclaimer" > marketing_message.txt
-          echo "message_path=$PWD/marketing_message.txt" >> "$GITHUB_OUTPUT"
-
-      - name: Test connectivity (manual dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          set -euo pipefail
-          msg="ManySignals marketing pipeline is live ✅"
-          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
-            curl -fsS --retry 3 \
-              -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              --data-urlencode "text=${msg}" \
-              -d "disable_web_page_preview=true" \
-              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" >/dev/null
-          else
-            echo "Telegram channel not configured"
-          fi
-          if [ -n "${DISCORD_WEBHOOK_URL}" ]; then
-            jq -n --arg content "$msg" '{content:$content}' \
-              | curl -fsS -H "Content-Type: application/json" -d @- "${DISCORD_WEBHOOK_URL}" >/dev/null
-          else
-            echo "Discord channel not configured"
-          fi
-
-      - name: Send Telegram
-        if: env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
-        run: |
-          set -euo pipefail
-          msg="$(cat "${{ steps.compose.outputs.message_path }}")"
-          curl -fsS --retry 3 \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=${msg}" \
-            -d "disable_web_page_preview=true" \
-            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" >/dev/null
-
-      - name: Telegram channel not configured
-        if: env.TELEGRAM_BOT_TOKEN == '' || env.TELEGRAM_CHAT_ID == ''
-        run: echo "Telegram channel not configured"
-
-      - name: Send Discord
-        if: env.DISCORD_WEBHOOK_URL != ''
-        run: |
-          set -euo pipefail
-          msg="$(cat "${{ steps.compose.outputs.message_path }}")"
-          jq -n --arg content "$msg" '{content:$content}' \
-            | curl -fsS -H "Content-Type: application/json" -d @- "${DISCORD_WEBHOOK_URL}" >/dev/null
-
-      - name: Discord channel not configured
-        if: env.DISCORD_WEBHOOK_URL == ''
-        run: echo "Discord channel not configured"
-
-      - name: Post to X
-        if: env.X_BEARER_TOKEN != '' && env.X_ACCOUNT_ID != ''
-        run: |
-          set -euo pipefail
-          node marketing/post-x.mjs
-
-      - name: X not configured
-        if: env.X_BEARER_TOKEN == '' || env.X_ACCOUNT_ID == ''
-        run: echo "X channel not configured"
+          pnpm tsx -e "
+            import { sendMarketingPosts } from './src/services/marketing';
+            const date = new Date();
+            const dryRun = (process.env.MARKETING_DRY_RUN || 'true').toLowerCase() === 'true';
+            sendMarketingPosts(date, { template: 'daily', dryRun }).then((result) => {
+              console.log('marketing-daily complete', { dryRun: result.dryRun, signals: result.signals });
+            }).catch((err) => {
+              console.error('marketing-daily failed', err);
+              process.exit(1);
+            });
+          "

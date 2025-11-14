@@ -10,7 +10,7 @@ type BrandCopy = {
 const FALLBACK_DISCLAIMER =
   "This system provides automated market analysis for informational purposes only and does not constitute personalized financial, investment, or trading advice.";
 const FALLBACK_ABOUT =
-  "ManySignals pairs Polygon equities data with CoinGecko on-chain context to publish scenario-based briefs that stay conservative by default.";
+  "ManySignals Finance, powered by the Aurora Signals engine, pairs Polygon equities data with CoinGecko on-chain context to publish scenario-based briefs that stay conservative by default.";
 
 const copy = brandCopy as BrandCopy;
 

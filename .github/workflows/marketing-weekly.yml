@@ -1,166 +1,46 @@
-name: marketing-weekly
+name: Weekly ManySignals marketing
 
 on:
   schedule:
-    - cron: "30 14 * * 0"
+    - cron: "0 17 * * SUN" # Sundays at 17:00 UTC; adjust as needed
   workflow_dispatch:
 
 jobs:
   broadcast:
     runs-on: ubuntu-latest
     env:
-      BASE_URL: ${{ secrets.BASE_URL || 'https://aurora-signals.onrender.com' }}
-      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      BASE_URL: https://aurora-signals.onrender.com
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      TELEGRAM_CHAT_ID_FREE: ${{ secrets.TELEGRAM_CHAT_ID_FREE }}
+      TELEGRAM_CHAT_ID_PRO: ${{ secrets.TELEGRAM_CHAT_ID_PRO }}
+      TELEGRAM_CHAT_ID_ELITE: ${{ secrets.TELEGRAM_CHAT_ID_ELITE }}
+      MARKETING_TELEGRAM_CHAT_ID: ${{ secrets.MARKETING_TELEGRAM_CHAT_ID }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      MARKETING_DISCORD_WEBHOOK_URL: ${{ secrets.MARKETING_DISCORD_WEBHOOK_URL }}
       X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
-      X_ACCOUNT_ID: ${{ secrets.X_ACCOUNT_ID }}
+      MARKETING_DRY_RUN: ${{ secrets.MARKETING_DRY_RUN != '' && secrets.MARKETING_DRY_RUN || 'true' }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Smoke test endpoints
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build TypeScript
+        run: pnpm build
+      - name: Dispatch weekly marketing posts
         run: |
-          set -euo pipefail
-          node scripts/check-endpoints.mjs
-
-      - name: Fetch latest signals
-        run: |
-          set -euo pipefail
-          curl -fsS "${BASE_URL}/signals/today" > signals.json
-
-      - name: Fetch weekly summary
-        run: |
-          set -euo pipefail
-          curl -fsS "${BASE_URL}/metrics/weekly" > weekly_summary.json
-
-      - name: Build weekly variables
-        run: |
-          set -euo pipefail
-          node <<'NODE'
-            const fs = require('node:fs');
-            const payload = JSON.parse(fs.readFileSync('weekly_summary.json', 'utf-8'));
-            const summary = payload?.summary || {};
-            const winners = (summary.topWinners || []).slice(0, 3);
-            const losers = (summary.topLosers || []).slice(0, 3);
-
-            const formatPct = (value) => {
-              const pct = (Number(value) || 0) * 100;
-              const sign = pct >= 0 ? '+' : '';
-              return `${sign}${pct.toFixed(1)}%`;
-            };
-
-            const leaderText = winners
-              .map((row) => `${row.symbol} ${formatPct(row.pnl)}`)
-              .join(' • ');
-            const laggardText = losers
-              .map((row) => `${row.symbol} ${formatPct(row.pnl)}`)
-              .join(' • ');
-
-            const overviewParts = [];
-            if (typeof summary.count === 'number') overviewParts.push(`Signals sent: ${summary.count}`);
-            if (typeof summary.winRate5d === 'number')
-              overviewParts.push(`Win rate (5d): ${(summary.winRate5d * 100).toFixed(1)}%`);
-            if (typeof summary.avgScore === 'number')
-              overviewParts.push(`Avg score: ${summary.avgScore}`);
-
-            const tickers = (summary.entries || [])
-              .slice(0, 5)
-              .map((entry) => entry.ticker)
-              .filter(Boolean)
-              .join(', ');
-
-            const data = {
-              top_rationales:
-                [leaderText && `Leaders ${leaderText}`, laggardText && `Pullbacks ${laggardText}`]
-                  .filter(Boolean)
-                  .join(' | ') || 'No fills recorded in the last window.',
-              events: tickers ? `Focus tickers: ${tickers}` : 'Focus tickers: pending new fills.',
-              performance_summary: overviewParts.join(' • ') || 'No published fills logged this week.',
-            };
-            fs.writeFileSync('weekly_vars.json', JSON.stringify(data, null, 2));
-          NODE
-
-      - name: Compose weekly marketing copy
-        id: compose
-        run: |
-          set -euo pipefail
-          week=$(date +%V)
-          WEEK="$week" node <<'NODE'
-            const fs = require('node:fs');
-            const signals = JSON.parse(fs.readFileSync('signals.json', 'utf-8'));
-            const vars = JSON.parse(fs.readFileSync('weekly_vars.json', 'utf-8'));
-            const context = {
-              signals,
-              ...vars,
-              week: process.env.WEEK,
-            };
-            fs.writeFileSync('weekly_context.json', JSON.stringify(context, null, 2));
-          NODE
-          node marketing/send-template.mjs weekly weekly_context.json > marketing.json
-          title=$(jq -r '.title' marketing.json)
-          body=$(jq -r 'if .body then .body else ((.sections // []) | map("\(.header): \(.content)") | join("\n\n")) end' marketing.json)
-          disclaimer=$(jq -r '.disclaimer' marketing.json)
-          printf "%s\n\n%s\n\n%s\n" "$title" "$body" "$disclaimer" > marketing_message.txt
-          echo "message_path=$PWD/marketing_message.txt" >> "$GITHUB_OUTPUT"
-
-      - name: Test connectivity (manual dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          set -euo pipefail
-          msg="ManySignals marketing pipeline is live ✅"
-          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
-            curl -fsS --retry 3 \
-              -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              --data-urlencode "text=${msg}" \
-              -d "disable_web_page_preview=true" \
-              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" >/dev/null
-          else
-            echo "Telegram channel not configured"
-          fi
-          if [ -n "${DISCORD_WEBHOOK_URL}" ]; then
-            jq -n --arg content "$msg" '{content:$content}' \
-              | curl -fsS -H "Content-Type: application/json" -d @- "${DISCORD_WEBHOOK_URL}" >/dev/null
-          else
-            echo "Discord channel not configured"
-          fi
-
-      - name: Send Telegram
-        if: env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
-        run: |
-          set -euo pipefail
-          msg="$(cat "${{ steps.compose.outputs.message_path }}")"
-          curl -fsS --retry 3 \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=${msg}" \
-            -d "disable_web_page_preview=true" \
-            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" >/dev/null
-
-      - name: Telegram channel not configured
-        if: env.TELEGRAM_BOT_TOKEN == '' || env.TELEGRAM_CHAT_ID == ''
-        run: echo "Telegram channel not configured"
-
-      - name: Send Discord
-        if: env.DISCORD_WEBHOOK_URL != ''
-        run: |
-          set -euo pipefail
-          msg="$(cat "${{ steps.compose.outputs.message_path }}")"
-          jq -n --arg content "$msg" '{content:$content}' \
-            | curl -fsS -H "Content-Type: application/json" -d @- "${DISCORD_WEBHOOK_URL}" >/dev/null
-
-      - name: Discord channel not configured
-        if: env.DISCORD_WEBHOOK_URL == ''
-        run: echo "Discord channel not configured"
-
-      - name: Post to X
-        if: env.X_BEARER_TOKEN != '' && env.X_ACCOUNT_ID != ''
-        run: |
-          set -euo pipefail
-          node marketing/post-x.mjs
-
-      - name: X not configured
-        if: env.X_BEARER_TOKEN == '' || env.X_ACCOUNT_ID == ''
-        run: echo "X channel not configured"
+          pnpm tsx -e "
+            import { sendMarketingPosts } from './src/services/marketing';
+            const date = new Date();
+            const dryRun = (process.env.MARKETING_DRY_RUN || 'true').toLowerCase() === 'true';
+            sendMarketingPosts(date, { template: 'weekly', dryRun }).then((result) => {
+              console.log('marketing-weekly complete', { dryRun: result.dryRun, signals: result.signals });
+            }).catch((err) => {
+              console.error('marketing-weekly failed', err);
+              process.exit(1);
+            });
+          "

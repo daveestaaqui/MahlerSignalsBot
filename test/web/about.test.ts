@@ -14,7 +14,7 @@ describe("/about handler", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toMatchObject({
-      name: "ManySignals",
+      name: "ManySignals Finance",
       apiBase: "https://aurora.test",
       about: ABOUT_BLURB,
       disclaimer: SHORT_DISCLAIMER,

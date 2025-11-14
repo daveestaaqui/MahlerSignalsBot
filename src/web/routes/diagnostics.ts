@@ -20,24 +20,64 @@ const PUBLIC_ENDPOINTS = [
   "/marketing/preview",
 ];
 
+const KEY_ENDPOINTS = [
+  {
+    id: "status",
+    path: "/status",
+    description: "Service heartbeat for Render health checks.",
+  },
+  {
+    id: "signalsToday",
+    path: "/signals/today",
+    description: "Live highlights consumed by Hostinger.",
+  },
+  {
+    id: "marketingPreview",
+    path: "/marketing/preview",
+    description: "Top-of-day hero copy for ManySignals Finance.",
+  },
+];
+
+type EndpointSummary = {
+  id: string;
+  path: string;
+  description: string;
+  url: string;
+  status: "not_checked" | "ok" | "error";
+};
+
 type DiagnosticsPayload = {
   ok: true;
   version: string;
   env: string;
   apiBase: string;
+  configuredBaseUrl?: string | null;
   time: string;
   publicEndpoints: string[];
+  keyEndpoints: EndpointSummary[];
   disclaimer: string;
 };
 
 export function buildDiagnosticsPayload(now = new Date()): DiagnosticsPayload {
+  const configuredBaseUrl =
+    process.env.BASE_URL?.trim() ||
+    process.env.AURORA_BASE_URL?.trim() ||
+    process.env.RENDER_EXTERNAL_URL?.trim() ||
+    null;
+  const apiBase = (configuredBaseUrl || DEFAULT_API_BASE).replace(/\/$/, "");
   return {
     ok: true,
     version: resolveVersion(),
     env: process.env.NODE_ENV || "development",
-    apiBase: process.env.BASE_URL || DEFAULT_API_BASE,
+    apiBase,
+    configuredBaseUrl,
     time: now.toISOString(),
     publicEndpoints: PUBLIC_ENDPOINTS,
+    keyEndpoints: KEY_ENDPOINTS.map((entry) => ({
+      ...entry,
+      url: `${apiBase}${entry.path}`,
+      status: "not_checked",
+    })),
     disclaimer: SHORT_DISCLAIMER,
   };
 }

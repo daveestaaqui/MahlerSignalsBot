@@ -6,7 +6,7 @@ const router = Router();
 
 router.get("/", (req: RequestWithId, res: Response) => {
   const payload = {
-    name: "ManySignals",
+    name: "ManySignals Finance",
     baseUrl: process.env.AURORA_BASE_URL || "https://manysignals.finance",
     apiBaseUrl: process.env.BASE_URL || "https://aurora-signals.onrender.com",
     links: {
